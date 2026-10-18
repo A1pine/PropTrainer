@@ -147,6 +147,11 @@ function togglePlayback() {
   else trainer.startPlayback()
 }
 
+function revealFuture() {
+  trainer.revealEverything()
+  chart.value?.scrollToLatest()
+}
+
 function onKeydown(event: KeyboardEvent) {
   const target = event.target as HTMLElement | null
   if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
@@ -354,10 +359,7 @@ onBeforeUnmount(() => {
           @toggle="togglePlayback"
           @step="trainer.phase === 'judging' ? trainer.waitBar() : trainer.step()"
           @set-speed="trainer.setSpeed"
-          @reveal="
-            trainer.revealEverything()
-            chart?.scrollToLatest()
-          "
+          @reveal="revealFuture"
         />
       </section>
 
@@ -465,10 +467,7 @@ onBeforeUnmount(() => {
               :is-last="isLastRound"
               @next="nextRound"
               @end="trainer.endSession()"
-              @replay="
-                trainer.revealEverything()
-                chart?.scrollToLatest()
-              "
+              @replay="revealFuture"
             />
             <div v-else-if="trainer.phase === 'review' && !trainer.grade" class="space-y-3">
               <p class="label-micro">{{ t('review.standAside') }}</p>
