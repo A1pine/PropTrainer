@@ -6,13 +6,13 @@ exactly the same bytes.
 
 ## Exports
 
-| Export | Input JSON | Output JSON |
-| --- | --- | --- |
-| `prop_generate` | `{ seed, anchorPrice, volatility, tickSize, regime, bars, startPrice, startTime, timeframeMinutes, replayStart, baseVolume }` | `{ candles, metrics }` |
-| `prop_find_swings` | `{ candles, strength }` | `{ swings }` |
-| `prop_simulate_plan` | `{ plan, candles, instrument, horizonBars }` | plan outcome |
-| `prop_alloc` / `prop_dealloc` | request buffer | — |
-| `prop_result_ptr` / `prop_result_len` | — | last JSON result |
+| Export                                | Input JSON                                                                                                                    | Output JSON            |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `prop_generate`                       | `{ seed, anchorPrice, volatility, tickSize, regime, bars, startPrice, startTime, timeframeMinutes, replayStart, baseVolume }` | `{ candles, metrics }` |
+| `prop_find_swings`                    | `{ candles, strength }`                                                                                                       | `{ swings }`           |
+| `prop_simulate_plan`                  | `{ plan, candles, instrument, horizonBars }`                                                                                  | plan outcome           |
+| `prop_alloc` / `prop_dealloc`         | request buffer                                                                                                                | —                      |
+| `prop_result_ptr` / `prop_result_len` | —                                                                                                                             | last JSON result       |
 
 Memory contract: allocate a request buffer, copy UTF-8 JSON, call a function, read the result buffer, then free
 the request. The module is single-threaded and keeps one reusable result buffer.

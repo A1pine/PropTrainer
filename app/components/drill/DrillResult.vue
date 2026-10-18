@@ -98,7 +98,15 @@ async function copySeed() {
       </div>
       <div class="rounded-md border border-line p-2">
         <p class="label-micro">{{ t('drill.plan') }}</p>
-        <p class="num mt-0.5 text-[16px]">{{ plan.direction === 'none' ? t('read.noTrade') : plan.direction === 'long' ? t('ticket.long') : t('ticket.short') }}</p>
+        <p class="num mt-0.5 text-[16px]">
+          {{
+            plan.direction === 'none'
+              ? t('read.noTrade')
+              : plan.direction === 'long'
+                ? t('ticket.long')
+                : t('ticket.short')
+          }}
+        </p>
       </div>
     </div>
 
@@ -109,11 +117,15 @@ async function copySeed() {
       </div>
       <div class="flex justify-between py-0.5">
         <span class="text-ink-3">{{ t('drill.stop') }}</span>
-        <span class="text-bear-strong">{{ plan.stop == null ? '—' : formatPrice(plan.stop, scenario.instrument.pricePrecision) }}</span>
+        <span class="text-bear-strong">{{
+          plan.stop == null ? '—' : formatPrice(plan.stop, scenario.instrument.pricePrecision)
+        }}</span>
       </div>
       <div class="flex justify-between py-0.5">
         <span class="text-ink-3">{{ t('drill.target') }}</span>
-        <span class="text-bull-strong">{{ plan.target == null ? '—' : formatPrice(plan.target, scenario.instrument.pricePrecision) }}</span>
+        <span class="text-bull-strong">{{
+          plan.target == null ? '—' : formatPrice(plan.target, scenario.instrument.pricePrecision)
+        }}</span>
       </div>
       <div class="mt-1.5 flex justify-between border-t-[length:var(--hairline)] border-line pt-1.5">
         <span class="text-ink-3">{{ t('drill.barsToEntry') }}</span>
@@ -140,7 +152,11 @@ async function copySeed() {
     <div class="space-y-1.5">
       <p class="label-micro">{{ t('review.coach') }}</p>
       <ul class="space-y-1">
-        <li v-for="(note, index) in grade.notes" :key="`${note.code}-${index}`" class="flex items-start gap-1.5 text-[11px] leading-snug">
+        <li
+          v-for="(note, index) in grade.notes"
+          :key="`${note.code}-${index}`"
+          class="flex items-start gap-1.5 text-[11px] leading-snug"
+        >
           <component :is="noteIcon(note)" class="mt-0.5 size-3 shrink-0" :class="noteTone(note)" aria-hidden="true" />
           <span class="text-ink-2">{{ t(note.code, note.params ?? {}) }}</span>
         </li>

@@ -54,7 +54,9 @@ const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <p class="label-micro">{{ t('read.step') }}</p>
-      <span v-if="waitedBars > 0" class="font-mono text-[10px] text-ink-3">{{ t('read.waited', { bars: waitedBars }) }}</span>
+      <span v-if="waitedBars > 0" class="font-mono text-[10px] text-ink-3">{{
+        t('read.waited', { bars: waitedBars })
+      }}</span>
     </div>
     <div>
       <h3 class="text-[16px] font-semibold tracking-tight">{{ t('read.prompt') }}</h3>
@@ -69,7 +71,11 @@ const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
         role="radio"
         :aria-checked="state === option.value"
         class="flex items-center gap-2 rounded-md border border-line px-2.5 py-2.5 text-left text-[12px] transition-all duration-150 active:scale-[0.98]"
-        :class="state === option.value ? 'border-clay bg-clay-soft text-clay-ink shadow-xs' : 'text-ink-2 hover:border-line-strong hover:bg-ink/[0.03]'"
+        :class="
+          state === option.value
+            ? 'border-clay bg-clay-soft text-clay-ink shadow-xs'
+            : 'text-ink-2 hover:border-line-strong hover:bg-ink/[0.03]'
+        "
         :disabled="disabled"
         @click="emit('update:state', option.value)"
       >
@@ -105,7 +111,13 @@ const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
     </div>
 
     <div class="flex items-center gap-2 border-t-[length:var(--hairline)] border-line pt-3">
-      <Button variant="primary" size="md" block :disabled="disabled || thesisLength < 12 || atLimit" @click="emit('commit')">
+      <Button
+        variant="primary"
+        size="md"
+        block
+        :disabled="disabled || thesisLength < 12 || atLimit"
+        @click="emit('commit')"
+      >
         {{ t('read.commit') }}
         <Kbd :keys="['↵']" class="ml-1 !border-black/15 !bg-black/10 !text-current" />
       </Button>

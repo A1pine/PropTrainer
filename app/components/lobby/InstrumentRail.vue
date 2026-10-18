@@ -44,7 +44,9 @@ function disabled(symbol: string) {
         <span v-else class="size-1.5 rounded-full border border-line-strong" aria-hidden="true" />
       </span>
       <span class="truncate text-[10.5px] text-ink-3">{{ instrument.name.replace(' E-mini', '') }}</span>
-      <span class="font-mono text-[9.5px] text-ink-3">${{ instrument.pointValue }}/pt · {{ instrument.tickSize }} tick</span>
+      <span class="font-mono text-[9.5px] text-ink-3"
+        >${{ instrument.pointValue }}/pt · {{ instrument.tickSize }} tick</span
+      >
     </button>
   </div>
 </template>

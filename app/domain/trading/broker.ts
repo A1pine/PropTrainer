@@ -15,9 +15,7 @@ import type {
   Trade,
 } from './types'
 
-export type PlaceOrderResult =
-  | { ok: true; order: Order; events: BrokerEvent[] }
-  | { ok: false; error: string }
+export type PlaceOrderResult = { ok: true; order: Order; events: BrokerEvent[] } | { ok: false; error: string }
 
 export interface Broker {
   placeOrder(input: PlaceOrderInput, markPrice: number, barIndex: number): PlaceOrderResult
@@ -155,12 +153,7 @@ export function createBroker(options: BrokerOptions): Broker {
     return null
   }
 
-  function openPosition(
-    input: PlaceOrderInput,
-    fillPrice: number,
-    barIndex: number,
-    orderId: string,
-  ): BrokerEvent[] {
+  function openPosition(input: PlaceOrderInput, fillPrice: number, barIndex: number, orderId: string): BrokerEvent[] {
     const entryFee = (fee / 2) * input.qty
     balance -= entryFee
     feesPaid += entryFee
@@ -187,12 +180,7 @@ export function createBroker(options: BrokerOptions): Broker {
     return events
   }
 
-  function realize(
-    exitPrice: number,
-    reason: ExitReason,
-    barIndex: number,
-    events: BrokerEvent[],
-  ): Trade | null {
+  function realize(exitPrice: number, reason: ExitReason, barIndex: number, events: BrokerEvent[]): Trade | null {
     if (!position) return null
     const direction = position.side === 'long' ? 1 : -1
     const exitFee = (fee / 2) * position.qty
@@ -389,9 +377,7 @@ export function createBroker(options: BrokerOptions): Broker {
       const working = orders.find((order) => order.status === 'working')
       if (working) {
         const triggered =
-          working.side === 'long'
-            ? candle.low <= (working.limitPrice ?? 0)
-            : candle.high >= (working.limitPrice ?? 0)
+          working.side === 'long' ? candle.low <= (working.limitPrice ?? 0) : candle.high >= (working.limitPrice ?? 0)
         if (triggered) {
           const fillPrice =
             working.side === 'long'

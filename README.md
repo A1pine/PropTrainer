@@ -20,7 +20,7 @@ structure rather than at your comfort level.
   orders, brackets, futures P&L in ticks, commissions, and prop-firm guardrails.
 - **Decision drill** — read the state, commit a thesis, drag entry/stop/target on the chart, size by risk, then
   receive a process grade split into state (40), direction (20), plan structure (25) and discipline (15).
-- **Daily challenge** — one sample seeded by the UTC date, with deterministic *reference plans* as a benchmark
+- **Daily challenge** — one sample seeded by the UTC date, with deterministic _reference plans_ as a benchmark
   board. First submission is locked; replays cannot overwrite it.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins
   and R breaks ties. Results stay in the browser, by design.
@@ -31,17 +31,17 @@ structure rather than at your comfort level.
 
 ## Stack
 
-| Layer | Choice |
-| --- | --- |
-| App | Nuxt 4, Vue 3, TypeScript (strict, `noUncheckedIndexedAccess`) |
-| Styling | Tailwind CSS v4 with CDS tokens ported from [open-claude-ui](https://github.com/Caho1/open-claude-ui) |
-| Primitives | Reka UI wrapped shadcn-style; `class-variance-authority` + `tailwind-merge` |
-| State | Pinia setup stores |
-| i18n | `@nuxtjs/i18n` (no prefix, cookie-aware SSR) |
-| Charts | Custom Canvas 2D engine (scales, candles, drawings, blind mode) |
-| Compute | Rust → WebAssembly core for O(n) market/drill math, with a TypeScript fallback |
-| Tests | Vitest, 80 domain tests including Rust/TypeScript parity |
-| QA | Playwright screenshot script |
+| Layer      | Choice                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| App        | Nuxt 4, Vue 3, TypeScript (strict, `noUncheckedIndexedAccess`)                                        |
+| Styling    | Tailwind CSS v4 with CDS tokens ported from [open-claude-ui](https://github.com/Caho1/open-claude-ui) |
+| Primitives | Reka UI wrapped shadcn-style; `class-variance-authority` + `tailwind-merge`                           |
+| State      | Pinia setup stores                                                                                    |
+| i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
+| Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
+| Compute    | Rust → WebAssembly core for O(n) market/drill math, with a TypeScript fallback                        |
+| Tests      | Vitest, 80 domain tests including Rust/TypeScript parity                                              |
+| QA         | Playwright screenshot script                                                                          |
 
 ## Getting started
 
@@ -69,16 +69,16 @@ bun run wasm:build
 
 ## Routes
 
-| Route | Purpose |
-| --- | --- |
-| `/` | Lobby: pitch, animated preview, universe picker, rules, daily entry, recent form |
-| `/trainer` | Blind session: read → plan → live bracket → review → next round |
-| `/drill` | Standalone decision drill (`?seed=` for a shared sample) |
-| `/daily` | Daily sample, lock state, result and reference board |
-| `/pk` | Pass-and-play room, shared seed, rematch |
-| `/stats` | Equity, R distribution, instrument edge, process, history |
-| `/settings` | Theme, motion, language, account rules, universe, playback, data |
-| `/guide` | Protocol, keyboard reference, glossary, disclaimer |
+| Route       | Purpose                                                                          |
+| ----------- | -------------------------------------------------------------------------------- |
+| `/`         | Lobby: pitch, animated preview, universe picker, rules, daily entry, recent form |
+| `/trainer`  | Blind session: read → plan → live bracket → review → next round                  |
+| `/drill`    | Standalone decision drill (`?seed=` for a shared sample)                         |
+| `/daily`    | Daily sample, lock state, result and reference board                             |
+| `/pk`       | Pass-and-play room, shared seed, rematch                                         |
+| `/stats`    | Equity, R distribution, instrument edge, process, history                        |
+| `/settings` | Theme, motion, language, account rules, universe, playback, data                 |
+| `/guide`    | Protocol, keyboard reference, glossary, disclaimer                               |
 
 ## Architecture
 
@@ -131,11 +131,11 @@ tests/unit/               domain and adapter tests
 
 The expensive O(n) batch work runs in Rust, compiled to a 162 KiB wasm module:
 
-| Work | Why it is in Rust |
-| --- | --- |
+| Work                                                                 | Why it is in Rust                                                |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Regime scenario generation (710 OHLCV bars + ATR/efficiency metrics) | Runs for every round, daily sample, PK rematch and lobby preview |
-| Fractal swing detection | Re-runs on every plan keystroke and chart drag |
-| Plan simulation (bracket fill, gaps, stop-first, MAE/MFE, R) | 300-bar conservative walk for trainer reviews and drill grading |
+| Fractal swing detection                                              | Re-runs on every plan keystroke and chart drag                   |
+| Plan simulation (bracket fill, gaps, stop-first, MAE/MFE, R)         | 300-bar conservative walk for trainer reviews and drill grading  |
 
 Both the Nuxt server and the browser load the **same** module: the server reads
 `public/wasm/prop_core.wasm` at boot, the client fetches it in a blocking plugin before hydration, so SSR and
@@ -169,14 +169,14 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Keyboard
 
-| Key | Action |
-| --- | --- |
-| `Space` | Wait one bar while reading / play-pause live replay |
-| `N` | Advance exactly one bar |
-| `1`–`4` | State: uptrend, downtrend, range, disorder |
-| `L` / `S` | Direction: long / short |
-| `⌘K` / `Ctrl K` | Command palette |
-| `Esc` | Close a dialog or the palette |
+| Key             | Action                                              |
+| --------------- | --------------------------------------------------- |
+| `Space`         | Wait one bar while reading / play-pause live replay |
+| `N`             | Advance exactly one bar                             |
+| `1`–`4`         | State: uptrend, downtrend, range, disorder          |
+| `L` / `S`       | Direction: long / short                             |
+| `⌘K` / `Ctrl K` | Command palette                                     |
+| `Esc`           | Close a dialog or the palette                       |
 
 ## Testing
 

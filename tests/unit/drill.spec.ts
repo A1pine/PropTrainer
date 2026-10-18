@@ -71,14 +71,21 @@ describe('plan simulation', () => {
   it('is deterministic and conservative', () => {
     const outcome = simulatePlan(plan(), scenario.candles, scenario.instrument, 260)
     if (outcome.filled) {
-      expect(outcome.exitReason === 'stop' || outcome.exitReason === 'target' || outcome.exitReason === 'timeout').toBe(true)
+      expect(outcome.exitReason === 'stop' || outcome.exitReason === 'target' || outcome.exitReason === 'timeout').toBe(
+        true,
+      )
       expect(outcome.entryPrice).not.toBeNull()
     }
     expect(outcome.barsToEntry).toBeGreaterThanOrEqual(0)
   })
 
   it('reports no fill when the entry is far away', () => {
-    const outcome = simulatePlan(plan({ entry: lastPrice * 0.9, stop: lastPrice * 0.85, target: lastPrice * 1.1 }), scenario.candles, scenario.instrument, 60)
+    const outcome = simulatePlan(
+      plan({ entry: lastPrice * 0.9, stop: lastPrice * 0.85, target: lastPrice * 1.1 }),
+      scenario.candles,
+      scenario.instrument,
+      60,
+    )
     expect(outcome.filled).toBe(false)
     expect(outcome.exitReason).toBe('no-entry')
   })
@@ -110,7 +117,13 @@ describe('drill grade', () => {
   })
 
   it('penalises a counter-trend read', () => {
-    const wrong = plan({ state: 'downtrend', direction: 'short', entry: lastPrice, stop: lastPrice + 40, target: lastPrice - 120 })
+    const wrong = plan({
+      state: 'downtrend',
+      direction: 'short',
+      entry: lastPrice,
+      stop: lastPrice + 40,
+      target: lastPrice - 120,
+    })
     const wrongValidation = validatePlan(wrong, {
       instrument: scenario.instrument,
       atr: scenario.metrics.atr,

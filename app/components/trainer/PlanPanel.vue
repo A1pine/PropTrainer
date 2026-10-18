@@ -127,9 +127,15 @@ const directionIcon = computed(() => (isLong.value ? '▲' : '▼'))
         <ul class="space-y-1.5">
           <li v-for="check in visibleChecks" :key="check.id" class="flex items-start gap-2 text-[11px] leading-snug">
             <Check v-if="check.status === 'pass'" class="mt-0.5 size-3.5 shrink-0 text-bull" aria-hidden="true" />
-            <AlertTriangle v-else-if="check.status === 'warn'" class="mt-0.5 size-3.5 shrink-0 text-warn" aria-hidden="true" />
+            <AlertTriangle
+              v-else-if="check.status === 'warn'"
+              class="mt-0.5 size-3.5 shrink-0 text-warn"
+              aria-hidden="true"
+            />
             <X v-else class="mt-0.5 size-3.5 shrink-0 text-danger" aria-hidden="true" />
-            <span :class="check.status === 'fail' ? 'text-danger' : check.status === 'warn' ? 'text-warn' : 'text-ink-2'">
+            <span
+              :class="check.status === 'fail' ? 'text-danger' : check.status === 'warn' ? 'text-warn' : 'text-ink-2'"
+            >
               {{ t(`plan.check.${check.id.replaceAll('.', '_')}`, check.params ?? {}) }}
             </span>
           </li>

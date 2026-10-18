@@ -27,9 +27,7 @@ const negative = computed(() => (props.invert ? direction.value === 'up' : direc
 const toneClass = computed(() =>
   positive.value ? 'text-bull-strong' : negative.value ? 'text-bear-strong' : 'text-ink-3',
 )
-const bgClass = computed(() =>
-  positive.value ? 'bg-bull-soft' : negative.value ? 'bg-bear-soft' : 'bg-ink/5',
-)
+const bgClass = computed(() => (positive.value ? 'bg-bull-soft' : negative.value ? 'bg-bear-soft' : 'bg-ink/5'))
 
 const label = computed(() => {
   if (props.value == null) return '—'

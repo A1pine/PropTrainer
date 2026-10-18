@@ -59,15 +59,13 @@ export class ChartEngine {
   private width = 0
   private height = 0
   private dpr = 1
-  private frameLayout:
-    | {
-        price: Rect
-        volume: Rect
-        plot: Rect
-        geo: ReturnType<typeof createIndexGeometry>
-        scale: ReturnType<typeof createPriceScale>
-      }
-    | null = null
+  private frameLayout: {
+    price: Rect
+    volume: Rect
+    plot: Rect
+    geo: ReturnType<typeof createIndexGeometry>
+    scale: ReturnType<typeof createPriceScale>
+  } | null = null
 
   constructor(canvas: HTMLCanvasElement, callbacks: ChartCallbacks, theme: ChartTheme, options: ChartOptions = {}) {
     this.canvas = canvas
@@ -312,13 +310,16 @@ export class ChartEngine {
     this.drawCrosshair(plot, geo, scale)
     if (this.draft) this.drawDraft(plot, geo, scale)
 
-    const animating =
-      this.animateFrom >= 0 && performance.now() - this.lastPaintAt < 200 && this.animateFrom <= end
+    const animating = this.animateFrom >= 0 && performance.now() - this.lastPaintAt < 200 && this.animateFrom <= end
     if (animating) this.requestRender()
     else this.animateFrom = -1
   }
 
-  private drawGrid(area: Rect, geo: ReturnType<typeof createIndexGeometry>, scale: ReturnType<typeof createPriceScale>) {
+  private drawGrid(
+    area: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
     const ctx = this.ctx
     ctx.strokeStyle = this.theme.grid
     ctx.lineWidth = 1
@@ -405,7 +406,6 @@ export class ChartEngine {
     void area
   }
 
-
   private drawVolume(
     area: Rect,
     geo: ReturnType<typeof createIndexGeometry>,
@@ -490,7 +490,11 @@ export class ChartEngine {
     }
   }
 
-  private drawDrawings(plot: Rect, geo: ReturnType<typeof createIndexGeometry>, scale: ReturnType<typeof createPriceScale>) {
+  private drawDrawings(
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
     const ctx = this.ctx
     for (const drawing of this.drawings) {
       const [first, second] = drawing.points
@@ -528,7 +532,12 @@ export class ChartEngine {
           const width = Math.max(20, right - left)
           ctx.globalAlpha = 0.06
           ctx.fillStyle = this.theme.clay
-          ctx.fillRect(left, scale.y(Math.max(first.price, second.price)), width, Math.abs(scale.y(first.price) - scale.y(second.price)))
+          ctx.fillRect(
+            left,
+            scale.y(Math.max(first.price, second.price)),
+            width,
+            Math.abs(scale.y(first.price) - scale.y(second.price)),
+          )
           ctx.globalAlpha = 0.9
           ctx.font = `9.5px ${this.theme.fontMono}`
           ctx.textAlign = 'left'
@@ -602,7 +611,11 @@ export class ChartEngine {
     ctx.restore()
   }
 
-  private drawAxes(area: Rect, geo: ReturnType<typeof createIndexGeometry>, scale: ReturnType<typeof createPriceScale>) {
+  private drawAxes(
+    area: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
     const ctx = this.ctx
     ctx.strokeStyle = this.theme.axis
     ctx.lineWidth = 1
@@ -688,7 +701,11 @@ export class ChartEngine {
     ctx.restore()
   }
 
-  private drawDraft(plot: Rect, geo: ReturnType<typeof createIndexGeometry>, scale: ReturnType<typeof createPriceScale>) {
+  private drawDraft(
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
     if (!this.draft) return
     const ctx = this.ctx
     const [anchor, point] = this.draft.points

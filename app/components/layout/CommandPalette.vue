@@ -63,8 +63,16 @@ const filtered = computed(() => {
 })
 
 const groups = computed(() => [
-  { id: 'actions' as const, label: t('palette.actions'), commands: filtered.value.filter((c) => c.group === 'actions') },
-  { id: 'navigate' as const, label: t('palette.navigate'), commands: filtered.value.filter((c) => c.group === 'navigate') },
+  {
+    id: 'actions' as const,
+    label: t('palette.actions'),
+    commands: filtered.value.filter((c) => c.group === 'actions'),
+  },
+  {
+    id: 'navigate' as const,
+    label: t('palette.navigate'),
+    commands: filtered.value.filter((c) => c.group === 'navigate'),
+  },
 ])
 
 function run(command: Command | undefined) {
@@ -145,7 +153,11 @@ watch(open, async (isOpen) => {
                   role="option"
                   :aria-selected="filtered[activeIndex]?.id === command.id"
                   class="mt-0.5 flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors"
-                  :class="filtered[activeIndex]?.id === command.id ? 'bg-clay-soft text-clay-ink' : 'text-ink-2 hover:bg-ink/[0.04]'"
+                  :class="
+                    filtered[activeIndex]?.id === command.id
+                      ? 'bg-clay-soft text-clay-ink'
+                      : 'text-ink-2 hover:bg-ink/[0.04]'
+                  "
                   @mouseenter="activeIndex = filtered.findIndex((c) => c.id === command.id)"
                   @click="run(command)"
                 >
@@ -156,7 +168,9 @@ watch(open, async (isOpen) => {
               </div>
             </template>
           </div>
-          <div class="flex items-center gap-4 border-t-[length:var(--hairline)] border-line px-4 py-2 text-[10.5px] text-ink-3">
+          <div
+            class="flex items-center gap-4 border-t-[length:var(--hairline)] border-line px-4 py-2 text-[10.5px] text-ink-3"
+          >
             <span class="flex items-center gap-1"><Kbd :keys="['↑', '↓']" /> {{ t('palette.move') }}</span>
             <span class="flex items-center gap-1"><Kbd :keys="['↵']" /> {{ t('palette.open') }}</span>
             <span class="ml-auto flex items-center gap-1.5">

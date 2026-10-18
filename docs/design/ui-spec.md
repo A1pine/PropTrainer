@@ -9,7 +9,7 @@
 ## 1. Product frame
 
 **Who.** A futures trader preparing for a prop-firm evaluation. They already know what a stop is; they
-need to rehearse *reading structure, waiting for a setup, sizing by risk, and surviving drawdown rules*
+need to rehearse _reading structure, waiting for a setup, sizing by risk, and surviving drawdown rules_
 without risking capital.
 
 **Job to be done.** Open the app, get a blind sample from a familiar instrument universe (MNQ, NQ, MES,
@@ -28,16 +28,16 @@ gravity; the other routes support preparation, review, and trust.
 The first impression should be **calm control**, not a casino. A warm paper-like canvas holds one
 luminous analytical surface: the chart. Everything else is quiet instrumentation around it.
 
-| Decision | Rationale |
-| --- | --- |
-| Warm off-white canvas (`#f9f9f7`) instead of pure white | Reduces glare during long drills; matches CDS editorial warmth. |
-| Clay accent (`#d97757`) used sparingly for intent, focus, and live state | The eye should find the next action, not a wall of brand color. |
-| Charcoal text (`#151515`) with secondary warm grays | High legibility without the coldness of blue-gray dashboards. |
-| Hairline panels, almost no shadow | Reads as precision instruments; depth comes from micro-luminance steps. |
-| Serif display only on Lobby / review headlines | A human, editorial voice; the Trainer stays sans + mono for speed. |
-| Mono tabular numerals for every price, P&L, timer, and size | No layout jitter while values animate. |
-| Market colors are muted sage / brick, never neon | Color supports meaning but is always paired with a sign or label. |
-| One large chart + one floating ticket | The central decision is “what is the structure, and what is my risk?” |
+| Decision                                                                 | Rationale                                                               |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| Warm off-white canvas (`#f9f9f7`) instead of pure white                  | Reduces glare during long drills; matches CDS editorial warmth.         |
+| Clay accent (`#d97757`) used sparingly for intent, focus, and live state | The eye should find the next action, not a wall of brand color.         |
+| Charcoal text (`#151515`) with secondary warm grays                      | High legibility without the coldness of blue-gray dashboards.           |
+| Hairline panels, almost no shadow                                        | Reads as precision instruments; depth comes from micro-luminance steps. |
+| Serif display only on Lobby / review headlines                           | A human, editorial voice; the Trainer stays sans + mono for speed.      |
+| Mono tabular numerals for every price, P&L, timer, and size              | No layout jitter while values animate.                                  |
+| Market colors are muted sage / brick, never neon                         | Color supports meaning but is always paired with a sign or label.       |
+| One large chart + one floating ticket                                    | The central decision is “what is the structure, and what is my risk?”   |
 
 **Signature moment.** On the Lobby, a miniature replay chart paints its candles in sequence inside a
 soft clay ambient glow while a live price line travels across it. The headline sits asymmetrically to
@@ -53,37 +53,37 @@ crypto-exchange visual noise, mascots, gamified coin icons, and dense tables wit
 
 ### 3.1 Color
 
-| Token | Light | Dark | Use |
-| --- | --- | --- | --- |
-| `--surface-0` | `#f9f9f7` | `#0b0b0a` | App canvas |
-| `--surface-1` | `#fcfcfb` | `#151514` | Rails, secondary panels |
-| `--surface-2` | `#ffffff` | `#1a1a19` | Cards, ticket, popovers |
-| `--surface-3` | `#ffffff` | `#20201e` | Hover / elevated chips |
-| `--text-primary` | `#151515` | `#f5f5f2` | Headings, values |
-| `--text-secondary` | `#5b5a56` | `#b9b7b0` | Labels, body |
-| `--text-muted` | `#8a8882` | `#807e78` | Hints, metadata |
-| `--border` | `rgba(21,21,21,.08)` | `rgba(255,255,255,.09)` | Hairlines |
-| `--border-strong` | `rgba(21,21,21,.16)` | `rgba(255,255,255,.18)` | Hover / focus geometry |
-| `--clay` | `#d97757` | `#cc6b49` | Primary action, live state |
-| `--clay-deep` | `#b95434` | `#e08464` | Pressed / emphasis text |
-| `--clay-wash` | `#fbf1ec` | `#2a1a14` | Selected chips, tinted rows |
-| `--positive` | `#5c7f68` | `#86ab90` | Long, profit, pass |
-| `--negative` | `#b4554b` | `#d98b80` | Short, loss, breach |
-| `--warning` | `#a97a34` | `#d2a45e` | Caution, near breach |
-| `--focus` | clay ring + 6px 25% halo | same | Keyboard focus |
+| Token              | Light                    | Dark                    | Use                         |
+| ------------------ | ------------------------ | ----------------------- | --------------------------- |
+| `--surface-0`      | `#f9f9f7`                | `#0b0b0a`               | App canvas                  |
+| `--surface-1`      | `#fcfcfb`                | `#151514`               | Rails, secondary panels     |
+| `--surface-2`      | `#ffffff`                | `#1a1a19`               | Cards, ticket, popovers     |
+| `--surface-3`      | `#ffffff`                | `#20201e`               | Hover / elevated chips      |
+| `--text-primary`   | `#151515`                | `#f5f5f2`               | Headings, values            |
+| `--text-secondary` | `#5b5a56`                | `#b9b7b0`               | Labels, body                |
+| `--text-muted`     | `#8a8882`                | `#807e78`               | Hints, metadata             |
+| `--border`         | `rgba(21,21,21,.08)`     | `rgba(255,255,255,.09)` | Hairlines                   |
+| `--border-strong`  | `rgba(21,21,21,.16)`     | `rgba(255,255,255,.18)` | Hover / focus geometry      |
+| `--clay`           | `#d97757`                | `#cc6b49`               | Primary action, live state  |
+| `--clay-deep`      | `#b95434`                | `#e08464`               | Pressed / emphasis text     |
+| `--clay-wash`      | `#fbf1ec`                | `#2a1a14`               | Selected chips, tinted rows |
+| `--positive`       | `#5c7f68`                | `#86ab90`               | Long, profit, pass          |
+| `--negative`       | `#b4554b`                | `#d98b80`               | Short, loss, breach         |
+| `--warning`        | `#a97a34`                | `#d2a45e`               | Caution, near breach        |
+| `--focus`          | clay ring + 6px 25% halo | same                    | Keyboard focus              |
 
 Surface steps are tiny on purpose. Borders do the separating; shadows are reserved for floating layers.
 
 ### 3.2 Type
 
-| Role | Stack | Size / leading | Weight |
-| --- | --- | --- | --- |
-| Display | `ui-serif, Georgia, 'Times New Roman', serif` | `clamp(2.6rem, 6vw, 4.9rem)` / 0.98 | 500 |
-| Page title | system sans | 28–34 / 1.1 | 600 |
-| Section title | system sans | 15–17 / 1.3 | 600 |
-| Body | system sans + CJK fallbacks | 14 / 1.55 | 400 |
-| Label / eyebrow | system sans | 11 / 1.2, `.14em` tracking, uppercase | 500 |
-| Numeric | `ui-monospace, SFMono-Regular, Menlo` | 12–30, tabular | 500–600 |
+| Role            | Stack                                         | Size / leading                        | Weight  |
+| --------------- | --------------------------------------------- | ------------------------------------- | ------- |
+| Display         | `ui-serif, Georgia, 'Times New Roman', serif` | `clamp(2.6rem, 6vw, 4.9rem)` / 0.98   | 500     |
+| Page title      | system sans                                   | 28–34 / 1.1                           | 600     |
+| Section title   | system sans                                   | 15–17 / 1.3                           | 600     |
+| Body            | system sans + CJK fallbacks                   | 14 / 1.55                             | 400     |
+| Label / eyebrow | system sans                                   | 11 / 1.2, `.14em` tracking, uppercase | 500     |
+| Numeric         | `ui-monospace, SFMono-Regular, Menlo`         | 12–30, tabular                        | 500–600 |
 
 No proprietary font binaries. System fallback stack includes PingFang SC, Hiragino Sans, and Apple SD
 Gothic Neo so Chinese and Japanese never fall back to a mismatched Latin face.
@@ -98,15 +98,15 @@ Gothic Neo so Chinese and Japanese never fall back to a mismatched Latin face.
 
 ### 3.4 Motion
 
-| Token | Curve / spring | Duration | Use |
-| --- | --- | --- | --- |
-| `snap` | `cubic-bezier(.16,1,.3,1)` | 120–180 ms | Hover, press, chip selection |
-| `spring-snappy` | stiffness 320, damping 28, mass 1 | ~350 ms | Cards, popovers, ticket |
-| `spring-bouncy` | stiffness 600, damping 30, mass 1 | ~220 ms | Buttons, toggles, badges |
-| `spring-gentle` | stiffness 220, damping 24, mass 1 | ~480 ms | Dialogs, panel height |
-| `spring-heavy` | stiffness 1200, damping 80, mass .1 | ~180 ms | Drag snapping, drawer |
-| `reveal` | `cubic-bezier(.19,1,.22,1)` | 600 ms | Candle paint-on |
-| `pulse` | `cubic-bezier(.4,0,.2,1)` | 1.6 s loop | Live dot, last-price halo |
+| Token           | Curve / spring                      | Duration   | Use                          |
+| --------------- | ----------------------------------- | ---------- | ---------------------------- |
+| `snap`          | `cubic-bezier(.16,1,.3,1)`          | 120–180 ms | Hover, press, chip selection |
+| `spring-snappy` | stiffness 320, damping 28, mass 1   | ~350 ms    | Cards, popovers, ticket      |
+| `spring-bouncy` | stiffness 600, damping 30, mass 1   | ~220 ms    | Buttons, toggles, badges     |
+| `spring-gentle` | stiffness 220, damping 24, mass 1   | ~480 ms    | Dialogs, panel height        |
+| `spring-heavy`  | stiffness 1200, damping 80, mass .1 | ~180 ms    | Drag snapping, drawer        |
+| `reveal`        | `cubic-bezier(.19,1,.22,1)`         | 600 ms     | Candle paint-on              |
+| `pulse`         | `cubic-bezier(.4,0,.2,1)`           | 1.6 s loop | Live dot, last-price halo    |
 
 Rules:
 
@@ -303,29 +303,29 @@ Sections separated by hairlines, max width 760 px:
 
 ## 6. Component inventory
 
-| Component | Notes |
-| --- | --- |
-| `AppRail` | Desktop destination rail, animated active pill, mobile bottom bar. |
-| `TopBar` | Context title, status pill, account snapshot, session actions. |
-| `CdsButton` | Sizes xs/sm/md/lg; variants primary, secondary, ghost, outline, danger, positive. |
-| `SegmentedControl` | 999 px track, 2 px padding, sliding thumb, roving focus. |
-| `StatusDot` | Clay breathe, live pulse, neutral, positive, negative. |
-| `Metric` | Label, value, delta, sparkline, tabular numerals. |
-| `Panel` | Hairline card with optional header/action. |
-| `Dialog` | Reka UI focus trap, backdrop blur, spring scale, Escape. |
-| `NumberField` | Tick steppers, validation message, suffix. |
-| `RiskGauge` | Horizontal target/drawdown bands with markers. |
-| `ChartCanvas` | Canvas renderer + pointer interactions + overlays. |
-| `PlanLines` | Entry/stop/target handles and labels. |
-| `TradeTicket` | Direction, type, size, risk, computed block. |
-| `DrillPanel` | Two-step state machine and validation. |
-| `PlaybackBar` | Play/pause, step, speed, progress. |
-| `ReviewDialog` | Grade, notes, outcome, next action. |
-| `ToastStack` | Top-right, 4 s, pause on hover, aria-live. |
-| `Sparkline` | SVG polyline, no dependency. |
-| `EquityCurve` | SVG path with gradient area and hover dot. |
-| `Kbd` | Keyboard chip. |
-| `LocaleSwitcher` | Select with flag-free language names. |
+| Component          | Notes                                                                             |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `AppRail`          | Desktop destination rail, animated active pill, mobile bottom bar.                |
+| `TopBar`           | Context title, status pill, account snapshot, session actions.                    |
+| `CdsButton`        | Sizes xs/sm/md/lg; variants primary, secondary, ghost, outline, danger, positive. |
+| `SegmentedControl` | 999 px track, 2 px padding, sliding thumb, roving focus.                          |
+| `StatusDot`        | Clay breathe, live pulse, neutral, positive, negative.                            |
+| `Metric`           | Label, value, delta, sparkline, tabular numerals.                                 |
+| `Panel`            | Hairline card with optional header/action.                                        |
+| `Dialog`           | Reka UI focus trap, backdrop blur, spring scale, Escape.                          |
+| `NumberField`      | Tick steppers, validation message, suffix.                                        |
+| `RiskGauge`        | Horizontal target/drawdown bands with markers.                                    |
+| `ChartCanvas`      | Canvas renderer + pointer interactions + overlays.                                |
+| `PlanLines`        | Entry/stop/target handles and labels.                                             |
+| `TradeTicket`      | Direction, type, size, risk, computed block.                                      |
+| `DrillPanel`       | Two-step state machine and validation.                                            |
+| `PlaybackBar`      | Play/pause, step, speed, progress.                                                |
+| `ReviewDialog`     | Grade, notes, outcome, next action.                                               |
+| `ToastStack`       | Top-right, 4 s, pause on hover, aria-live.                                        |
+| `Sparkline`        | SVG polyline, no dependency.                                                      |
+| `EquityCurve`      | SVG path with gradient area and hover dot.                                        |
+| `Kbd`              | Keyboard chip.                                                                    |
+| `LocaleSwitcher`   | Select with flag-free language names.                                             |
 
 All primitives are hand-built on Reka UI where a headless primitive is useful; no shadcn-vue runtime
 dependency. Variants use `class-variance-authority` + `tailwind-merge` via a local `cn()` helper.
@@ -362,13 +362,13 @@ dependency. Variants use `class-variance-authority` + `tailwind-merge` via a loc
 
 ## 9. Responsive matrix
 
-| Width | Shell | Trainer | Ticket | Chart |
-| --- | --- | --- | --- | --- |
-| ≥ 1440 | 76 px rail | 3-row grid | 360 px fixed right | 1fr |
-| 1180–1439 | 76 px rail | 3-row grid | 320 px | 1fr |
-| 980–1179 | 68 px rail | 2-row grid | 300 px bottom panel | full width |
-| 640–979 | bottom bar | stacked | bottom sheet toggle | 420 px min |
-| < 640 | bottom bar | stacked | full-width sheet | 360 px min |
+| Width     | Shell      | Trainer    | Ticket              | Chart      |
+| --------- | ---------- | ---------- | ------------------- | ---------- |
+| ≥ 1440    | 76 px rail | 3-row grid | 360 px fixed right  | 1fr        |
+| 1180–1439 | 76 px rail | 3-row grid | 320 px              | 1fr        |
+| 980–1179  | 68 px rail | 2-row grid | 300 px bottom panel | full width |
+| 640–979   | bottom bar | stacked    | bottom sheet toggle | 420 px min |
+| < 640     | bottom bar | stacked    | full-width sheet    | 360 px min |
 
 The chart never shrinks below 360 px height. On small screens the stats strip becomes a horizontal
 scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a grabber.
@@ -397,7 +397,6 @@ scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a 
 - [ ] Empty, loading, error, no-fill, breach, and pass states are all designed and reachable.
 - [ ] No proprietary font/audio binaries; sounds synthesized with Web Audio.
 - [ ] i18n strings exist for every visible label in en, zh-CN, and ja.
-
 
 ---
 

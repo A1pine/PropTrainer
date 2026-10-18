@@ -37,7 +37,14 @@ const paths = computed(() => {
     </defs>
     <path :d="paths.fill" :fill="`url(#rule-${kind})`" />
     <path :d="paths.line" fill="none" stroke="var(--ink-2)" stroke-width="1.2" stroke-linejoin="round" />
-    <path :d="paths.floor" fill="none" :stroke="kind === 'target' ? 'var(--bull)' : 'var(--bear)'" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.7" />
+    <path
+      :d="paths.floor"
+      fill="none"
+      :stroke="kind === 'target' ? 'var(--bull)' : 'var(--bear)'"
+      stroke-width="1"
+      stroke-dasharray="3 3"
+      stroke-opacity="0.7"
+    />
     <circle cx="156" cy="40" r="2.2" fill="var(--clay)" />
   </svg>
 </template>

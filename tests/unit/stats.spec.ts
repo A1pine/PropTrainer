@@ -34,7 +34,15 @@ function trade(partial: Partial<TradeRecord> & { pnl: number; r: number | null }
 
 const trades = [
   trade({ pnl: 120, r: 2, side: 'long', symbol: 'MNQ', regime: 'uptrend' }),
-  trade({ pnl: -60, r: -1, side: 'short', symbol: 'MNQ', regime: 'range', followedPlan: false, exitTime: 1_700_001_000 }),
+  trade({
+    pnl: -60,
+    r: -1,
+    side: 'short',
+    symbol: 'MNQ',
+    regime: 'range',
+    followedPlan: false,
+    exitTime: 1_700_001_000,
+  }),
   trade({ pnl: 80, r: 1.5, side: 'long', symbol: 'MES', regime: 'uptrend', exitTime: 1_700_002_000 }),
   trade({ pnl: -40, r: -0.8, side: 'long', symbol: 'MES', regime: 'downtrend', exitTime: 1_700_003_000 }),
 ]

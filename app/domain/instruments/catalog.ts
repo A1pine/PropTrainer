@@ -139,7 +139,10 @@ const catalog: InstrumentSpec[] = [
 export const instruments = createInstrumentRegistry(catalog)
 
 export const defaultInstrumentSymbols = catalog
-  .filter((instrument) => instrument.category === 'micro-future' || instrument.symbol === 'MGC' || instrument.symbol === 'MCL')
+  .filter(
+    (instrument) =>
+      instrument.category === 'micro-future' || instrument.symbol === 'MGC' || instrument.symbol === 'MCL',
+  )
   .map((instrument) => instrument.symbol)
 
 export function getInstrument(symbol: string): InstrumentSpec {

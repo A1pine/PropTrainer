@@ -14,7 +14,12 @@ const history = useHistoryStore()
 
 const now = new Date()
 const todayKey = dailySeed(now)
-const todayLabel = new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(now)
+const todayLabel = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: '2-digit',
+  year: 'numeric',
+  timeZone: 'UTC',
+}).format(now)
 
 const mySession = computed(() => history.sessions.find((session) => session.id === `drill-${todayKey}`))
 const myRound = computed(() => mySession.value?.rounds[0] ?? null)
@@ -85,7 +90,10 @@ onMounted(() => {
 
     <div class="mt-6 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
       <section class="relative overflow-hidden rounded-xl border-[length:var(--hairline)] border-line bg-surface-2">
-        <div class="pointer-events-none absolute inset-0 dot-grid opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]" aria-hidden="true" />
+        <div
+          class="pointer-events-none absolute inset-0 dot-grid opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]"
+          aria-hidden="true"
+        />
 
         <div v-if="locked" class="relative p-6 sm:p-8">
           <div class="flex items-center gap-2">
@@ -143,9 +151,13 @@ onMounted(() => {
             <div class="flex items-center gap-3">
               <div class="text-right">
                 <p class="label-micro">{{ t('review.process') }}</p>
-                <p class="num text-[20px] font-medium">{{ myRound?.processScore ?? '—' }}<span class="text-[10px] text-ink-3">/100</span></p>
+                <p class="num text-[20px] font-medium">
+                  {{ myRound?.processScore ?? '—' }}<span class="text-[10px] text-ink-3">/100</span>
+                </p>
               </div>
-              <div class="grid size-14 place-items-center rounded-full border border-clay/40 bg-clay-soft text-clay-ink">
+              <div
+                class="grid size-14 place-items-center rounded-full border border-clay/40 bg-clay-soft text-clay-ink"
+              >
                 <span class="serif text-[22px]">{{ myRound?.grade ?? '—' }}</span>
               </div>
             </div>
@@ -154,7 +166,18 @@ onMounted(() => {
           <div class="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div class="rounded-md border border-line bg-sunken p-2.5">
               <p class="label-micro">{{ t('review.outcome') }}</p>
-              <p class="num mt-1 text-[14px]" :class="(myRound?.rMultiple ?? 0) > 0 ? 'text-bull-strong' : (myRound?.rMultiple ?? 0) < 0 ? 'text-bear-strong' : 'text-ink'">{{ formatR(myRound?.rMultiple) }}</p>
+              <p
+                class="num mt-1 text-[14px]"
+                :class="
+                  (myRound?.rMultiple ?? 0) > 0
+                    ? 'text-bull-strong'
+                    : (myRound?.rMultiple ?? 0) < 0
+                      ? 'text-bear-strong'
+                      : 'text-ink'
+                "
+              >
+                {{ formatR(myRound?.rMultiple) }}
+              </p>
             </div>
             <div class="rounded-md border border-line bg-sunken p-2.5">
               <p class="label-micro">{{ t('daily.stats.state') }}</p>
@@ -166,38 +189,81 @@ onMounted(() => {
             </div>
             <div class="rounded-md border border-line bg-sunken p-2.5">
               <p class="label-micro">{{ t('daily.stats.submitted') }}</p>
-              <p class="num mt-1 text-[12px]">{{ formatDate(mySession?.endedAt ?? myRound?.endedAt ?? now.toISOString(), locale) }}</p>
+              <p class="num mt-1 text-[12px]">
+                {{ formatDate(mySession?.endedAt ?? myRound?.endedAt ?? now.toISOString(), locale) }}
+              </p>
             </div>
           </div>
 
           <div class="mt-5">
             <div class="mb-2 flex items-center justify-between">
-              <p class="label-micro flex items-center gap-1.5"><Trophy class="size-3.5 text-ink-3" aria-hidden="true" /> {{ t('daily.board') }}</p>
+              <p class="label-micro flex items-center gap-1.5">
+                <Trophy class="size-3.5 text-ink-3" aria-hidden="true" /> {{ t('daily.board') }}
+              </p>
               <span class="text-[9.5px] text-ink-3">{{ t('daily.boardNote') }}</span>
             </div>
             <div class="overflow-hidden rounded-md border border-line">
-              <div class="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-line bg-sunken px-3 py-1.5 text-[9.5px] uppercase tracking-wide text-ink-3">
+              <div
+                class="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-line bg-sunken px-3 py-1.5 text-[9.5px] uppercase tracking-wide text-ink-3"
+              >
                 <span>{{ t('daily.benchmarks.plan') }}</span>
                 <span class="text-right">{{ t('daily.benchmarks.direction') }}</span>
                 <span class="text-right">R</span>
                 <span class="w-9 text-right">{{ t('daily.benchmarks.grade') }}</span>
               </div>
-              <div v-for="(row, index) in benchmarks" :key="row.id" class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-line/60 px-3 py-2 text-[11px] last:border-0">
+              <div
+                v-for="(row, index) in benchmarks"
+                :key="row.id"
+                class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 border-b border-line/60 px-3 py-2 text-[11px] last:border-0"
+              >
                 <span class="flex items-center gap-2">
                   <span class="num text-[9.5px] text-ink-3">{{ index + 1 }}</span>
                   {{ t(row.labelKey) }}
                 </span>
-                <span class="text-right font-mono text-[10.5px] text-ink-2">{{ row.plan.direction === 'none' ? t('read.noTrade') : row.plan.direction === 'long' ? t('ticket.long') : t('ticket.short') }}</span>
-                <span class="text-right font-mono text-[10.5px]" :class="(row.outcome.rMultiple ?? 0) > 0 ? 'text-bull-strong' : (row.outcome.rMultiple ?? 0) < 0 ? 'text-bear-strong' : 'text-ink-3'">{{ row.outcome.filled ? formatR(row.outcome.rMultiple) : '—' }}</span>
-                <span class="w-9 text-right"><Badge :variant="row.grade.letter === 'A' || row.grade.letter === 'B' ? 'bull' : row.grade.letter === 'C' ? 'clay' : 'warn'" size="sm">{{ row.grade.letter }}</Badge></span>
+                <span class="text-right font-mono text-[10.5px] text-ink-2">{{
+                  row.plan.direction === 'none'
+                    ? t('read.noTrade')
+                    : row.plan.direction === 'long'
+                      ? t('ticket.long')
+                      : t('ticket.short')
+                }}</span>
+                <span
+                  class="text-right font-mono text-[10.5px]"
+                  :class="
+                    (row.outcome.rMultiple ?? 0) > 0
+                      ? 'text-bull-strong'
+                      : (row.outcome.rMultiple ?? 0) < 0
+                        ? 'text-bear-strong'
+                        : 'text-ink-3'
+                  "
+                  >{{ row.outcome.filled ? formatR(row.outcome.rMultiple) : '—' }}</span
+                >
+                <span class="w-9 text-right"
+                  ><Badge
+                    :variant="
+                      row.grade.letter === 'A' || row.grade.letter === 'B'
+                        ? 'bull'
+                        : row.grade.letter === 'C'
+                          ? 'clay'
+                          : 'warn'
+                    "
+                    size="sm"
+                    >{{ row.grade.letter }}</Badge
+                  ></span
+                >
               </div>
             </div>
             <p class="mt-2 text-[9.5px] leading-relaxed text-ink-3">{{ t('daily.boardDisclaimer') }}</p>
           </div>
 
           <div class="mt-5 flex items-center gap-2 border-t border-line pt-4">
-            <NuxtLink to="/stats"><Button variant="secondary" size="sm">{{ t('daily.viewStats') }}</Button></NuxtLink>
-            <NuxtLink to="/drill"><Button variant="ghost" size="sm">{{ t('drill.next') }}<ArrowRight class="size-3.5" aria-hidden="true" /></Button></NuxtLink>
+            <NuxtLink to="/stats"
+              ><Button variant="secondary" size="sm">{{ t('daily.viewStats') }}</Button></NuxtLink
+            >
+            <NuxtLink to="/drill"
+              ><Button variant="ghost" size="sm"
+                >{{ t('drill.next') }}<ArrowRight class="size-3.5" aria-hidden="true" /></Button
+            ></NuxtLink>
           </div>
         </div>
       </section>

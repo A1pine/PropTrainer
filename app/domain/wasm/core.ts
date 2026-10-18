@@ -24,7 +24,12 @@ export interface GeneratedMarket {
 export interface WasmCore {
   generate(input: GenerateInput): GeneratedMarket
   findSwings(candles: readonly Candle[], strength: number): SwingPoint[]
-  simulatePlan(plan: DrillPlan, candles: readonly Candle[], instrument: InstrumentSpec, horizonBars: number): PlanOutcome
+  simulatePlan(
+    plan: DrillPlan,
+    candles: readonly Candle[],
+    instrument: InstrumentSpec,
+    horizonBars: number,
+  ): PlanOutcome
 }
 
 interface WasmExports {

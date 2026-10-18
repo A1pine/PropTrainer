@@ -11,10 +11,7 @@ withDefaults(
 </script>
 
 <template>
-  <div
-    class="flex flex-col items-center justify-center gap-3 text-center"
-    :class="compact ? 'py-6' : 'py-12'"
-  >
+  <div class="flex flex-col items-center justify-center gap-3 text-center" :class="compact ? 'py-6' : 'py-12'">
     <div
       class="grid size-10 place-items-center rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 text-ink-3"
     >

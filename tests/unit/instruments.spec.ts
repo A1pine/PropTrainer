@@ -45,12 +45,9 @@ describe('instrument registry', () => {
       }),
     ])
     expect(registry.require('AAA').pointValue).toBe(2)
-    expect(() =>
-      createInstrumentRegistry([
-        registry.require('AAA'),
-        { ...registry.require('AAA') },
-      ]),
-    ).toThrow(/Duplicate/)
+    expect(() => createInstrumentRegistry([registry.require('AAA'), { ...registry.require('AAA') }])).toThrow(
+      /Duplicate/,
+    )
   })
 
   it('validates tick economics', () => {

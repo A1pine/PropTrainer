@@ -49,7 +49,12 @@ const tones: Record<ToastVariant, string> = {
           class="pointer-events-auto flex w-full max-w-[380px] items-start gap-3 rounded-lg border-[length:var(--hairline)] border-line bg-overlay px-3.5 py-3 shadow-overlay"
           role="status"
         >
-          <component :is="icons[toast.variant ?? 'default']" class="mt-0.5 size-4 shrink-0" :class="tones[toast.variant ?? 'default']" aria-hidden="true" />
+          <component
+            :is="icons[toast.variant ?? 'default']"
+            class="mt-0.5 size-4 shrink-0"
+            :class="tones[toast.variant ?? 'default']"
+            aria-hidden="true"
+          />
           <div class="min-w-0 flex-1">
             <p class="text-[12.5px] font-medium leading-snug text-ink">{{ toast.title }}</p>
             <p v-if="toast.description" class="mt-0.5 text-[11.5px] leading-snug text-ink-3">{{ toast.description }}</p>

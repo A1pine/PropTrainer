@@ -97,7 +97,10 @@ export function aggregateTrades(trades: readonly TradeRecord[]): TradeAggregate 
     expectancyR: rValues.length ? round(average(rValues)) : null,
     profitFactor: grossLoss > 0 ? round(grossWin / grossLoss) : grossWin > 0 ? null : 0,
     bestTrade: sorted.reduce<TradeRecord | null>((best, trade) => (!best || trade.pnl > best.pnl ? trade : best), null),
-    worstTrade: sorted.reduce<TradeRecord | null>((worst, trade) => (!worst || trade.pnl < worst.pnl ? trade : worst), null),
+    worstTrade: sorted.reduce<TradeRecord | null>(
+      (worst, trade) => (!worst || trade.pnl < worst.pnl ? trade : worst),
+      null,
+    ),
     maxWinStreak,
     maxLossStreak: Math.abs(maxLossStreak),
     avgHoldBars: sorted.length ? round(average(sorted.map((trade) => trade.exitBar - trade.entryBar + 1))) : 0,

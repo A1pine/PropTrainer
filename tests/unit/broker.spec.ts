@@ -128,10 +128,18 @@ describe('broker', () => {
     const noStop = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: null, takeProfit: null }, 100, 0)
     expect(noStop.ok).toBe(false)
 
-    const wrongStop = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: 101, takeProfit: null }, 100, 0)
+    const wrongStop = broker.placeOrder(
+      { side: 'long', type: 'market', qty: 1, stopLoss: 101, takeProfit: null },
+      100,
+      0,
+    )
     expect(wrongStop.ok).toBe(false)
 
-    const badTarget = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: 99, takeProfit: 99.5 }, 100, 0)
+    const badTarget = broker.placeOrder(
+      { side: 'long', type: 'market', qty: 1, stopLoss: 99, takeProfit: 99.5 },
+      100,
+      0,
+    )
     expect(badTarget.ok).toBe(false)
   })
 
@@ -210,11 +218,7 @@ describe('broker', () => {
     const update = broker.onBar(candle(100, 100, 98.5, 98.5), 1)
     expect(update.snapshot.status).toBe('breached')
     expect(update.snapshot.breach).toBe('drawdown')
-    const blocked = broker.placeOrder(
-      { side: 'long', type: 'market', qty: 1, stopLoss: 98, takeProfit: 102 },
-      98.5,
-      2,
-    )
+    const blocked = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: 98, takeProfit: 102 }, 98.5, 2)
     expect(blocked.ok).toBe(false)
   })
 

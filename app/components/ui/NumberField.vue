@@ -87,7 +87,7 @@ function onEnter(event: KeyboardEvent) {
 
 function nudge(direction: 1 | -1) {
   if (props.disabled) return
-  const base = props.modelValue ?? (props.min ?? 0)
+  const base = props.modelValue ?? props.min ?? 0
   commit(base + direction * props.step)
 }
 

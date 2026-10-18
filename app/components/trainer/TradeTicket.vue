@@ -113,9 +113,14 @@ function submit() {
     <div v-if="working" class="rounded-md border border-warn/40 bg-warn-soft p-2.5">
       <div class="flex items-center justify-between text-[11px]">
         <span class="font-medium text-warn">{{ t('ticket.working') }}</span>
-        <span class="num text-ink-2">{{ working.side === 'long' ? t('ticket.long') : t('ticket.short') }} {{ working.qty }} @ {{ formatPrice(working.limitPrice, instrument.pricePrecision) }}</span>
+        <span class="num text-ink-2"
+          >{{ working.side === 'long' ? t('ticket.long') : t('ticket.short') }} {{ working.qty }} @
+          {{ formatPrice(working.limitPrice, instrument.pricePrecision) }}</span
+        >
       </div>
-      <Button variant="ghost" size="xs" class="mt-1 !text-warn" @click="emit('cancel', working.id)">{{ t('ticket.cancel') }}</Button>
+      <Button variant="ghost" size="xs" class="mt-1 !text-warn" @click="emit('cancel', working.id)">{{
+        t('ticket.cancel')
+      }}</Button>
     </div>
 
     <div v-else-if="hasPosition" class="rounded-md border border-line bg-sunken p-2.5 text-[11.5px] text-ink-2">
@@ -187,13 +192,7 @@ function submit() {
       </div>
     </div>
 
-    <Button
-      :variant="side === 'long' ? 'bull' : 'bear'"
-      size="lg"
-      block
-      :disabled="!canSubmit"
-      @click="submit"
-    >
+    <Button :variant="side === 'long' ? 'bull' : 'bear'" size="lg" block :disabled="!canSubmit" @click="submit">
       <ArrowUpRight v-if="side === 'long'" class="size-4" aria-hidden="true" />
       <ArrowDownRight v-else class="size-4" aria-hidden="true" />
       {{ side === 'long' ? t('ticket.buy') : t('ticket.sell') }} {{ instrument.symbol }} · {{ Math.round(qty) }}

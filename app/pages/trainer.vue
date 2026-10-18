@@ -26,7 +26,12 @@ const { t, locale } = useI18n()
 const trainer = useTrainerStore()
 const settings = useSettingsStore()
 const history = useHistoryStore()
-const chart = ref<{ fit: () => void; zoom: (factor: number) => void; scrollToLatest: () => void; focusOn: (index: number, span?: number) => void } | null>(null)
+const chart = ref<{
+  fit: () => void
+  zoom: (factor: number) => void
+  scrollToLatest: () => void
+  focusOn: (index: number, span?: number) => void
+} | null>(null)
 const showTicket = ref(false)
 
 const instrument = computed(() => trainer.instrument)
@@ -72,7 +77,11 @@ const logRows = computed<LogRow[]>(() => {
   }))
 })
 
-const sessionNet = computed(() => trainer.rounds.reduce((total, round) => total + round.netPnl, 0) + (trainer.phase === 'review' ? 0 : (account.value?.netPnl ?? 0)))
+const sessionNet = computed(
+  () =>
+    trainer.rounds.reduce((total, round) => total + round.netPnl, 0) +
+    (trainer.phase === 'review' ? 0 : (account.value?.netPnl ?? 0)),
+)
 
 const revealedDate = computed(() => {
   if (!trainer.scenario) return ''
@@ -188,20 +197,36 @@ onBeforeUnmount(() => {
     <!-- Session header -->
     <header class="flex shrink-0 flex-wrap items-center gap-3">
       <div class="min-w-0">
-        <p class="label-micro">{{ t('trainer.roundOf', { index: Math.max(1, trainer.roundIndex), total: trainer.totalRounds }) }}</p>
+        <p class="label-micro">
+          {{ t('trainer.roundOf', { index: Math.max(1, trainer.roundIndex), total: trainer.totalRounds }) }}
+        </p>
         <div class="mt-1 flex items-center gap-2">
-          <span class="size-2 rounded-full" :class="phaseTone" :style="trainer.phase === 'live' ? 'animation: pulse-dot 1.8s infinite' : ''" aria-hidden="true" />
+          <span
+            class="size-2 rounded-full"
+            :class="phaseTone"
+            :style="trainer.phase === 'live' ? 'animation: pulse-dot 1.8s infinite' : ''"
+            aria-hidden="true"
+          />
           <p class="text-[14px] font-semibold tracking-tight">{{ phaseLabel }}</p>
           <span class="h-3 w-[length:var(--hairline)] bg-line" aria-hidden="true" />
-          <span class="font-mono text-[11px] text-ink-3">{{ symbolLabel }} · {{ trainer.scenario?.timeframeMinutes ?? 5 }}m</span>
-          <span class="hidden font-mono text-[11px] text-ink-3 sm:inline">· {{ trainer.revealed ? revealedDate : t('trainer.dayHidden') }}</span>
+          <span class="font-mono text-[11px] text-ink-3"
+            >{{ symbolLabel }} · {{ trainer.scenario?.timeframeMinutes ?? 5 }}m</span
+          >
+          <span class="hidden font-mono text-[11px] text-ink-3 sm:inline"
+            >· {{ trainer.revealed ? revealedDate : t('trainer.dayHidden') }}</span
+          >
         </div>
       </div>
 
       <div class="ml-auto flex items-center gap-2">
         <div class="hidden text-right sm:block">
           <p class="label-micro">{{ t('stats.equity') }}</p>
-          <NumberTicker :value="account?.equity ?? settings.settings.accountSize" :decimals="2" prefix="$" class="text-[13px] font-medium" />
+          <NumberTicker
+            :value="account?.equity ?? settings.settings.accountSize"
+            :decimals="2"
+            prefix="$"
+            class="text-[13px] font-medium"
+          />
         </div>
         <Badge variant="outline" dot class="hidden lg:inline-flex">{{ t('common.simulated') }}</Badge>
         <Button v-if="trainer.phase !== 'summary'" variant="ghost" size="sm" @click="trainer.endSession()">
@@ -212,13 +237,19 @@ onBeforeUnmount(() => {
 
     <div class="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_356px]">
       <!-- Chart -->
-      <section class="flex min-h-[420px] flex-col overflow-hidden rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 lg:min-h-0">
+      <section
+        class="flex min-h-[420px] flex-col overflow-hidden rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 lg:min-h-0"
+      >
         <div class="flex flex-wrap items-center gap-0.5 border-b-[length:var(--hairline)] border-line px-2 py-1.5">
           <Tooltip v-for="tool in tools" :key="tool.value" :content="tool.label" side="bottom">
             <button
               type="button"
               class="grid size-7 place-items-center rounded-sm transition-colors"
-              :class="trainer.tool === tool.value ? 'bg-clay-soft text-clay-ink' : 'text-ink-3 hover:bg-ink/[0.05] hover:text-ink-2'"
+              :class="
+                trainer.tool === tool.value
+                  ? 'bg-clay-soft text-clay-ink'
+                  : 'text-ink-3 hover:bg-ink/[0.05] hover:text-ink-2'
+              "
               :aria-label="tool.label"
               :aria-pressed="trainer.tool === tool.value"
               @click="setTool(tool.value)"
@@ -228,27 +259,53 @@ onBeforeUnmount(() => {
           </Tooltip>
           <span class="mx-1 h-4 w-[length:var(--hairline)] bg-line" aria-hidden="true" />
           <Tooltip :content="t('chart.undo')" side="bottom">
-            <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2 disabled:opacity-35" :disabled="!trainer.drawings.length" :aria-label="t('chart.undo')" @click="undoDrawing">
+            <button
+              type="button"
+              class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2 disabled:opacity-35"
+              :disabled="!trainer.drawings.length"
+              :aria-label="t('chart.undo')"
+              @click="undoDrawing"
+            >
               <Undo2 class="size-3.5" aria-hidden="true" />
             </button>
           </Tooltip>
           <Tooltip :content="t('chart.clear')" side="bottom">
-            <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2 disabled:opacity-35" :disabled="!trainer.drawings.length" :aria-label="t('chart.clear')" @click="clearDrawings">
+            <button
+              type="button"
+              class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2 disabled:opacity-35"
+              :disabled="!trainer.drawings.length"
+              :aria-label="t('chart.clear')"
+              @click="clearDrawings"
+            >
               <Eraser class="size-3.5" aria-hidden="true" />
             </button>
           </Tooltip>
           <span class="mx-1 h-4 w-[length:var(--hairline)] bg-line" aria-hidden="true" />
           <Tooltip :content="t('chart.zoomIn')" side="bottom">
-            <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2" :aria-label="t('chart.zoomIn')" @click="chart?.zoom(0.85)">
+            <button
+              type="button"
+              class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2"
+              :aria-label="t('chart.zoomIn')"
+              @click="chart?.zoom(0.85)"
+            >
               <Plus class="size-3.5" aria-hidden="true" />
             </button>
           </Tooltip>
           <Tooltip :content="t('chart.zoomOut')" side="bottom">
-            <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2" :aria-label="t('chart.zoomOut')" @click="chart?.zoom(1.15)">
+            <button
+              type="button"
+              class="grid size-7 place-items-center rounded-sm text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2"
+              :aria-label="t('chart.zoomOut')"
+              @click="chart?.zoom(1.15)"
+            >
               <Minus class="size-3.5" aria-hidden="true" />
             </button>
           </Tooltip>
-          <button type="button" class="ml-1 flex h-7 items-center gap-1 rounded-sm px-2 text-[10.5px] text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2" @click="chart?.fit()">
+          <button
+            type="button"
+            class="ml-1 flex h-7 items-center gap-1 rounded-sm px-2 text-[10.5px] text-ink-3 transition-colors hover:bg-ink/[0.05] hover:text-ink-2"
+            @click="chart?.fit()"
+          >
             <Maximize2 class="size-3" aria-hidden="true" />
             {{ t('chart.fit') }}
           </button>
@@ -297,7 +354,10 @@ onBeforeUnmount(() => {
           @toggle="togglePlayback"
           @step="trainer.phase === 'judging' ? trainer.waitBar() : trainer.step()"
           @set-speed="trainer.setSpeed"
-          @reveal="trainer.revealEverything(); chart?.scrollToLatest()"
+          @reveal="
+            trainer.revealEverything()
+            chart?.scrollToLatest()
+          "
         />
       </section>
 
@@ -382,7 +442,9 @@ onBeforeUnmount(() => {
               <div class="border-t-[length:var(--hairline)] border-line pt-3">
                 <div class="mb-2 flex items-center justify-between">
                   <p class="label-micro">{{ t('rules.title') }}</p>
-                  <Badge variant="neutral" size="sm">{{ trainer.rules.phase === 'evaluation' ? t('rules.evaluation') : t('rules.funded') }}</Badge>
+                  <Badge variant="neutral" size="sm">{{
+                    trainer.rules.phase === 'evaluation' ? t('rules.evaluation') : t('rules.funded')
+                  }}</Badge>
                 </div>
                 <RulePanel v-if="account" :rules="trainer.rules" :statuses="account.ruleStatuses" compact />
               </div>
@@ -403,12 +465,23 @@ onBeforeUnmount(() => {
               :is-last="isLastRound"
               @next="nextRound"
               @end="trainer.endSession()"
-              @replay="trainer.revealEverything(); chart?.scrollToLatest()"
+              @replay="
+                trainer.revealEverything()
+                chart?.scrollToLatest()
+              "
             />
             <div v-else-if="trainer.phase === 'review' && !trainer.grade" class="space-y-3">
               <p class="label-micro">{{ t('review.standAside') }}</p>
-              <p class="text-[12px] leading-relaxed text-ink-2">{{ t('review.standAsideBody', { regime: trainer.scenario ? t(`read.states.${trainer.scenario.regime}`) : '' }) }}</p>
-              <Button variant="primary" size="md" block @click="nextRound">{{ isLastRound ? t('review.finishSession') : t('review.nextRound') }}</Button>
+              <p class="text-[12px] leading-relaxed text-ink-2">
+                {{
+                  t('review.standAsideBody', {
+                    regime: trainer.scenario ? t(`read.states.${trainer.scenario.regime}`) : '',
+                  })
+                }}
+              </p>
+              <Button variant="primary" size="md" block @click="nextRound">{{
+                isLastRound ? t('review.finishSession') : t('review.nextRound')
+              }}</Button>
             </div>
           </template>
 
@@ -416,7 +489,10 @@ onBeforeUnmount(() => {
             <div class="space-y-3">
               <p class="label-micro">{{ t('summary.title') }}</p>
               <div>
-                <p class="text-[30px] font-medium tracking-tight serif" :class="sessionNet >= 0 ? 'text-bull-strong' : 'text-bear-strong'">
+                <p
+                  class="text-[30px] font-medium tracking-tight serif"
+                  :class="sessionNet >= 0 ? 'text-bull-strong' : 'text-bear-strong'"
+                >
                   {{ formatMoney(sessionNet, { signed: true, decimals: 2 }) }}
                 </p>
                 <p class="text-[11px] text-ink-3">{{ t('summary.subtitle', { rounds: trainer.rounds.length }) }}</p>
@@ -440,9 +516,15 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <div class="space-y-1">
-                <div v-for="round in trainer.rounds" :key="round.id" class="flex items-center justify-between rounded-sm px-1 py-1 text-[11px]">
+                <div
+                  v-for="round in trainer.rounds"
+                  :key="round.id"
+                  class="flex items-center justify-between rounded-sm px-1 py-1 text-[11px]"
+                >
                   <span class="text-ink-3">#{{ round.index }} · {{ round.symbol }}</span>
-                  <span class="num" :class="round.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">{{ formatMoney(round.netPnl, { signed: true }) }}</span>
+                  <span class="num" :class="round.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">{{
+                    formatMoney(round.netPnl, { signed: true })
+                  }}</span>
                 </div>
               </div>
               <div class="flex flex-col gap-2 border-t-[length:var(--hairline)] border-line pt-3">
@@ -473,10 +555,16 @@ onBeforeUnmount(() => {
           </template>
         </div>
 
-        <div v-if="trainer.phase === 'judging'" class="rounded-lg border border-dashed border-line px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-3">
+        <div
+          v-if="trainer.phase === 'judging'"
+          class="rounded-lg border border-dashed border-line px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-3"
+        >
           {{ t('trainer.judgingHint') }}
         </div>
-        <div v-if="trainer.phase === 'planning'" class="rounded-lg border border-dashed border-line px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-3">
+        <div
+          v-if="trainer.phase === 'planning'"
+          class="rounded-lg border border-dashed border-line px-3 py-2.5 text-[10.5px] leading-relaxed text-ink-3"
+        >
           {{ t('trainer.planningHint') }}
         </div>
       </aside>

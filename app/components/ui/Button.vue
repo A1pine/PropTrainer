@@ -83,7 +83,9 @@ const forwardedAttrs = computed(() => {
     :type="props.as === 'button' ? props.type : undefined"
     :disabled="props.as === 'button' ? props.disabled || props.loading : undefined"
     :aria-busy="props.loading || undefined"
-    :class="cn(buttonVariants({ variant: props.variant, size: props.size }), props.block && 'w-full', $attrs.class as string)"
+    :class="
+      cn(buttonVariants({ variant: props.variant, size: props.size }), props.block && 'w-full', $attrs.class as string)
+    "
   >
     <Loader2 v-if="props.loading" class="size-3.5 animate-spin" aria-hidden="true" />
     <slot />

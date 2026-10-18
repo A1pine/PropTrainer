@@ -17,13 +17,18 @@ const emit = defineEmits<{ close: []; breakeven: [] }>()
 const { t } = useI18n()
 
 const isLong = computed(() => props.position.side === 'long')
-const pnlTone = computed(() => (props.unrealized > 0 ? 'text-bull-strong' : props.unrealized < 0 ? 'text-bear-strong' : 'text-ink'))
+const pnlTone = computed(() =>
+  props.unrealized > 0 ? 'text-bull-strong' : props.unrealized < 0 ? 'text-bear-strong' : 'text-ink',
+)
 </script>
 
 <template>
   <div class="rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 p-3">
     <div class="flex items-center justify-between">
-      <span class="flex items-center gap-1.5 text-[11px] font-medium" :class="isLong ? 'text-bull-strong' : 'text-bear-strong'">
+      <span
+        class="flex items-center gap-1.5 text-[11px] font-medium"
+        :class="isLong ? 'text-bull-strong' : 'text-bear-strong'"
+      >
         <ArrowUpRight v-if="isLong" class="size-3.5" aria-hidden="true" />
         <ArrowDownRight v-else class="size-3.5" aria-hidden="true" />
         {{ isLong ? t('ticket.long') : t('ticket.short') }} · {{ position.qty }} {{ instrument.symbol }}
@@ -46,11 +51,15 @@ const pnlTone = computed(() => (props.unrealized > 0 ? 'text-bull-strong' : prop
       </div>
       <div>
         <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.stop') }}</p>
-        <p class="mt-0.5 tabular-nums text-bear">{{ position.stopLoss == null ? '—' : formatPrice(position.stopLoss, instrument.pricePrecision) }}</p>
+        <p class="mt-0.5 tabular-nums text-bear">
+          {{ position.stopLoss == null ? '—' : formatPrice(position.stopLoss, instrument.pricePrecision) }}
+        </p>
       </div>
       <div>
         <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.target') }}</p>
-        <p class="mt-0.5 tabular-nums text-bull">{{ position.takeProfit == null ? '—' : formatPrice(position.takeProfit, instrument.pricePrecision) }}</p>
+        <p class="mt-0.5 tabular-nums text-bull">
+          {{ position.takeProfit == null ? '—' : formatPrice(position.takeProfit, instrument.pricePrecision) }}
+        </p>
       </div>
       <div class="text-right">
         <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.r') }}</p>
@@ -62,7 +71,14 @@ const pnlTone = computed(() => (props.unrealized > 0 ? 'text-bull-strong' : prop
       <Button variant="secondary" size="sm" block :disabled="disabled" @click="emit('breakeven')">
         {{ t('position.breakeven') }}
       </Button>
-      <Button variant="outline" size="sm" block :disabled="disabled" class="!border-bear/40 !text-bear-strong hover:!bg-bear-soft" @click="emit('close')">
+      <Button
+        variant="outline"
+        size="sm"
+        block
+        :disabled="disabled"
+        class="!border-bear/40 !text-bear-strong hover:!bg-bear-soft"
+        @click="emit('close')"
+      >
         {{ t('position.close') }}
       </Button>
     </div>

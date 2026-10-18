@@ -25,7 +25,12 @@ const moreOpen = ref(false)
         class="absolute top-0 h-[2px] w-6 rounded-pill bg-clay"
         aria-hidden="true"
       />
-      <component :is="item.icon" class="size-5" :stroke-width="isActivePath(route.path, item.to) ? 2 : 1.7" aria-hidden="true" />
+      <component
+        :is="item.icon"
+        class="size-5"
+        :stroke-width="isActivePath(route.path, item.to) ? 2 : 1.7"
+        aria-hidden="true"
+      />
       <span class="text-[9.5px] font-medium leading-none">{{ t(item.shortKey) }}</span>
     </NuxtLink>
     <button

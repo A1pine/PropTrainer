@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
+import {
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+} from 'reka-ui'
 import { X } from '@lucide/vue'
 
 withDefaults(
@@ -26,7 +34,9 @@ const open = defineModel<boolean>('open', { default: false })
             : 'inset-y-0 right-0 w-[min(420px,100vw)] rounded-l-2xl border-l-[length:var(--hairline)]'
         "
       >
-        <div class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b-[length:var(--hairline)] border-line bg-surface-2/95 px-5 py-4 backdrop-blur">
+        <div
+          class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b-[length:var(--hairline)] border-line bg-surface-2/95 px-5 py-4 backdrop-blur"
+        >
           <div class="space-y-0.5">
             <DialogTitle class="text-[15px] font-semibold tracking-tight">{{ title }}</DialogTitle>
             <DialogDescription v-if="description" class="text-[11.5px] text-ink-3">{{ description }}</DialogDescription>

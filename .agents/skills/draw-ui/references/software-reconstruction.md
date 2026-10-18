@@ -17,10 +17,10 @@
 例如，项目支持静态资源导入时：
 
 ```tsx
-import heroUrl from "@/assets/hero.png";
+import heroUrl from '@/assets/hero.png'
 
 export function HeroIllustration() {
-  return <img className="heroIllustration" src={heroUrl} alt="" />;
+  return <img className="heroIllustration" src={heroUrl} alt="" />
 }
 ```
 

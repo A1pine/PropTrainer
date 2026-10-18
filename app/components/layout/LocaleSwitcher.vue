@@ -26,7 +26,14 @@ function choose(code: LocaleCode) {
 </script>
 
 <template>
-  <Select v-if="variant === 'select'" v-model="current" :options="options" size="sm" :aria-label="t('common.language')" class="min-w-[132px]" />
+  <Select
+    v-if="variant === 'select'"
+    v-model="current"
+    :options="options"
+    size="sm"
+    :aria-label="t('common.language')"
+    class="min-w-[132px]"
+  />
   <template v-else>
     <Tooltip :content="t('common.language')" side="right">
       <button

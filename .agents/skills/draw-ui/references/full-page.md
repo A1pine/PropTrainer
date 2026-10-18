@@ -31,9 +31,9 @@
 {
   "expected_sections": ["intro", "details", "closing"],
   "sections": [
-    {"id": "intro", "image": "parts/intro.png"},
-    {"id": "details", "image": "parts/details.png"},
-    {"id": "closing", "image": "parts/closing.png"}
+    { "id": "intro", "image": "parts/intro.png" },
+    { "id": "details", "image": "parts/details.png" },
+    { "id": "closing", "image": "parts/closing.png" }
   ]
 }
 ```

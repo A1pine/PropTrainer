@@ -75,25 +75,51 @@ const tone = computed(() => {
       </defs>
 
       <g stroke="var(--line)" stroke-width="1">
-        <line v-for="row in 4" :key="row" :x1="padding.left" :x2="width - padding.right" :y1="padding.top + ((height - padding.top - padding.bottom) * row) / 4" :y2="padding.top + ((height - padding.top - padding.bottom) * row) / 4" />
+        <line
+          v-for="row in 4"
+          :key="row"
+          :x1="padding.left"
+          :x2="width - padding.right"
+          :y1="padding.top + ((height - padding.top - padding.bottom) * row) / 4"
+          :y2="padding.top + ((height - padding.top - padding.bottom) * row) / 4"
+        />
       </g>
-      <line :x1="padding.left" :x2="width - padding.right" :y1="geometry.zero" :y2="geometry.zero" stroke="var(--line-strong)" stroke-dasharray="3 4" />
+      <line
+        :x1="padding.left"
+        :x2="width - padding.right"
+        :y1="geometry.zero"
+        :y2="geometry.zero"
+        stroke="var(--line-strong)"
+        stroke-dasharray="3 4"
+      />
 
       <path :d="geometry.area" fill="url(#equity-fill)" />
       <path :d="geometry.line" fill="none" :stroke="tone" stroke-width="2" stroke-linecap="round" />
 
       <g v-if="hovered">
-        <line :x1="hovered.x" :x2="hovered.x" :y1="padding.top" :y2="height - padding.bottom" stroke="var(--line-strong)" stroke-dasharray="3 3" />
+        <line
+          :x1="hovered.x"
+          :x2="hovered.x"
+          :y1="padding.top"
+          :y2="height - padding.bottom"
+          stroke="var(--line-strong)"
+          stroke-dasharray="3 3"
+        />
         <circle :cx="hovered.x" :cy="hovered.y" r="3.5" :fill="tone" stroke="var(--surface-2)" stroke-width="2" />
       </g>
-      <circle :cx="geometry.x(geometry.data.length - 1)" :cy="geometry.y(geometry.data.at(-1)?.cumulative ?? 0)" r="2.5" :fill="tone" />
+      <circle
+        :cx="geometry.x(geometry.data.length - 1)"
+        :cy="geometry.y(geometry.data.at(-1)?.cumulative ?? 0)"
+        r="2.5"
+        :fill="tone"
+      />
     </svg>
     <div v-else class="grid h-[220px] place-items-center text-[11px] text-ink-3">{{ t('statsPage.equity.empty') }}</div>
 
     <div
       v-if="hovered"
       class="pointer-events-none absolute top-2 rounded-md border-[length:var(--hairline)] border-line bg-overlay/95 px-2 py-1 font-mono text-[10px] shadow-sm backdrop-blur"
-      :style="{ left: `${Math.min(90, ((hovered.x / width) * 100))}%` }"
+      :style="{ left: `${Math.min(90, (hovered.x / width) * 100)}%` }"
     >
       <span class="text-ink-3">#{{ hovered.point.index }}</span>
       <span class="ml-2" :class="hovered.point.cumulative >= 0 ? 'text-bull-strong' : 'text-bear-strong'">

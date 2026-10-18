@@ -32,7 +32,8 @@ export function createInstrumentRegistry(specs: readonly InstrumentSpec[]): Inst
       return instrument
     },
     list: () => [...all],
-    resolve: (symbols) => symbols.map((symbol) => bySymbol.get(symbol)).filter((item): item is InstrumentSpec => item != null),
+    resolve: (symbols) =>
+      symbols.map((symbol) => bySymbol.get(symbol)).filter((item): item is InstrumentSpec => item != null),
     has: (symbol) => bySymbol.has(symbol),
   }
 }

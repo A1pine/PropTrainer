@@ -82,7 +82,10 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
         <div class="mt-1 flex items-center gap-2">
           <span class="num text-[15px] font-medium">{{ roundIndex }}/{{ totalRounds }}</span>
           <div class="h-1 flex-1 overflow-hidden rounded-pill bg-ink/10">
-            <div class="h-full rounded-pill rule-progress transition-[width] duration-500" :style="{ width: `${progress}%` }" />
+            <div
+              class="h-full rounded-pill rule-progress transition-[width] duration-500"
+              :style="{ width: `${progress}%` }"
+            />
           </div>
         </div>
       </div>
@@ -126,7 +129,14 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
         <Kbd :keys="['N']" class="ml-1" />
       </button>
 
-      <SegmentedControl v-if="canPlay" v-model="speedModel" :options="speeds" size="sm" class="ml-1 max-w-[190px]" :aria-label="t('playback.speed')" />
+      <SegmentedControl
+        v-if="canPlay"
+        v-model="speedModel"
+        :options="speeds"
+        size="sm"
+        class="ml-1 max-w-[190px]"
+        :aria-label="t('playback.speed')"
+      />
 
       <div class="ml-auto flex items-center gap-3 text-[11px] text-ink-3">
         <span class="num">{{ Math.min(visibleCount, totalBars) }} / {{ totalBars }}</span>

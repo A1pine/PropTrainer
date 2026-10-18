@@ -102,7 +102,8 @@ export function validatePlan(plan: DrillPlan, context: PlanContext): PlanValidat
   const rewardDistance = Math.abs(target - entry)
   const rr = riskDistance > 0 ? rewardDistance / riskDistance : null
   const stopDistanceAtr = atr > 0 ? riskDistance / atr : null
-  const stopToSwingAtr = atr > 0 ? scaleDistance(nearestSwingDistance(context.swings, stop, context.endIndex), atr) : null
+  const stopToSwingAtr =
+    atr > 0 ? scaleDistance(nearestSwingDistance(context.swings, stop, context.endIndex), atr) : null
   const targetToSwingAtr =
     atr > 0 ? scaleDistance(nearestSwingDistance(context.swings, target, context.endIndex), atr) : null
 
@@ -239,8 +240,7 @@ export function simulatePlanTs(
   const start = plan.submittedAtBar + 1
   const end = Math.min(candles.length, start + horizonBars)
   const riskPerContract =
-    (Math.abs(entryLevel - stopLevel) / instrument.tickSize) * instrument.tickValue +
-    (instrument.feePerContract ?? 0)
+    (Math.abs(entryLevel - stopLevel) / instrument.tickSize) * instrument.tickValue + (instrument.feePerContract ?? 0)
 
   for (let index = start; index < end; index += 1) {
     const bar = candles[index]
@@ -292,7 +292,12 @@ export function simulatePlanTs(
     const last = candles[lastIndex]
     return finish(last?.close ?? entryLevel, 'timeout', index, lastIndex)
 
-    function finish(exitPrice: number, reason: PlanOutcome['exitReason'], entryBar: number, exitBar: number): PlanOutcome {
+    function finish(
+      exitPrice: number,
+      reason: PlanOutcome['exitReason'],
+      entryBar: number,
+      exitBar: number,
+    ): PlanOutcome {
       const gross = (exitPrice - entryPrice) * (isLong ? 1 : -1) * instrument.pointValue
       const rMultiple = riskPerContract > 0 ? (gross - instrument.feePerContract) / riskPerContract : null
       return {

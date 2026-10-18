@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { instruments } from '@/domain/instruments/catalog'
-import { generateMarketData, generateMarketDataTs, findSwings, findSwingsTs, type MarketGenerationOptions } from '@/domain/market/generator'
+import {
+  generateMarketData,
+  generateMarketDataTs,
+  findSwings,
+  findSwingsTs,
+  type MarketGenerationOptions,
+} from '@/domain/market/generator'
 import { simulatePlan, simulatePlanTs, type DrillPlan } from '@/domain/drill/plan'
 import { createScenarioFactory } from '@/domain/market/scenario'
 import { getWasmCore, setWasmCore } from '@/domain/wasm/core'

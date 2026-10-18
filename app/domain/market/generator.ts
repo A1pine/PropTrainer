@@ -178,7 +178,8 @@ export function generateCandles(options: GenerateOptions): Candle[] {
 }
 
 function volumeFor(instrument: InstrumentSpec, standardizedReturn: number, rng: Rng): number {
-  const base = instrument.category === 'commodity-future' ? 1_600 : instrument.category === 'mini-future' ? 3_200 : 5_400
+  const base =
+    instrument.category === 'commodity-future' ? 1_600 : instrument.category === 'mini-future' ? 3_200 : 5_400
   const noise = 0.65 + rng() * 0.9
   const activity = 1 + Math.min(3.2, Math.abs(standardizedReturn) * 1.4)
   return base * noise * activity

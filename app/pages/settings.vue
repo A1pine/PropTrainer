@@ -135,14 +135,26 @@ onMounted(() => {
               <p class="text-[11.5px] font-medium">{{ t('common.theme') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.appearance.themeHint') }}</p>
             </div>
-            <SegmentedControl v-model="themeModel" :options="themeOptions" size="sm" :aria-label="t('common.theme')" class="w-[220px]" />
+            <SegmentedControl
+              v-model="themeModel"
+              :options="themeOptions"
+              size="sm"
+              :aria-label="t('common.theme')"
+              class="w-[220px]"
+            />
           </div>
           <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.appearance.motion') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.appearance.motionHint') }}</p>
             </div>
-            <SegmentedControl v-model="motionModel" :options="motionOptions" size="sm" :aria-label="t('settings.appearance.motion')" class="w-[200px]" />
+            <SegmentedControl
+              v-model="motionModel"
+              :options="motionOptions"
+              size="sm"
+              :aria-label="t('settings.appearance.motion')"
+              class="w-[200px]"
+            />
           </div>
         </div>
       </Panel>
@@ -177,7 +189,14 @@ onMounted(() => {
               @update:model-value="setAccountSize"
             />
           </Field>
-          <Field :label="t('settings.risk.riskPerTrade')" :hint="t('settings.risk.riskPerTradeHint', { amount: formatMoney((settings.accountSize * settings.riskPerTrade) / 100, { decimals: 0 }) })">
+          <Field
+            :label="t('settings.risk.riskPerTrade')"
+            :hint="
+              t('settings.risk.riskPerTradeHint', {
+                amount: formatMoney((settings.accountSize * settings.riskPerTrade) / 100, { decimals: 0 }),
+              })
+            "
+          >
             <NumberField
               :model-value="settings.riskPerTrade"
               :min="0.1"
@@ -251,28 +270,46 @@ onMounted(() => {
               <p class="text-[11.5px] font-medium">{{ t('settings.session.speed') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.session.speedHint') }}</p>
             </div>
-            <SegmentedControl v-model="speedModel" :options="speedOptions" size="sm" class="w-[220px]" :aria-label="t('settings.session.speed')" />
+            <SegmentedControl
+              v-model="speedModel"
+              :options="speedOptions"
+              size="sm"
+              class="w-[220px]"
+              :aria-label="t('settings.session.speed')"
+            />
           </div>
           <div class="flex items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.session.showR') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.session.showRHint') }}</p>
             </div>
-            <Switch :model-value="settings.showRMultiple" :aria-label="t('settings.session.showR')" @update:model-value="settingsStore.update({ showRMultiple: $event })" />
+            <Switch
+              :model-value="settings.showRMultiple"
+              :aria-label="t('settings.session.showR')"
+              @update:model-value="settingsStore.update({ showRMultiple: $event })"
+            />
           </div>
           <div class="flex items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.session.confirm') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.session.confirmHint') }}</p>
             </div>
-            <Switch :model-value="settings.confirmBeforeSubmit" :aria-label="t('settings.session.confirm')" @update:model-value="settingsStore.update({ confirmBeforeSubmit: $event })" />
+            <Switch
+              :model-value="settings.confirmBeforeSubmit"
+              :aria-label="t('settings.session.confirm')"
+              @update:model-value="settingsStore.update({ confirmBeforeSubmit: $event })"
+            />
           </div>
           <div class="flex items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.audio.sound') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.audio.hint') }}</p>
             </div>
-            <Switch :model-value="settings.sound" :aria-label="t('settings.audio.sound')" @update:model-value="settingsStore.update({ sound: $event })" />
+            <Switch
+              :model-value="settings.sound"
+              :aria-label="t('settings.audio.sound')"
+              @update:model-value="settingsStore.update({ sound: $event })"
+            />
           </div>
         </div>
       </Panel>
@@ -300,35 +337,52 @@ onMounted(() => {
               <p class="text-[11.5px] font-medium">{{ t('settings.data.export') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.data.exportHint') }}</p>
             </div>
-            <Button variant="secondary" size="sm" @click="exportJson"><Download class="size-3.5" aria-hidden="true" />{{ t('common.export') }}</Button>
+            <Button variant="secondary" size="sm" @click="exportJson"
+              ><Download class="size-3.5" aria-hidden="true" />{{ t('common.export') }}</Button
+            >
           </div>
           <div class="flex items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.data.resetHistory') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.data.resetHistoryHint') }}</p>
             </div>
-            <Button variant="danger-ghost" size="sm" :disabled="!history.sessions.length" @click="resetHistoryOpen = true"><Trash2 class="size-3.5" aria-hidden="true" />{{ t('common.reset') }}</Button>
+            <Button
+              variant="danger-ghost"
+              size="sm"
+              :disabled="!history.sessions.length"
+              @click="resetHistoryOpen = true"
+              ><Trash2 class="size-3.5" aria-hidden="true" />{{ t('common.reset') }}</Button
+            >
           </div>
           <div class="flex items-center justify-between gap-3 px-5 py-3.5">
             <div>
               <p class="text-[11.5px] font-medium">{{ t('settings.data.resetSettings') }}</p>
               <p class="text-[10.5px] text-ink-3">{{ t('settings.data.resetSettingsHint') }}</p>
             </div>
-            <Button variant="ghost" size="sm" @click="resetSettingsOpen = true"><RotateCcw class="size-3.5" aria-hidden="true" />{{ t('common.reset') }}</Button>
+            <Button variant="ghost" size="sm" @click="resetSettingsOpen = true"
+              ><RotateCcw class="size-3.5" aria-hidden="true" />{{ t('common.reset') }}</Button
+            >
           </div>
         </div>
       </Panel>
     </div>
 
     <div class="mt-5 flex flex-wrap items-center gap-3 text-[10px] text-ink-3">
-      <span class="flex items-center gap-1.5"><Check class="size-3 text-bull" aria-hidden="true" />{{ t('settings.saved') }}</span>
+      <span class="flex items-center gap-1.5"
+        ><Check class="size-3 text-bull" aria-hidden="true" />{{ t('settings.saved') }}</span
+      >
       <span class="h-2.5 w-[length:var(--hairline)] bg-line" aria-hidden="true" />
       <span class="font-mono">v{{ $config.public.appVersion }}</span>
       <span>·</span>
       <span>{{ t('settings.disclaimer') }}</span>
     </div>
 
-    <Dialog v-model:open="resetHistoryOpen" :title="t('settings.data.resetHistory')" :description="t('settings.data.resetHistoryBody')" size="sm">
+    <Dialog
+      v-model:open="resetHistoryOpen"
+      :title="t('settings.data.resetHistory')"
+      :description="t('settings.data.resetHistoryBody')"
+      size="sm"
+    >
       <p class="text-[12px] leading-relaxed text-ink-2">{{ t('settings.data.resetHistoryNote') }}</p>
       <template #footer>
         <Button variant="ghost" size="sm" @click="resetHistoryOpen = false">{{ t('common.cancel') }}</Button>
@@ -336,7 +390,12 @@ onMounted(() => {
       </template>
     </Dialog>
 
-    <Dialog v-model:open="resetSettingsOpen" :title="t('settings.data.resetSettings')" :description="t('settings.data.resetSettingsBody')" size="sm">
+    <Dialog
+      v-model:open="resetSettingsOpen"
+      :title="t('settings.data.resetSettings')"
+      :description="t('settings.data.resetSettingsBody')"
+      size="sm"
+    >
       <p class="text-[12px] leading-relaxed text-ink-2">{{ t('settings.data.resetSettingsNote') }}</p>
       <template #footer>
         <Button variant="ghost" size="sm" @click="resetSettingsOpen = false">{{ t('common.cancel') }}</Button>

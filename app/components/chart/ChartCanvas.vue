@@ -55,7 +55,9 @@ const tooltipStyle = computed(() => {
   }
 })
 
-const tone = computed(() => (hover.value ? (hover.value.candle.close >= hover.value.candle.open ? 'text-bull-strong' : 'text-bear-strong') : ''))
+const tone = computed(() =>
+  hover.value ? (hover.value.candle.close >= hover.value.candle.open ? 'text-bull-strong' : 'text-bear-strong') : '',
+)
 
 function init() {
   if (!canvas.value || !container.value || engine.value) return
@@ -168,7 +170,9 @@ defineExpose({
     />
 
     <div class="pointer-events-none absolute left-3 top-3 flex items-center gap-2">
-      <span class="rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/80 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-ink-3 backdrop-blur">
+      <span
+        class="rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/80 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-ink-3 backdrop-blur"
+      >
         {{ symbolMask }} · {{ timeframeMinutes }}m
       </span>
       <slot name="badge" />
@@ -190,21 +194,26 @@ defineExpose({
           <span>{{ hover.index + 1 }}</span>
         </div>
         <div class="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 font-mono text-[10.5px] tabular-nums">
-          <span class="text-ink-3">O</span><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.open.toFixed(pricePrecision) }}</span>
-          <span class="text-ink-3">H</span><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.high.toFixed(pricePrecision) }}</span>
-          <span class="text-ink-3">L</span><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.low.toFixed(pricePrecision) }}</span>
-          <span class="text-ink-3">C</span><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.close.toFixed(pricePrecision) }}</span>
+          <span class="text-ink-3">O</span
+          ><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.open.toFixed(pricePrecision) }}</span>
+          <span class="text-ink-3">H</span
+          ><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.high.toFixed(pricePrecision) }}</span>
+          <span class="text-ink-3">L</span
+          ><span class="text-right" :class="tone">{{ blind ? '•••' : hover.candle.low.toFixed(pricePrecision) }}</span>
+          <span class="text-ink-3">C</span
+          ><span class="text-right" :class="tone">{{
+            blind ? '•••' : hover.candle.close.toFixed(pricePrecision)
+          }}</span>
         </div>
-        <div class="mt-1 flex justify-between border-t-[length:var(--hairline)] border-line pt-1 font-mono text-[10px] text-ink-3">
+        <div
+          class="mt-1 flex justify-between border-t-[length:var(--hairline)] border-line pt-1 font-mono text-[10px] text-ink-3"
+        >
           <span>VOL</span><span>{{ hover.candle.volume.toLocaleString('en-US') }}</span>
         </div>
       </div>
     </Transition>
 
-    <div
-      v-if="!candles.length"
-      class="absolute inset-0 grid place-items-center text-[12px] text-ink-3"
-    >
+    <div v-if="!candles.length" class="absolute inset-0 grid place-items-center text-[12px] text-ink-3">
       <slot name="empty">Drawing a sample…</slot>
     </div>
   </div>

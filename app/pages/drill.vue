@@ -27,7 +27,9 @@ const overlays = computed(() => ({
 }))
 const isRevealed = computed(() => drill.revealed)
 const step = computed(() => (drill.phase === 'reading' ? 1 : drill.phase === 'planning' ? 2 : 3))
-const symbolLabel = computed(() => (drill.revealed ? instrument.value?.symbol ?? '' : instrument.value?.mask ?? 'M???'))
+const symbolLabel = computed(() =>
+  drill.revealed ? (instrument.value?.symbol ?? '') : (instrument.value?.mask ?? 'M???'),
+)
 
 const tools: { value: ChartTool; icon: typeof MousePointer2; label: string }[] = [
   { value: 'cursor', icon: MousePointer2, label: 'Cursor / pan' },
@@ -123,9 +125,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <div class="flex items-center gap-2">
           <span
             class="grid size-6 place-items-center rounded-full border font-mono text-[10.5px]"
-            :class="step === index ? 'border-clay bg-clay text-on-clay' : step > index ? 'border-bull/40 bg-bull-soft text-bull-strong' : 'border-line text-ink-3'"
-          >{{ index }}</span>
-          <span class="text-[11px]" :class="step === index ? 'font-medium text-ink' : 'text-ink-3'">{{ t(`drill.steps.${index}`) }}</span>
+            :class="
+              step === index
+                ? 'border-clay bg-clay text-on-clay'
+                : step > index
+                  ? 'border-bull/40 bg-bull-soft text-bull-strong'
+                  : 'border-line text-ink-3'
+            "
+            >{{ index }}</span
+          >
+          <span class="text-[11px]" :class="step === index ? 'font-medium text-ink' : 'text-ink-3'">{{
+            t(`drill.steps.${index}`)
+          }}</span>
         </div>
         <div v-if="index < 3" class="h-[length:var(--hairline)] w-8 bg-line sm:w-16" aria-hidden="true" />
       </template>
@@ -138,7 +149,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             <button
               type="button"
               class="grid size-7 place-items-center rounded-sm transition-colors"
-              :class="drill.tool === tool.value ? 'bg-clay-soft text-clay-ink' : 'text-ink-3 hover:bg-ink/[0.05] hover:text-ink-2'"
+              :class="
+                drill.tool === tool.value
+                  ? 'bg-clay-soft text-clay-ink'
+                  : 'text-ink-3 hover:bg-ink/[0.05] hover:text-ink-2'
+              "
               :aria-label="tool.label"
               :aria-pressed="drill.tool === tool.value"
               @click="drill.tool = tool.value"
@@ -147,21 +162,42 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
             </button>
           </Tooltip>
           <span class="mx-1 h-4 w-[length:var(--hairline)] bg-line" aria-hidden="true" />
-          <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2" :aria-label="t('chart.clear')" @click="drill.drawings = []">
+          <button
+            type="button"
+            class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2"
+            :aria-label="t('chart.clear')"
+            @click="drill.drawings = []"
+          >
             <Eraser class="size-3.5" aria-hidden="true" />
           </button>
-          <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2" :aria-label="t('chart.zoomIn')" @click="chart?.zoom(0.85)">
+          <button
+            type="button"
+            class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2"
+            :aria-label="t('chart.zoomIn')"
+            @click="chart?.zoom(0.85)"
+          >
             <Plus class="size-3.5" aria-hidden="true" />
           </button>
-          <button type="button" class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2" :aria-label="t('chart.zoomOut')" @click="chart?.zoom(1.15)">
+          <button
+            type="button"
+            class="grid size-7 place-items-center rounded-sm text-ink-3 hover:bg-ink/5 hover:text-ink-2"
+            :aria-label="t('chart.zoomOut')"
+            @click="chart?.zoom(1.15)"
+          >
             <Minus class="size-3.5" aria-hidden="true" />
           </button>
-          <button type="button" class="flex h-7 items-center gap-1 rounded-sm px-2 text-[10.5px] text-ink-3 hover:bg-ink/5 hover:text-ink-2" @click="chart?.fit()">
+          <button
+            type="button"
+            class="flex h-7 items-center gap-1 rounded-sm px-2 text-[10.5px] text-ink-3 hover:bg-ink/5 hover:text-ink-2"
+            @click="chart?.fit()"
+          >
             <Maximize2 class="size-3" aria-hidden="true" />
             {{ t('chart.fit') }}
           </button>
           <div class="ml-auto flex items-center gap-2">
-            <Badge :variant="isRevealed ? 'bull' : 'clay'" size="sm" dot>{{ isRevealed ? t('chart.revealed') : t('chart.blind') }}</Badge>
+            <Badge :variant="isRevealed ? 'bull' : 'clay'" size="sm" dot>{{
+              isRevealed ? t('chart.revealed') : t('chart.blind')
+            }}</Badge>
           </div>
         </div>
 
@@ -182,7 +218,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           @update:drawings="drill.drawings = $event"
           @overlay-drag="(kind, price) => drill.updateLevel(kind, price)"
         />
-        <div class="flex items-center justify-between border-t-[length:var(--hairline)] border-line px-3 py-2 text-[10.5px] text-ink-3">
+        <div
+          class="flex items-center justify-between border-t-[length:var(--hairline)] border-line px-3 py-2 text-[10.5px] text-ink-3"
+        >
           <span>{{ isRevealed ? t('drill.revealHint') : t('drill.blindHint') }}</span>
           <span class="num">{{ drill.visibleCount }} / {{ drill.candles.length }}</span>
         </div>
@@ -216,16 +254,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <DrillResult
           v-else-if="drill.phase === 'review' && drill.grade"
           :grade="drill.grade"
-          :outcome="drill.outcome ?? { filled: false, entryBar: null, entryPrice: null, exitBar: null, exitPrice: null, exitReason: 'no-entry', rMultiple: null, maeR: null, mfeR: null, barsToEntry: 0, barsHeld: 0 }"
+          :outcome="
+            drill.outcome ?? {
+              filled: false,
+              entryBar: null,
+              entryPrice: null,
+              exitBar: null,
+              exitPrice: null,
+              exitReason: 'no-entry',
+              rMultiple: null,
+              maeR: null,
+              mfeR: null,
+              barsToEntry: 0,
+              barsHeld: 0,
+            }
+          "
           :scenario="drill.scenario!"
           :plan="drill.plan"
           :seed="drill.seed"
           @next="drill.next()"
         />
-        <NuxtLink v-if="route.query.pk" to="/pk" class="mt-2 block text-center text-[10.5px] text-ink-3 hover:text-ink-2">
+        <NuxtLink
+          v-if="route.query.pk"
+          to="/pk"
+          class="mt-2 block text-center text-[10.5px] text-ink-3 hover:text-ink-2"
+        >
           {{ t('pk.backToRoom') }}
         </NuxtLink>
-        <div v-if="drill.phase === 'idle'" class="py-10 text-center text-[12px] text-ink-3">{{ t('drill.drawing') }}</div>
+        <div v-if="drill.phase === 'idle'" class="py-10 text-center text-[12px] text-ink-3">
+          {{ t('drill.drawing') }}
+        </div>
       </aside>
     </div>
   </div>

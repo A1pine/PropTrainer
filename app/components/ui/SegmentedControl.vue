@@ -20,7 +20,12 @@ const props = withDefaults(
 
 const model = defineModel<T>({ required: true })
 
-const activeIndex = computed(() => Math.max(0, props.options.findIndex((option) => option.value === model.value)))
+const activeIndex = computed(() =>
+  Math.max(
+    0,
+    props.options.findIndex((option) => option.value === model.value),
+  ),
+)
 
 function select(value: T) {
   if (props.disabled) return

@@ -33,9 +33,27 @@ async function playTrainerRound() {
   check(await page.getByText('Place the invalidation before the entry.').isVisible(), 'trainer: plan step')
   await page.getByRole('button', { name: /Place bracket/ }).click()
   await page.waitForTimeout(1200)
-  check(await page.getByText('Trade ticket').first().isVisible().catch(() => false) || (await page.getByText('OPEN').first().isVisible().catch(() => false)), 'trainer: live step')
-  await page.getByRole('button', { name: /Pause/ }).click().catch(() => {})
-  await page.getByRole('button', { name: /Finish round/ }).click().catch(() => {})
+  check(
+    (await page
+      .getByText('Trade ticket')
+      .first()
+      .isVisible()
+      .catch(() => false)) ||
+      (await page
+        .getByText('OPEN')
+        .first()
+        .isVisible()
+        .catch(() => false)),
+    'trainer: live step',
+  )
+  await page
+    .getByRole('button', { name: /Pause/ })
+    .click()
+    .catch(() => {})
+  await page
+    .getByRole('button', { name: /Finish round/ })
+    .click()
+    .catch(() => {})
   await page.waitForTimeout(700)
   check(await page.getByText('The tape is unblind.').isVisible(), 'trainer: review')
 }
@@ -45,7 +63,9 @@ async function drillFlow() {
   await page.waitForTimeout(900)
   await page.getByRole('radio', { name: /Range/ }).click()
   await page.getByRole('tab', { name: /No trade/ }).click()
-  await page.locator('#thesis').fill('Two-sided tape with no clean sweep. Standing aside is the trade until the edge fails.')
+  await page
+    .locator('#thesis')
+    .fill('Two-sided tape with no clean sweep. Standing aside is the trade until the edge fails.')
   await page.getByRole('button', { name: /Commit read/ }).click()
   await page.waitForTimeout(300)
   await page.getByRole('button', { name: /Confirm no trade/ }).click()

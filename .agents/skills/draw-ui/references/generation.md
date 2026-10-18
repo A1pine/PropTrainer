@@ -11,14 +11,14 @@ node "$SKILL_DIR/scripts/credential-ui/src/profile.ts" run default -- bash "$SKI
 node "$SKILL_DIR/scripts/credential-ui/src/profile.ts" run default -- bash "$SKILL_DIR/scripts/ask_draw.sh" --frame /path/to/reference.png --type wide --name "dashboard" --prompt "保留固定区域的页面提示词"
 ```
 
-| 参数 | 作用 |
-| --- | --- |
-| `--type` | `ultrawide` 21:9、`wide` 16:9、`classic` 4:3、`square` 1:1、`portrait` 3:4；默认wide |
-| `--frame` / `--ref` | 固定框架参考图 / 可重复传入的参考图 |
-| `--name` / `-o` | 文件名 / 输出路径 |
-| `--model` | 模型ID覆盖 |
-| `--provider` | `zenmux` 或 `codex`，后者是脚本保留的 OpenAI Responses API 适配器名称 |
-| `--mode` | `normal`、`replicate`、`frame-lock`、`asset-redraw` |
+| 参数                | 作用                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `--type`            | `ultrawide` 21:9、`wide` 16:9、`classic` 4:3、`square` 1:1、`portrait` 3:4；默认wide |
+| `--frame` / `--ref` | 固定框架参考图 / 可重复传入的参考图                                                  |
+| `--name` / `-o`     | 文件名 / 输出路径                                                                    |
+| `--model`           | 模型ID覆盖                                                                           |
+| `--provider`        | `zenmux` 或 `codex`，后者是脚本保留的 OpenAI Responses API 适配器名称                |
+| `--mode`            | `normal`、`replicate`、`frame-lock`、`asset-redraw`                                  |
 
 `portrait` 是画布预设，不能直接代表真实手机视口或完整长页。脚本的 ZenMux OpenAI 分支使用 `generate_images/edit_image` 时未传比例参数；返回尺寸不能由 `--type` 或元数据中的 `aspect_ratio` 推断。需要精确尺寸时使用宿主已有、已确认支持尺寸参数的调用方式；完成后读取实际图片尺寸。不要为修正比例而拉伸图片。
 

@@ -25,28 +25,53 @@ const sessions = computed(() => {
   return history.sessions.filter((session) => new Date(session.startedAt).getTime() >= cutoff)
 })
 
-const processRounds = computed(() => sessions.value.flatMap((session) => session.rounds).filter((round) => round.processScore != null))
+const processRounds = computed(() =>
+  sessions.value.flatMap((session) => session.rounds).filter((round) => round.processScore != null),
+)
 const avgProcess = computed(() =>
   processRounds.value.length
-    ? Math.round(processRounds.value.reduce((total, round) => total + (round.processScore ?? 0), 0) / processRounds.value.length)
+    ? Math.round(
+        processRounds.value.reduce((total, round) => total + (round.processScore ?? 0), 0) / processRounds.value.length,
+      )
     : null,
 )
-const breaches = computed(() => sessions.value.flatMap((session) => session.rounds).filter((round) => round.status === 'breached').length)
+const breaches = computed(
+  () => sessions.value.flatMap((session) => session.rounds).filter((round) => round.status === 'breached').length,
+)
 const totalRounds = computed(() => sessions.value.reduce((total, session) => total + session.rounds.length, 0))
 
 const kpis = computed(() => [
-  { label: t('statsPage.kpi.sessions'), value: sessions.value.length, format: 'int' as const, hint: t('statsPage.kpi.sessionsHint') },
-  { label: t('statsPage.kpi.rounds'), value: totalRounds.value, format: 'int' as const, hint: t('statsPage.kpi.roundsHint') },
-  { label: t('statsPage.kpi.winRate'), value: stats.value.winRate, format: 'percent' as const, hint: t('statsPage.kpi.winRateHint') },
-  { label: t('statsPage.kpi.avgR'), value: stats.value.avgR ?? 0, format: 'r' as const, hint: t('statsPage.kpi.avgRHint'), empty: stats.value.avgR == null },
+  {
+    label: t('statsPage.kpi.sessions'),
+    value: sessions.value.length,
+    format: 'int' as const,
+    hint: t('statsPage.kpi.sessionsHint'),
+  },
+  {
+    label: t('statsPage.kpi.rounds'),
+    value: totalRounds.value,
+    format: 'int' as const,
+    hint: t('statsPage.kpi.roundsHint'),
+  },
+  {
+    label: t('statsPage.kpi.winRate'),
+    value: stats.value.winRate,
+    format: 'percent' as const,
+    hint: t('statsPage.kpi.winRateHint'),
+  },
+  {
+    label: t('statsPage.kpi.avgR'),
+    value: stats.value.avgR ?? 0,
+    format: 'r' as const,
+    hint: t('statsPage.kpi.avgRHint'),
+    empty: stats.value.avgR == null,
+  },
 ])
 
 const distributionMax = computed(() => Math.max(1, ...stats.value.rDistribution.map((bucket) => bucket.count)))
 
 const historyRows = computed(() =>
-  [...sessions.value]
-    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-    .slice(0, 8),
+  [...sessions.value].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()).slice(0, 8),
 )
 
 const isEmpty = computed(() => !history.sessions.length)
@@ -77,11 +102,19 @@ onMounted(() => {
     <header class="flex flex-wrap items-end gap-3">
       <div>
         <p class="label-micro">{{ t('statsPage.kicker') }}</p>
-        <h1 class="serif mt-2 text-[clamp(1.9rem,3.6vw,2.8rem)] font-medium tracking-tight">{{ t('statsPage.title') }}</h1>
+        <h1 class="serif mt-2 text-[clamp(1.9rem,3.6vw,2.8rem)] font-medium tracking-tight">
+          {{ t('statsPage.title') }}
+        </h1>
         <p class="mt-2 max-w-[56ch] text-[12.5px] leading-relaxed text-ink-2">{{ t('statsPage.subtitle') }}</p>
       </div>
       <div class="ml-auto flex items-center gap-2">
-        <SegmentedControl v-model="range" :options="rangeOptions" size="sm" :aria-label="t('statsPage.range')" class="w-[190px]" />
+        <SegmentedControl
+          v-model="range"
+          :options="rangeOptions"
+          size="sm"
+          :aria-label="t('statsPage.range')"
+          class="w-[190px]"
+        />
         <Button variant="secondary" size="sm" :disabled="isEmpty" @click="exportJson">
           <Download class="size-3.5" aria-hidden="true" />
           {{ t('statsPage.export') }}
@@ -92,7 +125,9 @@ onMounted(() => {
     <div v-if="isEmpty" class="panel mt-8">
       <EmptyState :icon="History" :title="t('statsPage.empty.title')" :description="t('statsPage.empty.body')">
         <NuxtLink to="/trainer">
-          <Button variant="primary" size="sm">{{ t('statsPage.empty.cta') }}<ArrowRight class="size-3.5" aria-hidden="true" /></Button>
+          <Button variant="primary" size="sm"
+            >{{ t('statsPage.empty.cta') }}<ArrowRight class="size-3.5" aria-hidden="true"
+          /></Button>
         </NuxtLink>
       </EmptyState>
     </div>
@@ -103,7 +138,9 @@ onMounted(() => {
           <p class="label-micro">{{ kpi.label }}</p>
           <p class="num mt-2 text-[26px] font-medium leading-none">
             <template v-if="kpi.empty">—</template>
-            <template v-else-if="kpi.format === 'percent'">{{ Number(kpi.value).toFixed(1) }}<span class="text-[12px] text-ink-3">%</span></template>
+            <template v-else-if="kpi.format === 'percent'"
+              >{{ Number(kpi.value).toFixed(1) }}<span class="text-[12px] text-ink-3">%</span></template
+            >
             <template v-else-if="kpi.format === 'r'">{{ formatR(Number(kpi.value)) }}</template>
             <template v-else>{{ kpi.value }}</template>
           </p>
@@ -116,7 +153,9 @@ onMounted(() => {
           <div class="mb-2 flex items-start justify-between">
             <div>
               <p class="label-micro">{{ t('statsPage.equity.title') }}</p>
-              <p class="num mt-1 text-[20px]" :class="stats.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">{{ formatMoney(stats.netPnl, { signed: true }) }}</p>
+              <p class="num mt-1 text-[20px]" :class="stats.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">
+                {{ formatMoney(stats.netPnl, { signed: true }) }}
+              </p>
             </div>
             <div class="text-right">
               <p class="label-micro">{{ t('statsPage.equity.drawdown') }}</p>
@@ -139,15 +178,21 @@ onMounted(() => {
           </div>
           <dl class="mt-4 space-y-2.5 border-t-[length:var(--hairline)] border-line pt-3">
             <div class="flex items-center justify-between">
-              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2"><ShieldCheck class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.plan') }}</dt>
+              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2">
+                <ShieldCheck class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.plan') }}
+              </dt>
               <dd class="num text-[12px]">{{ stats.followedPlanRate == null ? '—' : `${stats.followedPlanRate}%` }}</dd>
             </div>
             <div class="flex items-center justify-between">
-              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2"><Target class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.breaches') }}</dt>
+              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2">
+                <Target class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.breaches') }}
+              </dt>
               <dd class="num text-[12px]" :class="breaches ? 'text-bear-strong' : ''">{{ breaches }}</dd>
             </div>
             <div class="flex items-center justify-between">
-              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2"><TrendingUp class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.profitFactor') }}</dt>
+              <dt class="flex items-center gap-1.5 text-[11px] text-ink-2">
+                <TrendingUp class="size-3.5 text-ink-3" aria-hidden="true" />{{ t('statsPage.process.profitFactor') }}
+              </dt>
               <dd class="num text-[12px]">{{ stats.profitFactor == null ? '—' : stats.profitFactor.toFixed(2) }}</dd>
             </div>
             <div class="flex items-center justify-between">
@@ -163,7 +208,9 @@ onMounted(() => {
           <div class="flex items-start justify-between">
             <div>
               <p class="label-micro">{{ t('statsPage.distribution.title') }}</p>
-              <p class="mt-1 text-[10.5px] text-ink-3">{{ t('statsPage.distribution.body', { count: stats.count }) }}</p>
+              <p class="mt-1 text-[10.5px] text-ink-3">
+                {{ t('statsPage.distribution.body', { count: stats.count }) }}
+              </p>
             </div>
             <Badge variant="neutral" size="sm">{{ t('statsPage.distribution.bucket') }}</Badge>
           </div>
@@ -177,13 +224,24 @@ onMounted(() => {
               <div
                 class="w-full rounded-t-xs transition-[height] duration-500"
                 :class="bucket.from >= 0 ? 'bg-clay/75' : 'bg-bear/70'"
-                :style="{ height: `${(bucket.count / distributionMax) * 100}%`, minHeight: bucket.count ? '3px' : '1px' }"
+                :style="{
+                  height: `${(bucket.count / distributionMax) * 100}%`,
+                  minHeight: bucket.count ? '3px' : '1px',
+                }"
               />
-              <span class="num pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 text-[8.5px] text-ink-3 opacity-0 transition-opacity group-hover:opacity-100">{{ bucket.count }}</span>
+              <span
+                class="num pointer-events-none absolute -top-4 left-1/2 -translate-x-1/2 text-[8.5px] text-ink-3 opacity-0 transition-opacity group-hover:opacity-100"
+                >{{ bucket.count }}</span
+              >
             </div>
           </div>
           <div class="mt-1 flex gap-1">
-            <span v-for="bucket in stats.rDistribution" :key="bucket.label" class="flex-1 text-center font-mono text-[8px] text-ink-3">{{ bucket.label }}</span>
+            <span
+              v-for="bucket in stats.rDistribution"
+              :key="bucket.label"
+              class="flex-1 text-center font-mono text-[8px] text-ink-3"
+              >{{ bucket.label }}</span
+            >
           </div>
         </section>
 
@@ -203,15 +261,31 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in stats.byInstrument" :key="row.symbol" class="border-t-[length:var(--hairline)] border-line/70 text-[11px]">
+              <tr
+                v-for="row in stats.byInstrument"
+                :key="row.symbol"
+                class="border-t-[length:var(--hairline)] border-line/70 text-[11px]"
+              >
                 <td class="py-2 font-mono font-medium">{{ row.symbol }}</td>
                 <td class="py-2 text-right font-mono text-ink-2">{{ row.trades }}</td>
                 <td class="py-2 text-right font-mono text-ink-2">{{ row.winRate.toFixed(1) }}%</td>
-                <td class="py-2 text-right font-mono" :class="(row.avgR ?? 0) >= 0 ? 'text-bull-strong' : 'text-bear-strong'">{{ formatR(row.avgR) }}</td>
-                <td class="py-2 text-right font-mono" :class="row.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">{{ formatMoney(row.netPnl, { signed: true, decimals: 0 }) }}</td>
+                <td
+                  class="py-2 text-right font-mono"
+                  :class="(row.avgR ?? 0) >= 0 ? 'text-bull-strong' : 'text-bear-strong'"
+                >
+                  {{ formatR(row.avgR) }}
+                </td>
+                <td
+                  class="py-2 text-right font-mono"
+                  :class="row.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'"
+                >
+                  {{ formatMoney(row.netPnl, { signed: true, decimals: 0 }) }}
+                </td>
               </tr>
               <tr v-if="!stats.byInstrument.length">
-                <td colspan="5" class="py-6 text-center text-[11px] text-ink-3">{{ t('statsPage.instruments.empty') }}</td>
+                <td colspan="5" class="py-6 text-center text-[11px] text-ink-3">
+                  {{ t('statsPage.instruments.empty') }}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -230,14 +304,22 @@ onMounted(() => {
                 {{ t(`modes.${session.mode}`) }}
                 <Badge v-if="roundGrade(session.id)" variant="outline" size="sm">{{ roundGrade(session.id) }}</Badge>
               </p>
-              <p class="text-[10px] text-ink-3">{{ formatDate(session.startedAt, locale) }} · {{ t('statsPage.history.rounds', { count: session.rounds.length }) }}</p>
+              <p class="text-[10px] text-ink-3">
+                {{ formatDate(session.startedAt, locale) }} ·
+                {{ t('statsPage.history.rounds', { count: session.rounds.length }) }}
+              </p>
             </div>
             <span class="font-mono text-[10.5px] text-ink-3">{{ session.rounds[0]?.symbol ?? '—' }}</span>
-            <span class="num w-20 text-right text-[11.5px]" :class="session.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'">
+            <span
+              class="num w-20 text-right text-[11.5px]"
+              :class="session.netPnl >= 0 ? 'text-bull-strong' : 'text-bear-strong'"
+            >
               {{ session.netPnl ? formatMoney(session.netPnl, { signed: true }) : '—' }}
             </span>
           </div>
-          <p v-if="!historyRows.length" class="py-6 text-center text-[11px] text-ink-3">{{ t('statsPage.history.empty') }}</p>
+          <p v-if="!historyRows.length" class="py-6 text-center text-[11px] text-ink-3">
+            {{ t('statsPage.history.empty') }}
+          </p>
         </div>
       </section>
     </template>

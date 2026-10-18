@@ -111,7 +111,13 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
       const rng = createRng(`${seed}:derive`)
       const fallbackSymbol = universe[Math.floor(rng() * universe.length)]!.symbol
       const fallbackRegime = pickRegime(rng())
-      return build(seed, symbol ?? fallbackSymbol, regime ?? fallbackRegime, defaultTimeframe, options.now ?? new Date())
+      return build(
+        seed,
+        symbol ?? fallbackSymbol,
+        regime ?? fallbackRegime,
+        defaultTimeframe,
+        options.now ?? new Date(),
+      )
     },
     universe: () => [...universe],
   }

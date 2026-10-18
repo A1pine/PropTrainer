@@ -35,7 +35,12 @@ const outcomeTone = computed(() => {
 
 const dateLabel = computed(() => {
   const date = new Date(props.scenario.sessionDate)
-  return new Intl.DateTimeFormat(locale.value, { year: 'numeric', month: 'short', day: '2-digit', timeZone: 'UTC' }).format(date)
+  return new Intl.DateTimeFormat(locale.value, {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    timeZone: 'UTC',
+  }).format(date)
 })
 
 function noteIcon(note: GradeNote) {
@@ -74,7 +79,9 @@ function noteTone(note: GradeNote) {
       <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
         <Badge variant="clay">{{ t(`read.states.${scenario.regime}`) }}</Badge>
         <Badge variant="neutral">{{ revealed.timeframe }}</Badge>
-        <Badge variant="neutral">{{ t('review.barsHidden', { bars: scenario.candles.length - scenario.replayStart }) }}</Badge>
+        <Badge variant="neutral">{{
+          t('review.barsHidden', { bars: scenario.candles.length - scenario.replayStart })
+        }}</Badge>
       </div>
     </div>
 
@@ -112,7 +119,11 @@ function noteTone(note: GradeNote) {
     <div v-if="grade?.notes.length" class="space-y-1.5">
       <p class="label-micro">{{ t('review.coach') }}</p>
       <ul class="space-y-1">
-        <li v-for="(note, index) in grade.notes" :key="`${note.code}-${index}`" class="flex items-start gap-1.5 text-[11px] leading-snug">
+        <li
+          v-for="(note, index) in grade.notes"
+          :key="`${note.code}-${index}`"
+          class="flex items-start gap-1.5 text-[11px] leading-snug"
+        >
           <component :is="noteIcon(note)" class="mt-0.5 size-3 shrink-0" :class="noteTone(note)" aria-hidden="true" />
           <span class="text-ink-2">{{ t(note.code, note.params ?? {}) }}</span>
         </li>
@@ -123,10 +134,16 @@ function noteTone(note: GradeNote) {
       {{ t('review.noPlan') }}
     </div>
 
-    <div class="grid grid-cols-2 gap-x-3 gap-y-1 border-t-[length:var(--hairline)] border-line pt-3 font-mono text-[11px]">
-      <span class="text-ink-3">{{ t('review.fees') }}</span><span class="text-right">{{ formatMoney(account.fees) }}</span>
-      <span class="text-ink-3">{{ t('review.trades') }}</span><span class="text-right">{{ account.trades.length }}</span>
-      <span class="text-ink-3">{{ t('review.exit') }}</span><span class="text-right">{{ account.trades[0]?.exitReason ? t(`review.exits.${account.trades[0].exitReason}`) : '—' }}</span>
+    <div
+      class="grid grid-cols-2 gap-x-3 gap-y-1 border-t-[length:var(--hairline)] border-line pt-3 font-mono text-[11px]"
+    >
+      <span class="text-ink-3">{{ t('review.fees') }}</span
+      ><span class="text-right">{{ formatMoney(account.fees) }}</span>
+      <span class="text-ink-3">{{ t('review.trades') }}</span
+      ><span class="text-right">{{ account.trades.length }}</span> <span class="text-ink-3">{{ t('review.exit') }}</span
+      ><span class="text-right">{{
+        account.trades[0]?.exitReason ? t(`review.exits.${account.trades[0].exitReason}`) : '—'
+      }}</span>
     </div>
 
     <div class="flex flex-wrap gap-2">

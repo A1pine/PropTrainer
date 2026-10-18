@@ -102,7 +102,9 @@ export const useTrainerStore = defineStore('trainer', () => {
     const closed = rounds.value
     const netPnl = closed.reduce((total, round) => total + round.netPnl, 0)
     const wins = closed.filter((round) => round.netPnl > 0).length
-    const rValues = closed.flatMap((round) => round.trades.map((trade) => trade.rMultiple)).filter((r): r is number => r != null)
+    const rValues = closed
+      .flatMap((round) => round.trades.map((trade) => trade.rMultiple))
+      .filter((r): r is number => r != null)
     return {
       count: closed.length,
       netPnl,
@@ -113,7 +115,9 @@ export const useTrainerStore = defineStore('trainer', () => {
       breaches: closed.filter((round) => round.status === 'breached').length,
     }
   })
-  const progress = computed(() => (totalRounds.value ? Math.min(100, (rounds.value.length / totalRounds.value) * 100) : 0))
+  const progress = computed(() =>
+    totalRounds.value ? Math.min(100, (rounds.value.length / totalRounds.value) * 100) : 0,
+  )
 
   function stopPlayback() {
     if (timer) clearInterval(timer)
@@ -242,12 +246,16 @@ export const useTrainerStore = defineStore('trainer', () => {
   function updateLevel(kind: 'entry' | 'stop' | 'target', price: number) {
     const next = { ...plan.value, [kind]: price }
     if (next.direction === 'long') {
-      if (kind === 'stop' && next.entry != null) next.stop = Math.min(price, next.entry - (instrument.value?.tickSize ?? 0.25))
-      if (kind === 'target' && next.entry != null) next.target = Math.max(price, next.entry + (instrument.value?.tickSize ?? 0.25))
+      if (kind === 'stop' && next.entry != null)
+        next.stop = Math.min(price, next.entry - (instrument.value?.tickSize ?? 0.25))
+      if (kind === 'target' && next.entry != null)
+        next.target = Math.max(price, next.entry + (instrument.value?.tickSize ?? 0.25))
     }
     if (next.direction === 'short') {
-      if (kind === 'stop' && next.entry != null) next.stop = Math.max(price, next.entry + (instrument.value?.tickSize ?? 0.25))
-      if (kind === 'target' && next.entry != null) next.target = Math.min(price, next.entry - (instrument.value?.tickSize ?? 0.25))
+      if (kind === 'stop' && next.entry != null)
+        next.stop = Math.max(price, next.entry + (instrument.value?.tickSize ?? 0.25))
+      if (kind === 'target' && next.entry != null)
+        next.target = Math.min(price, next.entry - (instrument.value?.tickSize ?? 0.25))
     }
     updatePlan(next)
   }
@@ -255,13 +263,16 @@ export const useTrainerStore = defineStore('trainer', () => {
   function startPlayback() {
     if (timer || !scenario.value) return
     playing.value = true
-    timer = setInterval(() => {
-      if (phase.value !== 'live') {
-        stopPlayback()
-        return
-      }
-      step()
-    }, Math.round(1000 / Math.max(1, speed.value)))
+    timer = setInterval(
+      () => {
+        if (phase.value !== 'live') {
+          stopPlayback()
+          return
+        }
+        step()
+      },
+      Math.round(1000 / Math.max(1, speed.value)),
+    )
   }
 
   function setSpeed(value: number) {
@@ -306,7 +317,10 @@ export const useTrainerStore = defineStore('trainer', () => {
     }
     updateValidation()
     if (sizing.value == null || sizing.value.contracts < 1) {
-      toasts.error('Risk budget too small', 'One contract risks more than your per-trade budget. Widen the account risk or tighten the stop.')
+      toasts.error(
+        'Risk budget too small',
+        'One contract risks more than your per-trade budget. Widen the account risk or tighten the stop.',
+      )
       return
     }
     const entry = plan.value.entry
@@ -361,7 +375,12 @@ export const useTrainerStore = defineStore('trainer', () => {
     if (!broker.value || !account.value?.position) return
     const trade = broker.value.closePosition(lastPrice.value, visibleCount.value - 1, 'manual')
     account.value = broker.value.snapshot()
-    if (trade) toasts.push({ title: 'Position closed', description: `P&L ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`, variant: trade.pnl >= 0 ? 'success' : 'warn' })
+    if (trade)
+      toasts.push({
+        title: 'Position closed',
+        description: `P&L ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`,
+        variant: trade.pnl >= 0 ? 'success' : 'warn',
+      })
   }
 
   function moveStopToBreakEven() {
@@ -382,7 +401,10 @@ export const useTrainerStore = defineStore('trainer', () => {
     const snapshot = broker.value.snapshot()
     account.value = snapshot
 
-    const planAtDecision = { ...plan.value, submittedAtBar: Math.min(plan.value.submittedAtBar, scenario.value.replayStart - 1 + plan.value.waitedBars) }
+    const planAtDecision = {
+      ...plan.value,
+      submittedAtBar: Math.min(plan.value.submittedAtBar, scenario.value.replayStart - 1 + plan.value.waitedBars),
+    }
     const simulated = simulatePlan(planAtDecision, scenario.value.candles, scenario.value.instrument, 260)
     const firstTrade = snapshot.trades[0]
     const planOutcome: PlanOutcome = firstTrade
@@ -392,7 +414,8 @@ export const useTrainerStore = defineStore('trainer', () => {
           entryPrice: firstTrade.entryPrice,
           exitBar: firstTrade.exitBar,
           exitPrice: firstTrade.exitPrice,
-          exitReason: firstTrade.exitReason === 'stop' || firstTrade.exitReason === 'target' ? firstTrade.exitReason : 'timeout',
+          exitReason:
+            firstTrade.exitReason === 'stop' || firstTrade.exitReason === 'target' ? firstTrade.exitReason : 'timeout',
           rMultiple: firstTrade.rMultiple,
           maeR: null,
           mfeR: null,
@@ -411,7 +434,12 @@ export const useTrainerStore = defineStore('trainer', () => {
         riskBudget: riskBudget.value,
         maxContracts: rules.value.maxContracts,
       })
-      grade.value = gradeDrill({ plan: planAtDecision, scenario: scenario.value, validation: planValidation, outcome: planOutcome })
+      grade.value = gradeDrill({
+        plan: planAtDecision,
+        scenario: scenario.value,
+        validation: planValidation,
+        outcome: planOutcome,
+      })
     } else {
       grade.value = null
     }
@@ -472,8 +500,7 @@ export const useTrainerStore = defineStore('trainer', () => {
       trades,
       grade: grade.value?.letter ?? null,
       processScore: grade.value?.total ?? null,
-      status:
-        snapshot.status === 'breached' ? 'breached' : snapshot.status === 'target' ? 'target' : 'ended',
+      status: snapshot.status === 'breached' ? 'breached' : snapshot.status === 'target' ? 'target' : 'ended',
       startedAt: sessionStartedAt.value || now,
       endedAt: now,
       reveal: true,
