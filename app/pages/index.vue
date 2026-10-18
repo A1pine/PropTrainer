@@ -149,10 +149,6 @@ onMounted(() => {
               <p class="num text-[11px] text-ink">03 / 20</p>
             </div>
           </div>
-          <div class="absolute -right-3 top-24 hidden rounded-lg border-[length:var(--hairline)] border-line bg-surface-2/95 px-3 py-2 shadow-md backdrop-blur lg:block">
-            <p class="text-[9.5px] uppercase tracking-[0.12em] text-ink-3">{{ t('lobby.preview.pnl') }}</p>
-            <p class="num text-[11px] text-bull-strong">+1.84R</p>
-          </div>
         </div>
       </div>
     </section>
@@ -229,7 +225,7 @@ onMounted(() => {
         </div>
       </section>
 
-      <section class="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+      <section class="grid items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div class="panel p-5">
           <div class="flex items-start justify-between">
             <div>

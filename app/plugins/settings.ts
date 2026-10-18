@@ -16,7 +16,7 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     'en'
 
   if (i18n.locale.value !== preferred) {
-    await i18n.setLocale(preferred)
+    await i18n.setLocale(preferred as 'en' | 'zh-CN' | 'ja')
   }
 
   if (import.meta.client) {
