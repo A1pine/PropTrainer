@@ -397,3 +397,22 @@ scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a 
 - [ ] Empty, loading, error, no-fill, breach, and pass states are all designed and reachable.
 - [ ] No proprietary font/audio binaries; sounds synthesized with Web Audio.
 - [ ] i18n strings exist for every visible label in en, zh-CN, and ja.
+
+
+---
+
+## 12. Implementation notes (as built)
+
+- Routes shipped: the five specified routes plus `/drill` (standalone decision drill), `/daily` (UTC-seeded
+  challenge with deterministic reference plans) and `/pk` (local pass-and-play room). The rail carries six primary
+  destinations; Guide and Settings sit in the rail footer.
+- Tokens are implemented under the `--surface-*`, `--ink*`, `--line*`, `--clay*`, `--bull*`, `--bear*` names in
+  `app/assets/css/main.css`; the visual values match §3.
+- The chart is a dependency-free Canvas 2D engine (`app/lib/chart/engine.ts`): blind axes, relative time axis,
+  candle grow-in, crosshair, drawings and draggable plan overlays.
+- Heavy O(n) math runs in Rust/WebAssembly on both SSR and the client: scenario generation, fractal swing detection
+  and plan simulation. A TypeScript reference remains as a fallback and parity is enforced by tests.
+- i18n ships 567 keys in `en`, `zh-CN` and `ja`; the locale and settings are cookie-hydrated so SSR and hydration
+  agree on language and theme.
+- Verification: `npm run test` (80 tests), `npm run typecheck`, `npm run build`, `npm run smoke`, plus Playwright
+  screenshots at 1440×900 and 390×844 in light and dark themes.

@@ -25,7 +25,7 @@ structure rather than at your comfort level.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins
   and R breaks ties. Results stay in the browser, by design.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (562 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (567 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -157,7 +157,7 @@ bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 562 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror the same 567 keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 
