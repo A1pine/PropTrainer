@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from '@lucide/vue'
-import { useToastStore, type ToastVariant } from '~/stores/toasts'
+import { useToastStore, type ToastItem, type ToastVariant } from '~/stores/toasts'
 
 const store = useToastStore()
 
@@ -10,6 +10,11 @@ const icons: Record<ToastVariant, unknown> = {
   success: CheckCircle2,
   danger: XCircle,
   warn: AlertTriangle,
+}
+
+function runAction(toast: ToastItem) {
+  toast.action?.onClick()
+  store.dismiss(toast.id)
 }
 
 const tones: Record<ToastVariant, string> = {
@@ -52,10 +57,7 @@ const tones: Record<ToastVariant, string> = {
               v-if="toast.action"
               type="button"
               class="mt-2 text-[11.5px] font-medium text-clay hover:underline"
-              @click="
-                toast.action.onClick()
-                store.dismiss(toast.id)
-              "
+              @click="runAction(toast)"
             >
               {{ toast.action.label }}
             </button>

@@ -5,9 +5,13 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   telemetry: false,
   modules: ['@pinia/nuxt', '@vueuse/nuxt', '@nuxtjs/i18n'],
+  components: [{ path: '~/components', pathPrefix: false }],
   css: ['~/assets/css/main.css'],
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['@lucide/vue', 'clsx', 'reka-ui', 'tailwind-merge'],
+    },
   },
   typescript: {
     strict: true,
@@ -28,6 +32,13 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#f9f9f7' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      script: [
+        {
+          tagPosition: 'head',
+          innerHTML:
+            "(function(){try{var s=JSON.parse(localStorage.getItem('propdesk.v1:settings')||'{}');var t=s.theme||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');if(s.reduceMotion)document.documentElement.dataset.motion='reduced'}catch(e){}})()",
+        },
+      ],
     },
     pageTransition: { name: 'page', mode: 'out-in' },
     layoutTransition: { name: 'layout', mode: 'out-in' },
@@ -42,7 +53,6 @@ export default defineNuxtConfig({
       { code: 'ja', language: 'ja-JP', name: '日本語', file: 'ja.json' },
     ],
     detectBrowserLanguage: false,
-    bundle: { optimizeTranslationDirective: false },
   },
   runtimeConfig: {
     public: {

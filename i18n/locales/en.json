@@ -1,6 +1,67 @@
 {
   "app": {
     "name": "Prop Desk",
-    "tagline": "Blind replay trainer"
+    "tagline": "Blind replay trainer",
+    "eyebrow": "Prop Desk · Blind replay"
+  },
+  "nav": {
+    "lobby": "Lobby",
+    "trainer": "Trainer",
+    "drill": "Decision drill",
+    "daily": "Daily challenge",
+    "pk": "Friends PK",
+    "stats": "Stats",
+    "guide": "Guide",
+    "settings": "Settings",
+    "lobbyShort": "Lobby",
+    "trainerShort": "Trainer",
+    "drillShort": "Drill",
+    "dailyShort": "Daily",
+    "pkShort": "PK",
+    "statsShort": "Stats",
+    "guideShort": "Guide",
+    "settingsShort": "Settings",
+    "more": "More"
+  },
+  "common": {
+    "search": "Search",
+    "simulated": "Simulated data",
+    "language": "Language",
+    "theme": "Theme",
+    "soundOn": "Sound on",
+    "soundOff": "Sound off",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "all": "All",
+    "none": "None",
+    "today": "Today"
+  },
+  "actions": {
+    "newSession": "Start a blind session",
+    "newSessionHint": "Trainer",
+    "toggleTheme": "Toggle light / dark theme",
+    "muteSound": "Mute interface sounds",
+    "unmuteSound": "Enable interface sounds"
+  },
+  "palette": {
+    "placeholder": "Jump to a page or run an action…",
+    "actions": "Actions",
+    "navigate": "Navigate",
+    "move": "Move",
+    "open": "Open",
+    "empty": "Nothing matches that."
+  },
+  "settings": {
+    "languageNote": "English is the source language. Translations preserve trading terms."
+  },
+  "error": {
+    "notFound": "This desk does not exist.",
+    "goHome": "Back to the lobby"
   }
 }
