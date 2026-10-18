@@ -167,7 +167,10 @@ export function buildEquityCurve(trades: readonly TradeRecord[]): EquityPoint[] 
 }
 
 export function buildRDistribution(rValues: readonly number[]): RBucket[] {
-  const buckets: RBucket[] = []
+  // Keep both tails so a catastrophic loss cannot silently disappear from the
+  // histogram. The body is the same 0.5R grid used by the stats page.
+  const lowTail = rValues.filter((value) => value < -3).length
+  const buckets: RBucket[] = [{ label: '≤-3.0', from: -99, to: -3, count: lowTail }]
   for (let from = -3; from < 3; from += 0.5) {
     const to = from + 0.5
     const count = rValues.filter((value) => value >= from && value < to).length
