@@ -147,12 +147,11 @@ onMounted(() => {
       </Panel>
 
       <Panel :padded="false">
-        <div class="border-b-[length:var(--hairline)] border-line px-5 py-3.5">
-          <p class="text-[12.5px] font-semibold">{{ t('settings.language.title') }}</p>
-          <p class="mt-0.5 text-[10.5px] text-ink-3">{{ t('settings.languageNote') }}</p>
-        </div>
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-          <p class="text-[11.5px] font-medium">{{ t('common.language') }}</p>
+          <div>
+            <p class="text-[12.5px] font-semibold">{{ t('settings.language.title') }}</p>
+            <p class="mt-0.5 text-[10.5px] text-ink-3">{{ t('settings.languageNote') }}</p>
+          </div>
           <LocaleSwitcher variant="select" />
         </div>
       </Panel>

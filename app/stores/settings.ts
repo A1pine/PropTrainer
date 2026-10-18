@@ -15,7 +15,6 @@ export const useSettingsStore = defineStore('settings', () => {
   const cookie = useCookie<Settings | null>(COOKIE, {
     maxAge: COOKIE_MAX_AGE,
     sameSite: 'lax',
-    watch: false,
   })
 
   const serverSettings = import.meta.server ? parseSettings(cookie.value ?? defaultSettings) : null
@@ -24,7 +23,9 @@ export const useSettingsStore = defineStore('settings', () => {
     : parseSettings(store.read<Settings>(KEY) ?? cookie.value ?? defaultSettings)
 
   const settings = ref<Settings>(initial)
-  const hydrated = ref(import.meta.server)
+  // Intentionally not part of the store state: SSR payload hydration would
+  // otherwise mark the client as already hydrated and skip localStorage.
+  let hydrated = false
 
   const riskBudget = computed(() => (settings.value.accountSize * settings.value.riskPerTrade) / 100)
 
@@ -36,10 +37,10 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   function hydrate() {
-    if (import.meta.server || hydrated.value) return
+    if (import.meta.server || hydrated) return
     settings.value = parseSettings(store.read<Settings>(KEY) ?? cookie.value ?? defaultSettings)
     persist(settings.value)
-    hydrated.value = true
+    hydrated = true
   }
 
   function update(patch: Partial<Settings>) {
@@ -56,7 +57,7 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(
     settings,
     (value) => {
-      if (hydrated.value) persist(value)
+      if (hydrated) persist(value)
     },
     { deep: true },
   )
@@ -66,5 +67,5 @@ export const useSettingsStore = defineStore('settings', () => {
     cookie.value = settings.value
   }
 
-  return { settings, hydrated, riskBudget, hydrate, update, reset }
+  return { settings, riskBudget, hydrate, update, reset }
 })

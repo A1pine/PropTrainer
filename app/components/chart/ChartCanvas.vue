@@ -159,10 +159,10 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="container" class="relative h-full min-h-[260px] w-full overflow-hidden">
+  <div ref="container" class="relative min-h-[260px] w-full overflow-hidden">
     <canvas
       ref="canvas"
-      class="size-full cursor-crosshair touch-none"
+      class="absolute inset-0 size-full cursor-crosshair touch-none"
       role="img"
       :aria-label="`${label}. Blind mode ${blind ? 'on' : 'off'}. Use the playback controls for keyboard access.`"
     />
