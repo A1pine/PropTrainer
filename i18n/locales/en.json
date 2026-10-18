@@ -528,5 +528,57 @@
     },
     "backToRoom": "Back to the room",
     "copyLink": "Copy invite link"
+  },
+  "statsPage": {
+    "kicker": "Your tape",
+    "title": "Your tape.",
+    "subtitle": "Every fill, every plan, every breach. The chart is the chart; this page is the behaviour behind it.",
+    "range": "Date range",
+    "all": "All",
+    "export": "Export JSON",
+    "empty": {
+      "title": "Your first session writes this page.",
+      "body": "Run a blind round or a drill. Closed trades and process scores land here automatically.",
+      "cta": "Run a round"
+    },
+    "kpi": {
+      "sessions": "Sessions",
+      "sessionsHint": "Trainer, drill and PK rooms on this device",
+      "rounds": "Rounds",
+      "roundsHint": "Including no-trade decisions",
+      "winRate": "Win rate",
+      "winRateHint": "Closed trades with positive P&L",
+      "avgR": "Avg R",
+      "avgRHint": "Mean R across closed trades"
+    },
+    "equity": {
+      "title": "Equity curve",
+      "drawdown": "Max drawdown"
+    },
+    "process": {
+      "title": "Process",
+      "score": "Average process score",
+      "scoreBody": "Drills and planned rounds, graded independently of the outcome.",
+      "plan": "Followed plan",
+      "breaches": "Rule breaches",
+      "profitFactor": "Profit factor",
+      "fees": "Fees paid"
+    },
+    "distribution": {
+      "title": "R distribution",
+      "body": "{count} closed trades",
+      "bucket": "0.5R buckets"
+    },
+    "instruments": {
+      "title": "Instrument edge",
+      "trades": "Trades",
+      "win": "Win",
+      "empty": "No fills in this range."
+    },
+    "history": {
+      "title": "Session history",
+      "rounds": "{count, plural, one {# round} other {# rounds}}",
+      "empty": "No sessions in this range."
+    }
   }
 }
