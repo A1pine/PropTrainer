@@ -10,6 +10,8 @@ const drill = useDrillStore()
 const pk = usePkStore()
 const player = computed<1 | 2>(() => (Number(route.query.player) === 2 ? 2 : 1))
 const recordedFor = ref('')
+const celebrate = ref(false)
+let celebrationTimer: ReturnType<typeof setTimeout> | null = null
 const DRILL_KEY = 'propdesk:last-drill-start'
 
 function startKey() {
@@ -99,7 +101,23 @@ onMounted(() => {
   if (drill.phase === 'idle' || (lastKey && lastKey !== startKey())) startDrill()
   window.addEventListener('keydown', onKeydown)
 })
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+watch(
+  () => drill.phase,
+  (phase) => {
+    if (phase !== 'review') return
+    const letter = drill.grade?.letter
+    if (letter !== 'A' && letter !== 'B') return
+    celebrate.value = true
+    if (celebrationTimer) clearTimeout(celebrationTimer)
+    celebrationTimer = setTimeout(() => (celebrate.value = false), 1500)
+  },
+)
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  if (celebrationTimer) clearTimeout(celebrationTimer)
+})
 </script>
 
 <template>
@@ -286,5 +304,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </div>
       </aside>
     </div>
+    <CelebrationBurst :active="celebrate" />
   </div>
 </template>

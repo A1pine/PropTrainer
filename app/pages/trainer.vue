@@ -33,6 +33,8 @@ const chart = ref<{
   focusOn: (index: number, span?: number) => void
 } | null>(null)
 const showTicket = ref(false)
+const celebrate = ref(false)
+let celebrationTimer: ReturnType<typeof setTimeout> | null = null
 
 const instrument = computed(() => trainer.instrument)
 const account = computed(() => trainer.account)
@@ -87,6 +89,18 @@ const revealedDate = computed(() => {
   if (!trainer.scenario) return ''
   return formatDate(trainer.scenario.sessionDate, locale.value)
 })
+
+watch(
+  () => trainer.phase,
+  (phase) => {
+    if (phase !== 'review') return
+    const letter = trainer.grade?.letter
+    if (letter !== 'A' && letter !== 'B') return
+    celebrate.value = true
+    if (celebrationTimer) clearTimeout(celebrationTimer)
+    celebrationTimer = setTimeout(() => (celebrate.value = false), 1500)
+  },
+)
 
 watch(
   () => trainer.revealed,
@@ -192,6 +206,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (celebrationTimer) clearTimeout(celebrationTimer)
   trainer.stopPlayback()
   window.removeEventListener('keydown', onKeydown)
 })
@@ -621,5 +636,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </Sheet>
+    <CelebrationBurst :active="celebrate" />
   </div>
 </template>
