@@ -5,6 +5,7 @@ import {
   ChartCandlestick,
   Crosshair,
   LayoutDashboard,
+  ScanSearch,
   Settings,
   Users,
 } from '@lucide/vue'
@@ -22,6 +23,7 @@ export const navItems: NavItem[] = [
   { to: '/', labelKey: 'nav.lobby', shortKey: 'nav.lobbyShort', icon: LayoutDashboard, primary: true },
   { to: '/trainer', labelKey: 'nav.trainer', shortKey: 'nav.trainerShort', icon: ChartCandlestick, primary: true },
   { to: '/drill', labelKey: 'nav.drill', shortKey: 'nav.drillShort', icon: Crosshair, primary: true },
+  { to: '/analysis', labelKey: 'nav.analysis', shortKey: 'nav.analysisShort', icon: ScanSearch, primary: true },
   { to: '/daily', labelKey: 'nav.daily', shortKey: 'nav.dailyShort', icon: CalendarDays, primary: true },
   { to: '/pk', labelKey: 'nav.pk', shortKey: 'nav.pkShort', icon: Users },
   { to: '/stats', labelKey: 'nav.stats', shortKey: 'nav.statsShort', icon: BarChart3, primary: true },

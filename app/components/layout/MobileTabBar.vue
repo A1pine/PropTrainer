@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { MoreHorizontal } from '@lucide/vue'
-import { isActivePath, mobileNavItems, secondaryNavItems } from '~/composables/useNav'
+import { isActivePath, mobileNavItems, navItems, secondaryNavItems } from '~/composables/useNav'
 
 const { t } = useI18n()
 const route = useRoute()
 const moreOpen = ref(false)
+const extraItems = computed(() => [...navItems.filter((item) => !item.primary), ...secondaryNavItems])
 </script>
 
 <template>
@@ -46,7 +47,7 @@ const moreOpen = ref(false)
     <Sheet v-model:open="moreOpen" :title="t('nav.more')">
       <div class="space-y-1">
         <NuxtLink
-          v-for="item in secondaryNavItems"
+          v-for="item in extraItems"
           :key="item.to"
           :to="item.to"
           class="flex items-center gap-3 rounded-md px-3 py-3 text-[13px] text-ink-2 transition-colors hover:bg-ink/[0.04]"

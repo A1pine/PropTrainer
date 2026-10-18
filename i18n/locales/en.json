@@ -21,7 +21,9 @@
     "statsShort": "Stats",
     "guideShort": "Guide",
     "settingsShort": "Settings",
-    "more": "More"
+    "more": "More",
+    "analysis": "Analysis lab",
+    "analysisShort": "Analysis"
   },
   "common": {
     "search": "Search",
@@ -765,5 +767,159 @@
       "title": "Simulated data, not advice.",
       "body": "Every series is generated deterministically from a hidden seed. There is no broker connection, no live market feed and no promise of payouts. Prop Desk is practice software."
     }
+  },
+  "analysis": {
+    "kicker": "Analysis lab",
+    "title": "Read the tape with structure.",
+    "subtitle": "Price action, ICT concepts and an OHLCV order-flow proxy on one chart. Computed in Rust, labelled honestly, and kept separate from the blind trainer.",
+    "sampleHidden": "Sample hidden",
+    "reveal": "Reveal",
+    "newSample": "New sample",
+    "nextBar": "Next bar",
+    "play": "Play",
+    "pause": "Pause",
+    "speed": "Analysis playback speed",
+    "chartNote": "EMA / VWAP / Bollinger · FVG + OB zones · liquidity + volume profile",
+    "controls": {
+      "ema": "EMA",
+      "vwap": "VWAP",
+      "bb": "Bollinger",
+      "fvg": "FVG",
+      "ob": "OB",
+      "liquidity": "Liquidity",
+      "profile": "Volume profile"
+    },
+    "bias": {
+      "title": "Confluence",
+      "confidence": "Confidence",
+      "bullish": "Bullish",
+      "bearish": "Bearish",
+      "neutral": "Neutral"
+    },
+    "reasons": {
+      "structureBullish": "Market structure is making higher highs and higher lows.",
+      "structureBearish": "Market structure is making lower highs and lower lows.",
+      "emaBullish": "The EMA stack is aligned bullish (20 > 50 > 200).",
+      "emaBearish": "The EMA stack is aligned bearish (20 < 50 < 200).",
+      "zoneDiscount": "Price sits in the discount third of the range ({value}%).",
+      "zonePremium": "Price sits in the premium third of the range ({value}%).",
+      "sweepBullish": "Sell-side liquidity was swept and reclaimed near {value}.",
+      "sweepBearish": "Buy-side liquidity was swept and rejected near {value}.",
+      "flowBuying": "The delta proxy is positive ({value}).",
+      "flowSelling": "The delta proxy is negative ({value}).",
+      "momentumBullish": "RSI is above 55 ({value}).",
+      "momentumBearish": "RSI is below 45 ({value}).",
+      "divergenceBullish": "Bullish delta divergence formed at the lows.",
+      "divergenceBearish": "Bearish delta divergence formed at the highs.",
+      "neutral": "No confluence above the noise threshold."
+    },
+    "tabs": {
+      "overview": "Overview",
+      "pa": "PA",
+      "ict": "ICT",
+      "flow": "Flow",
+      "indicators": "Ind.",
+      "label": "Analysis sections"
+    },
+    "unavailable": {
+      "title": "Analysis core unavailable",
+      "body": "The Rust/WASM core did not load, so the analysis stack is disabled. The rest of the app still works."
+    },
+    "structure": {
+      "hh_hl": "HH / HL",
+      "lh_ll": "LH / LL",
+      "mixed": "Mixed"
+    },
+    "alignment": {
+      "bullish": "Bullish stack",
+      "bearish": "Bearish stack",
+      "flat": "Flat stack"
+    },
+    "overview": {
+      "trend": "Trend & structure",
+      "ict": "ICT context",
+      "flow": "Order flow proxy",
+      "levels": "Key levels",
+      "events": "Recent events"
+    },
+    "flow": {
+      "pressure": "Delta pressure",
+      "divergence": "Divergence",
+      "none": "None",
+      "proxy": "Proxy",
+      "cumDelta": "Cumulative delta",
+      "imbalance": "Imbalance",
+      "absorption": "Absorption",
+      "noAbsorption": "No absorption in the last 30 bars.",
+      "note": "Flow is derived from OHLCV: candle close position weights volume into a buy/sell delta proxy. There is no bid/ask or footprint data."
+    },
+    "ict": {
+      "killzone": "Killzone",
+      "outsideKillzone": "Outside killzone",
+      "fvg": "Fair value gaps",
+      "filled": "{pct}% filled",
+      "orderBlocks": "Order blocks",
+      "liquidity": "Liquidity pools",
+      "sweeps": "Liquidity sweeps",
+      "noSweeps": "No recent sweeps.",
+      "zones": {
+        "premium": "Premium",
+        "equilibrium": "Equilibrium",
+        "discount": "Discount"
+      },
+      "sessions": {
+        "asia": "Asia",
+        "london": "London",
+        "newYork": "New York",
+        "late": "Late"
+      }
+    },
+    "pa": {
+      "structure": "Structure",
+      "ema": "EMA alignment",
+      "premium": "Range position",
+      "range": "Range",
+      "swings": "Recent swings",
+      "patterns": "Candlestick patterns",
+      "noPatterns": "No clean pattern in the last 30 bars.",
+      "levels": "Support / resistance"
+    },
+    "patterns": {
+      "bullishEngulfing": "Bullish engulfing",
+      "bearishEngulfing": "Bearish engulfing",
+      "bullishPin": "Bullish pin bar",
+      "bearishPin": "Bearish pin bar",
+      "doji": "Doji",
+      "insideBar": "Inside bar"
+    },
+    "levels": {
+      "support": "Support",
+      "resistance": "Resistance"
+    },
+    "indicators": {
+      "ema20": "EMA 20",
+      "ema50": "EMA 50",
+      "ema200": "EMA 200",
+      "vwap": "VWAP",
+      "rsi": "RSI 14",
+      "macd": "MACD hist.",
+      "atr": "ATR 14",
+      "adx": "ADX 14",
+      "bbWidth": "BB width",
+      "volumeSma": "Volume SMA 20",
+      "name": "Indicator",
+      "value": "Value"
+    },
+    "events": {
+      "bos": "Break of structure",
+      "choch": "Change of character",
+      "fvg": "Fair value gap",
+      "sweep": "Liquidity sweep",
+      "absorption": "Absorption",
+      "divergence": "Delta divergence",
+      "pattern": "Candlestick pattern"
+    },
+    "disclaimer": "Educational analysis on simulated OHLCV. Order flow is a proxy, ICT concepts are heuristic, and none of this is financial advice.",
+    "loading": "Drawing a sample…"
   }
 }
