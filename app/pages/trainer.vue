@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
                 @close="trainer.closePosition()"
                 @breakeven="trainer.moveStopToBreakEven()"
               />
-              <template v-else>
+              <template v-else-if="trainer.plan.direction !== 'none'">
                 <TradeTicket
                   :instrument="instrument!"
                   :account="account"
@@ -373,6 +373,11 @@ onBeforeUnmount(() => {
                   @cancel="trainer.cancelOrder"
                 />
               </template>
+              <div v-else class="rounded-lg border border-dashed border-line bg-sunken p-3">
+                <p class="label-micro">{{ t('plan.standAsideTitle') }}</p>
+                <p class="mt-2 text-[11.5px] leading-relaxed text-ink-2">{{ t('plan.standAsideBody') }}</p>
+                <p class="mt-2 text-[10.5px] leading-relaxed text-ink-3">{{ t('trainer.standAsideHint') }}</p>
+              </div>
 
               <div class="border-t-[length:var(--hairline)] border-line pt-3">
                 <div class="mb-2 flex items-center justify-between">
@@ -483,7 +488,7 @@ onBeforeUnmount(() => {
 
     <!-- Mobile ticket trigger -->
     <button
-      v-if="trainer.phase === 'live'"
+      v-if="trainer.phase === 'live' && trainer.plan.direction !== 'none'"
       type="button"
       class="fixed bottom-[calc(var(--mobile-tabbar)+12px)] right-4 z-30 flex items-center gap-2 rounded-pill bg-clay px-4 py-3 text-[12px] font-medium text-on-clay shadow-lg md:hidden"
       @click="showTicket = true"
@@ -505,7 +510,7 @@ onBeforeUnmount(() => {
           @breakeven="trainer.moveStopToBreakEven()"
         />
         <TradeTicket
-          v-else
+          v-else-if="trainer.plan.direction !== 'none'"
           :instrument="instrument"
           :account="account"
           :default-side="trainer.plan.direction === 'short' ? 'short' : 'long'"
@@ -518,6 +523,9 @@ onBeforeUnmount(() => {
           @submit="submitTicket"
           @cancel="trainer.cancelOrder"
         />
+        <div v-else class="rounded-lg border border-dashed border-line bg-sunken p-3">
+          <p class="text-[12px] leading-relaxed text-ink-2">{{ t('plan.standAsideBody') }}</p>
+        </div>
       </div>
     </Sheet>
   </div>

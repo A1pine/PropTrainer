@@ -107,7 +107,7 @@ const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
     <div class="flex items-center gap-2 border-t-[length:var(--hairline)] border-line pt-3">
       <Button variant="primary" size="md" block :disabled="disabled || thesisLength < 12 || atLimit" @click="emit('commit')">
         {{ t('read.commit') }}
-        <Kbd :keys="['↵']" class="ml-1 !border-white/25 !bg-white/10 !text-white/80" />
+        <Kbd :keys="['↵']" class="ml-1 !border-black/15 !bg-black/10 !text-current" />
       </Button>
       <Button variant="ghost" size="md" :disabled="disabled" @click="emit('wait')">
         {{ t('read.wait') }}
