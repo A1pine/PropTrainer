@@ -123,7 +123,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <div class="flex items-center gap-2">
           <span
             class="grid size-6 place-items-center rounded-full border font-mono text-[10.5px]"
-            :class="step === index ? 'border-clay bg-clay text-white' : step > index ? 'border-bull/40 bg-bull-soft text-bull-strong' : 'border-line text-ink-3'"
+            :class="step === index ? 'border-clay bg-clay text-on-clay' : step > index ? 'border-bull/40 bg-bull-soft text-bull-strong' : 'border-line text-ink-3'"
           >{{ index }}</span>
           <span class="text-[11px]" :class="step === index ? 'font-medium text-ink' : 'text-ink-3'">{{ t(`drill.steps.${index}`) }}</span>
         </div>
@@ -225,7 +225,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <NuxtLink v-if="route.query.pk" to="/pk" class="mt-2 block text-center text-[10.5px] text-ink-3 hover:text-ink-2">
           {{ t('pk.backToRoom') }}
         </NuxtLink>
-        <div v-else class="py-10 text-center text-[12px] text-ink-3">{{ t('drill.drawing') }}</div>
+        <div v-if="drill.phase === 'idle'" class="py-10 text-center text-[12px] text-ink-3">{{ t('drill.drawing') }}</div>
       </aside>
     </div>
   </div>
