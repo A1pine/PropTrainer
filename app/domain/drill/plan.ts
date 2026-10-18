@@ -213,21 +213,24 @@ export function simulatePlan(
     barsHeld: 0,
   }
   if (plan.direction === 'none' || plan.entry == null || plan.stop == null || plan.target == null) return empty
+  const entryLevel = plan.entry
+  const stopLevel = plan.stop
+  const targetLevel = plan.target
 
   const isLong = plan.direction === 'long'
   const start = plan.submittedAtBar + 1
   const end = Math.min(candles.length, start + horizonBars)
   const riskPerContract =
-    (Math.abs(plan.entry - plan.stop) / instrument.tickSize) * instrument.tickValue +
+    (Math.abs(entryLevel - stopLevel) / instrument.tickSize) * instrument.tickValue +
     (instrument.feePerContract ?? 0)
 
   for (let index = start; index < end; index += 1) {
     const bar = candles[index]
     if (!bar) continue
-    const triggered = isLong ? bar.low <= plan.entry : bar.high >= plan.entry
+    const triggered = isLong ? bar.low <= entryLevel : bar.high >= entryLevel
     if (!triggered) continue
 
-    const entryPrice = isLong ? Math.min(plan.entry, bar.open) : Math.max(plan.entry, bar.open)
+    const entryPrice = isLong ? Math.min(entryLevel, bar.open) : Math.max(entryLevel, bar.open)
     let mae = 0
     let mfe = 0
 
@@ -242,15 +245,15 @@ export function simulatePlan(
       mfe = Math.max(mfe, favorable)
 
       if (isLong) {
-        if (candle.open <= plan.stop) return { price: candle.open, reason: 'stop' as const, at: from }
-        if (candle.open >= plan.target) return { price: candle.open, reason: 'target' as const, at: from }
-        if (candle.low <= plan.stop) return { price: plan.stop, reason: 'stop' as const, at: from }
-        if (candle.high >= plan.target) return { price: plan.target, reason: 'target' as const, at: from }
+        if (candle.open <= stopLevel) return { price: candle.open, reason: 'stop' as const, at: from }
+        if (candle.open >= targetLevel) return { price: candle.open, reason: 'target' as const, at: from }
+        if (candle.low <= stopLevel) return { price: stopLevel, reason: 'stop' as const, at: from }
+        if (candle.high >= targetLevel) return { price: targetLevel, reason: 'target' as const, at: from }
       } else {
-        if (candle.open >= plan.stop) return { price: candle.open, reason: 'stop' as const, at: from }
-        if (candle.open <= plan.target) return { price: candle.open, reason: 'target' as const, at: from }
-        if (candle.high >= plan.stop) return { price: plan.stop, reason: 'stop' as const, at: from }
-        if (candle.low <= plan.target) return { price: plan.target, reason: 'target' as const, at: from }
+        if (candle.open >= stopLevel) return { price: candle.open, reason: 'stop' as const, at: from }
+        if (candle.open <= targetLevel) return { price: candle.open, reason: 'target' as const, at: from }
+        if (candle.high >= stopLevel) return { price: stopLevel, reason: 'stop' as const, at: from }
+        if (candle.low <= targetLevel) return { price: targetLevel, reason: 'target' as const, at: from }
       }
       return null
     }
@@ -269,7 +272,7 @@ export function simulatePlan(
 
     const lastIndex = end - 1
     const last = candles[lastIndex]
-    return finish(last?.close ?? plan.entry, 'timeout', index, lastIndex)
+    return finish(last?.close ?? entryLevel, 'timeout', index, lastIndex)
 
     function finish(exitPrice: number, reason: PlanOutcome['exitReason'], entryBar: number, exitBar: number): PlanOutcome {
       const gross = (exitPrice - entryPrice) * (isLong ? 1 : -1) * instrument.pointValue

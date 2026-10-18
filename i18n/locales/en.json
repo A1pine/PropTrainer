@@ -40,7 +40,10 @@
     "retry": "Retry",
     "all": "All",
     "none": "None",
-    "today": "Today"
+    "today": "Today",
+    "export": "Export",
+    "reset": "Reset",
+    "back": "Back"
   },
   "actions": {
     "newSession": "Start a blind session",
@@ -56,6 +59,251 @@
     "move": "Move",
     "open": "Open",
     "empty": "Nothing matches that."
+  },
+  "phase": {
+    "idle": "Ready",
+    "loading": "Drawing a sample",
+    "judging": "Read",
+    "planning": "Plan",
+    "live": "Live replay",
+    "review": "Round review",
+    "summary": "Session report"
+  },
+  "trainer": {
+    "roundOf": "Round {index} / {total}",
+    "dayHidden": "Day ?? · clock hidden",
+    "endSession": "End session",
+    "drawing": "Drawing a sample…",
+    "startTitle": "One blind round",
+    "startBody": "A symbol and a date are drawn from your universe. Candles print one at a time. Read the structure, place the invalidation, then let the tape resolve.",
+    "start": "Start blind session",
+    "judgingHint": "Tip: press 1–4 for state, L/S for direction, Space to wait one bar.",
+    "planningHint": "Drag the entry, stop and target lines on the chart, or type exact ticks. The stop should sit beyond structure.",
+    "finishRound": "Finish round"
+  },
+  "stats": {
+    "starting": "Starting",
+    "equity": "Equity",
+    "roundPnl": "Round P&L",
+    "progress": "Progress",
+    "winRate": "Win rate",
+    "sessionPnl": "Session P&L",
+    "fees": "Fees",
+    "trades": "Trades"
+  },
+  "playback": {
+    "play": "Play",
+    "pause": "Pause",
+    "nextBar": "Next bar",
+    "speed": "Playback speed",
+    "revealed": "Revealed",
+    "blind": "Blind",
+    "replayFuture": "Replay future"
+  },
+  "read": {
+    "step": "Step 1 / 2 · Read",
+    "prompt": "What is the market doing?",
+    "hint": "State first, direction second. Trend trades only go with the trend.",
+    "states": {
+      "uptrend": "Uptrend",
+      "downtrend": "Downtrend",
+      "range": "Range",
+      "expansion": "Disorder"
+    },
+    "noTrade": "No trade",
+    "direction": "Direction",
+    "waited": "waited {bars} bars",
+    "thesis": "Entry thesis",
+    "thesisPlaceholder": "If I showed this to another trader, could they reproduce my entry?",
+    "thesisHint": "Name the level, the trigger, and why the invalidation belongs where it does.",
+    "commit": "Commit read",
+    "wait": "Advance one bar",
+    "counterTrendLock": "Counter-trend direction is locked while you call a {state}."
+  },
+  "plan": {
+    "step": "Step 2 / 2 · Plan",
+    "title": "Place the invalidation before the entry.",
+    "hint": "Drag the lines on the chart or type exact prices. A stop belongs beyond structure, not at your comfort level.",
+    "entry": "Entry",
+    "entryHint": "Limit or marketable level",
+    "stop": "Stop",
+    "stopHint": "Beyond the swing",
+    "target": "Target",
+    "targetHint": "At the next structure",
+    "rr": "R:R",
+    "contracts": "Contracts",
+    "risk": "Risk",
+    "reward": "Reward",
+    "fees": "Fees",
+    "margin": "Margin",
+    "checks": "Structure checks",
+    "check": {
+      "stop_side": "Stop is on the losing side of the entry.",
+      "target_side": "Target is on the winning side of the entry.",
+      "stop_tooTight": "Stop is {atr} ATR away — inside the noise.",
+      "stop_tightness": "Stop clears the immediate noise.",
+      "stop_tooWide": "Stop is {atr} ATR away — wider than the structure.",
+      "stop_structure": "Stop is {atr} ATR from the nearest swing. Place it beyond the swing.",
+      "target_structure": "Target is {atr} ATR from the nearest swing. Anchor it to structure.",
+      "rr_missing": "Reward or risk is missing.",
+      "rr_low": "R:R is {rr}:1 — below the 1.5R floor.",
+      "rr_ok": "R:R is {rr}:1.",
+      "rr_unrealistic": "R:R is {rr}:1 — beyond what this tape usually delivers.",
+      "risk_tooSmall": "One contract risks more than your per-trade budget.",
+      "risk_ok": "Risk budget supports {contracts} contracts.",
+      "levels_missing": "Entry, stop and target are all required.",
+      "direction_none": "Standing aside."
+    },
+    "back": "Back to read",
+    "submit": "Place bracket",
+    "standAsideTitle": "Standing aside is a position.",
+    "standAsideBody": "You called a tape you would not trade. The round will resolve without an order, and the process score will judge the read.",
+    "standAsideNote": "No fills, no fees, no fake activity.",
+    "confirmNoTrade": "Confirm no trade"
+  },
+  "ticket": {
+    "title": "Trade ticket",
+    "riskBased": "Risk-based",
+    "working": "Working order",
+    "cancel": "Cancel order",
+    "positionOpen": "A position is open. Manage it below before placing another order.",
+    "side": "Side",
+    "orderType": "Order type",
+    "market": "Market",
+    "limit": "Limit",
+    "limitPrice": "Limit price",
+    "limitHint": "Rests until traded through",
+    "qty": "Contracts",
+    "autoSize": "Risk-based size: {qty}",
+    "maxLoss": "Max loss",
+    "stop": "Stop",
+    "target": "Target",
+    "fees": "Fees",
+    "margin": "Margin",
+    "buy": "Buy",
+    "sell": "Sell",
+    "long": "Long",
+    "short": "Short",
+    "footnote": "Simulated fills at bar close. Stop and target are brackets.",
+    "sheetNote": "Risk first. Size is derived from your stop and per-trade budget."
+  },
+  "position": {
+    "openPnl": "Open P&L",
+    "breakeven": "Stop to break-even",
+    "close": "Close at market"
+  },
+  "rules": {
+    "title": "Account guardrails",
+    "profit": "Profit target",
+    "drawdown": "Trailing drawdown",
+    "daily": "Daily loss",
+    "contracts": "Contracts",
+    "trades": "Round trips",
+    "evaluation": "Evaluation",
+    "funded": "Funded",
+    "near": "Only {amount} of cushion left.",
+    "breached": "Guardrail breached — this round is locked."
+  },
+  "review": {
+    "roundComplete": "Round {index} / {total} complete",
+    "title": "The tape is unblind.",
+    "barsHidden": "{bars} bars hidden",
+    "process": "Process",
+    "outcome": "Outcome",
+    "pnl": "Round P&L",
+    "noFill": "No fill",
+    "parts": {
+      "state": "State read",
+      "direction": "Direction",
+      "plan": "Plan structure",
+      "process": "Discipline"
+    },
+    "coach": "Coach notes",
+    "noPlan": "No plan was committed, so there is no process grade. The reveal is still the lesson.",
+    "fees": "Fees",
+    "trades": "Fills",
+    "exit": "Exit",
+    "exits": {
+      "stop": "Stopped out",
+      "target": "Target",
+      "manual": "Manual close",
+      "flatten": "Flattened",
+      "breach": "Rule breach",
+      "end": "Round ended"
+    },
+    "replay": "Replay the future",
+    "nextRound": "Next round",
+    "finishSession": "Finish session",
+    "standAside": "No trade taken",
+    "standAsideBody": "You stood aside on a {regime} tape. Standing aside is a valid answer — the review is your read, not your P&L."
+  },
+  "summary": {
+    "title": "Session report",
+    "subtitle": "{rounds} rounds · simulated account",
+    "avgR": "Avg R",
+    "breaches": "Breaches",
+    "newSession": "New session",
+    "viewStats": "View stats"
+  },
+  "chart": {
+    "undo": "Undo drawing",
+    "clear": "Clear drawings",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit",
+    "blind": "Blind",
+    "revealed": "Revealed"
+  },
+  "log": {
+    "title": "Execution log",
+    "empty": "Fills will appear here.",
+    "side": "Side",
+    "entry": "Entry",
+    "exit": "Exit",
+    "pnl": "P&L",
+    "stop": "Stop",
+    "target": "Target",
+    "manual": "Manual",
+    "flatten": "Flatten",
+    "breach": "Breach",
+    "end": "Round end"
+  },
+  "grade": {
+    "state": {
+      "correct": "State read correctly: {state}.",
+      "partial": "State was adjacent, not clean. The tape was {actual}.",
+      "opposite": "State was the opposite of the tape ({actual})."
+    },
+    "direction": {
+      "aligned": "Direction aligned with the trend.",
+      "noneValid": "Standing aside was valid in this tape.",
+      "noneTrend": "A trend was available; you chose not to take it.",
+      "chop": "Directional trade in {actual}; this tape punishes that.",
+      "counterTrend": "Counter-trend entry against a clean trend."
+    },
+    "stop": {
+      "tooTight": "Stop sat {atr} ATR from entry — inside the noise.",
+      "insideNoise": "Stop sat {atr} ATR from the nearest swing, not beyond it."
+    },
+    "rr": {
+      "low": "Reward-to-risk was {rr}:1, below the 1.5 floor.",
+      "unrealistic": "Reward-to-risk was {rr}:1; structure did not support that reach."
+    },
+    "thesis": {
+      "thin": "The thesis was too thin to reproduce."
+    },
+    "waited": {
+      "none": "You acted on the first bar without waiting for the setup."
+    },
+    "risk": {
+      "exceeded": "The stop required more risk than the per-trade budget allows."
+    },
+    "outcome": {
+      "noFill": "Entry never triggered. No fill, no fee.",
+      "stop": "Stopped for {r}R.",
+      "target": "Target reached for {r}R.",
+      "timeout": "Round ended with {r}R open."
+    }
   },
   "settings": {
     "languageNote": "English is the source language. Translations preserve trading terms."

@@ -66,3 +66,16 @@ export interface SessionRecord {
   targetRounds: number
   completed: boolean
 }
+
+/** Row shape used by the compact execution log in the trainer. */
+export interface LogRow {
+  id: string
+  bar: number
+  side: 'long' | 'short'
+  qty: number
+  entryPrice: number
+  exitPrice: number
+  pnl: number
+  rMultiple: number | null
+  exitReason: ExitReason
+}
