@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 import { createScenarioFactory } from '~/domain/market/scenario'
 
 const scenario = createScenarioFactory({ now: new Date('2026-01-05T00:00:00Z') }).createFromSeed(
@@ -54,7 +56,7 @@ const lastPrice = computed(() => geometry.value.last?.close ?? 0)
       <div class="flex items-center gap-2">
         <span class="size-1.5 rounded-full bg-clay animate-pulse-dot" aria-hidden="true" />
         <span class="font-mono text-[11px] font-medium tracking-wide">M??? · 5m</span>
-        <span class="text-[10px] text-ink-3">DAY ??</span>
+        <span class="text-[10px] text-ink-3">{{ t('chart.dayMask') }}</span>
       </div>
       <div class="flex items-center gap-2">
         <span
@@ -184,9 +186,9 @@ const lastPrice = computed(() => geometry.value.last?.close ?? 0)
     <div
       class="relative flex items-center justify-between border-t-[length:var(--hairline)] border-line px-4 py-2 text-[10px] text-ink-3"
     >
-      <span>{{ lastPrice ? 'Candles printing' : 'Waiting' }}</span>
+      <span>{{ lastPrice ? t('chart.printing') : t('chart.waiting') }}</span>
       <span class="flex items-center gap-1.5"
-        ><span class="size-1 rounded-full bg-clay" aria-hidden="true" /> price hidden</span
+        ><span class="size-1 rounded-full bg-clay" aria-hidden="true" /> {{ t('chart.priceHidden') }}</span
       >
     </div>
   </div>

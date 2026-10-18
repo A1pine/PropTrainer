@@ -99,6 +99,10 @@
     "nextBar": "次の足",
     "speed": "再生速度",
     "revealed": "公開",
+    "priceHidden": "価格非表示",
+    "printing": "ローソク足を再生中",
+    "waiting": "待機中",
+    "dayMask": "日付 ??",
     "blind": "ブラインド",
     "replayFuture": "今後をリプレイ"
   },
