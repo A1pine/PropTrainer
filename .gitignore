@@ -26,3 +26,6 @@ coverage
 playwright-report
 test-results
 screenshots/
+
+# Rust build artifacts
+wasm/target
