@@ -2,7 +2,7 @@
 import { Check } from '@lucide/vue'
 import { instruments } from '~/domain/instruments/catalog'
 
-const props = defineProps<{ selected: string[] }>()
+const props = defineProps<{ selected: string[]; wrap?: boolean }>()
 const emit = defineEmits<{ toggle: [symbol: string] }>()
 
 const list = instruments.list()
@@ -17,7 +17,12 @@ function disabled(symbol: string) {
 </script>
 
 <template>
-  <div class="scroll-fade -mx-1 flex gap-2 overflow-x-auto px-1 pb-2" role="group" aria-label="Instrument universe">
+  <div
+    class="-mx-1 flex gap-2 px-1 pb-2"
+    :class="wrap ? 'flex-wrap' : 'scroll-fade overflow-x-auto'"
+    role="group"
+    aria-label="Instrument universe"
+  >
     <button
       v-for="instrument in list"
       :key="instrument.symbol"

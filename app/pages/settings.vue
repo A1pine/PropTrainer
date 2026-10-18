@@ -255,7 +255,7 @@ onMounted(() => {
           <p class="mt-0.5 text-[10.5px] text-ink-3">{{ t('settings.universe.hint') }}</p>
         </div>
         <div class="px-5 py-4">
-          <InstrumentRail :selected="settings.instruments" @toggle="toggleInstrument" />
+          <InstrumentRail :selected="settings.instruments" wrap @toggle="toggleInstrument" />
         </div>
       </Panel>
 
