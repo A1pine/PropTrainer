@@ -401,10 +401,12 @@ export function createBroker(options: BrokerOptions): Broker {
           working.filledBar = index
           working.filledPrice = fillPrice
           events.push(...openPosition(working, fillPrice, index, working.id))
-          const filledPosition = position as Position
-          updateExcursions(filledPosition, candle)
-          const exit = resolveExit(filledPosition, candle)
-          if (exit) realize(exit.price, exit.reason, index, events)
+          const filledPosition = position
+          if (filledPosition) {
+            updateExcursions(filledPosition, candle)
+            const exit = resolveExit(filledPosition, candle)
+            if (exit) realize(exit.price, exit.reason, index, events)
+          }
         }
       }
     }

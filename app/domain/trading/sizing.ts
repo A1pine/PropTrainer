@@ -61,16 +61,15 @@ export function computePositionSize(input: RiskSizingInput): RiskSizingResult {
     rewardDistance == null || rewardDistance <= 0
       ? null
       : rewardDistance / instrument.tickSize * instrument.tickValue * contracts
-  const potentialReward = rewardAmount
   const rr =
-    potentialReward == null || riskAmount <= 0 ? null : roundTo(potentialReward / (riskPerContract * contracts), 2)
+    rewardAmount == null || riskAmount <= 0 ? null : roundTo(rewardAmount / (riskPerContract * contracts), 2)
 
   return {
     riskPerContract: roundTo(riskPerContract, 2),
     contracts,
     cappedByMax,
     riskAmount: roundTo(riskAmount, 2),
-    rewardAmount: rewardAmount == null ? null : roundTo(potentialReward, 2),
+    rewardAmount: rewardAmount == null ? null : roundTo(rewardAmount, 2),
     rr,
     stopDistance: roundTo(stopDistance, instrument.pricePrecision),
     stopTicks: Math.round(stopTicks),

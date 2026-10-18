@@ -107,7 +107,7 @@ export interface AccountSnapshot {
   status: 'active' | 'breached' | 'target'
   breach: RuleId | null
   rules: PropRules
-  ruleStatus: RuleStatus[]
+  ruleStatuses: RuleStatus[]
 }
 
 export type BrokerEvent =
