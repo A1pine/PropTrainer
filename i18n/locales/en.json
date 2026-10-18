@@ -659,5 +659,88 @@
       "rounds": "{count} rounds",
       "empty": "No sessions in this range."
     }
+  },
+  "guide": {
+    "kicker": "The protocol",
+    "title": "Five moves, no heroics.",
+    "subtitle": "Blind replay is not a prediction game. It is a rehearsal of five behaviours you can repeat when the ticker is visible and the money is real.",
+    "cta": "Start a blind round",
+    "fieldNote": "Field note",
+    "formula": "Formula",
+    "sections": {
+      "read": {
+        "title": "Read the state before the trade.",
+        "body": "Mark the last three swings. Higher highs and higher lows is an uptrend; lower highs and lower lows is a downtrend. If neither is true, you are in a range until proven otherwise.",
+        "body2": "Disorder is not a range. Wide, overlapping bars with no clean swing sequence mean there is no structural trade — and standing aside is the correct output.",
+        "b1": "Call the state in one sentence before you look at the size field.",
+        "b2": "Trend trades only go with the trend; counter-trend clicks are locked while you call a trend.",
+        "b3": "When the state is unclear, choose Disorder and wait.",
+        "note": "HH / HL → uptrend\nLH / LL → downtrend\nOverlap → range\nViolent overlap → disorder"
+      },
+      "invalidation": {
+        "title": "Place the invalidation before the entry.",
+        "body": "A stop is a statement about where your idea is wrong, not how much you are willing to lose. Put it beyond the swing that would invalidate the structure, then compute the size.",
+        "body2": "If the structural stop is wider than the risk budget allows, the trade is too big. The answer is to skip it or trade fewer contracts — never to tighten the stop into noise.",
+        "b1": "Stop beyond the last swing low/high or the range edge.",
+        "b2": "Target at the next structure, not at a round number.",
+        "b3": "A 1.5R floor keeps the math honest; beyond 8R, ask what structure supports it.",
+        "note": "long: stop < entry < target\nshort: target < entry < stop\ndistance in ATR and ticks"
+      },
+      "sizing": {
+        "title": "Size by risk, not by conviction.",
+        "body": "Contracts = risk budget / (stop ticks × tick value + round-turn fees). The app derives this for you, but you should be able to do it on a napkin for the contracts you trade.",
+        "body2": "Leverage is an output, not an input. A wider stop is not a reason to add size; it is a reason to own fewer contracts.",
+        "b1": "Default budget: 1% of the account per trade.",
+        "b2": "Fees count toward risk. A high-frequency plan is a smaller plan.",
+        "b3": "Max contracts is a hard cap, even when the math says more.",
+        "note": "contracts = floor(budget ÷ risk per contract)\nMNQ: 40 ticks × $0.50 + $1.24\n    = $21.24 per contract"
+      },
+      "tape": {
+        "title": "Let the tape speak.",
+        "body": "Once the bracket is live, the only job is to manage what the market gives you. No rewinds, no adding indicators, no moving the stop because the bar looks scary.",
+        "body2": "The replay prints one candle at a time for a reason: it removes the hindsight that makes every chart look obvious.",
+        "b1": "Space plays or pauses; N steps one bar.",
+        "b2": "A working limit order fills at the level or better; gaps fill at the open.",
+        "b3": "If a bar touches both stop and target, the simulator assumes the stop first.",
+        "note": "Fills are conservative by design.\nThe review should not flatter you."
+      },
+      "grading": {
+        "title": "Grade the process, then the P&L.",
+        "body": "The drill scores four things: state (40), direction (20), plan structure (25) and discipline (15). The outcome is reported separately, so a lucky win cannot hide a counter-trend entry.",
+        "body2": "A losing trade with the right read, a structural stop and the risk cap respected can still grade A. That is the behaviour that survives an evaluation.",
+        "b1": "State is graded against the hidden regime.",
+        "b2": "Plan structure rewards stops beyond swings and realistic R:R.",
+        "b3": "Waiting at least three bars before acting earns discipline points.",
+        "note": "process 100\noutcome R\nA good process with a bad outcome\nis still a good rep."
+      }
+    },
+    "keys": {
+      "title": "Keyboard",
+      "hint": "Available when focus is not inside a text field.",
+      "space": "Play / pause live replay, or wait one bar while reading",
+      "next": "Advance exactly one bar",
+      "state": "Choose state: uptrend, downtrend, range, disorder",
+      "direction": "Choose long / short",
+      "commit": "Commit the read (when enabled)",
+      "palette": "Open the command palette",
+      "escape": "Close a dialog or the palette"
+    },
+    "glossary": {
+      "title": "Glossary",
+      "r": "One unit of risk. +2R means the trade made twice what the stop risked, fees included.",
+      "atr": "Average true range over 14 bars. Used to measure stop and target distance in noise units.",
+      "drawdownTerm": "Trailing drawdown",
+      "drawdown": "The distance from your equity high-water mark that the account is allowed to give back before it fails.",
+      "bracketTerm": "Bracket",
+      "bracket": "An entry with a stop and a target attached. One order, three prices, defined risk.",
+      "noFillTerm": "No fill",
+      "noFill": "The limit entry was never touched. No position, no fee, and a valid answer.",
+      "processTerm": "Process score",
+      "process": "The 100-point grade for state, direction, plan structure and discipline, independent of P&L."
+    },
+    "disclaimer": {
+      "title": "Simulated data, not advice.",
+      "body": "Every series is generated deterministically from a hidden seed. There is no broker connection, no live market feed and no promise of payouts. Prop Desk is practice software."
+    }
   }
 }
