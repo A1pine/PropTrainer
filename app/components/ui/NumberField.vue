@@ -81,6 +81,12 @@ function onBlur() {
   commit(draft.value)
 }
 
+function onFocus(event: FocusEvent) {
+  focused.value = true
+  const input = event.target as HTMLInputElement
+  input.select()
+}
+
 function onEnter(event: KeyboardEvent) {
   ;(event.target as HTMLInputElement).blur()
 }
@@ -135,10 +141,7 @@ const inputRef = ref<HTMLInputElement | null>(null)
         :aria-invalid="invalid || undefined"
         class="w-full bg-transparent py-0 font-mono text-[13px] tabular-nums outline-none placeholder:text-ink-3/60"
         :class="align === 'right' ? 'text-right' : 'text-left'"
-        @focus="
-          focused = true
-          ;($event.target as HTMLInputElement).select()
-        "
+        @focus="onFocus"
         @input="onInput"
         @blur="onBlur"
         @keydown.enter.prevent="onEnter"
