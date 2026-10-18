@@ -1,6 +1,746 @@
 {
   "app": {
     "name": "Prop Desk",
-    "tagline": "盲测复盘训练器"
+    "tagline": "盲测复盘训练器",
+    "eyebrow": "Prop Desk · 盲测复盘"
+  },
+  "nav": {
+    "lobby": "大厅",
+    "trainer": "训练场",
+    "drill": "决策演练",
+    "daily": "每日挑战",
+    "pk": "好友 PK",
+    "stats": "统计",
+    "guide": "指南",
+    "settings": "设置",
+    "lobbyShort": "大厅",
+    "trainerShort": "训练",
+    "drillShort": "演练",
+    "dailyShort": "每日",
+    "pkShort": "PK",
+    "statsShort": "统计",
+    "guideShort": "指南",
+    "settingsShort": "设置",
+    "more": "更多"
+  },
+  "common": {
+    "search": "搜索",
+    "simulated": "模拟数据",
+    "language": "语言",
+    "theme": "主题",
+    "soundOn": "音效开",
+    "soundOff": "音效关",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "close": "关闭",
+    "cancel": "取消",
+    "save": "保存",
+    "loading": "加载中…",
+    "retry": "重试",
+    "all": "全部",
+    "none": "无",
+    "today": "今天",
+    "export": "导出",
+    "reset": "重置",
+    "back": "返回"
+  },
+  "actions": {
+    "newSession": "开始盲测",
+    "newSessionHint": "训练场",
+    "toggleTheme": "切换浅色 / 深色主题",
+    "muteSound": "关闭界面音效",
+    "unmuteSound": "开启界面音效"
+  },
+  "palette": {
+    "placeholder": "跳转到页面或执行操作…",
+    "actions": "操作",
+    "navigate": "导航",
+    "move": "移动",
+    "open": "打开",
+    "empty": "没有匹配项。"
+  },
+  "phase": {
+    "idle": "就绪",
+    "loading": "正在抽取样本",
+    "judging": "研判",
+    "planning": "计划",
+    "live": "实时回放",
+    "review": "回合复盘",
+    "summary": "本次报告"
+  },
+  "trainer": {
+    "roundOf": "第 {index} / {total} 回合",
+    "dayHidden": "日期 ?? · 时钟隐藏",
+    "endSession": "结束本次",
+    "drawing": "正在抽取样本…",
+    "startTitle": "一次盲测回合",
+    "startBody": "系统会从你的品种池中抽取一个标的和一个日期。K 线逐根打印。先研判结构，放下失效点，再让盘面自行验证。",
+    "start": "开始盲测",
+    "judgingHint": "提示：按 1–4 选择状态，L/S 选择方向，空格键等待一根 K 线。",
+    "planningHint": "在图上拖动入场、止损和目标线，或输入精确的跳动点数。止损应位于结构之外。",
+    "finishRound": "结束回合"
+  },
+  "stats": {
+    "starting": "起始",
+    "equity": "权益",
+    "roundPnl": "回合盈亏",
+    "progress": "进度",
+    "winRate": "胜率",
+    "sessionPnl": "本次盈亏",
+    "fees": "手续费",
+    "trades": "交易笔数"
+  },
+  "playback": {
+    "play": "播放",
+    "pause": "暂停",
+    "nextBar": "下一根",
+    "speed": "回放速度",
+    "revealed": "已揭示",
+    "blind": "盲测",
+    "replayFuture": "回放未来"
+  },
+  "read": {
+    "step": "第 1 / 2 步 · 研判",
+    "prompt": "市场在做什么？",
+    "hint": "先定状态，再定方向。趋势交易只顺趋势做。",
+    "states": {
+      "uptrend": "上升趋势",
+      "downtrend": "下降趋势",
+      "range": "震荡",
+      "expansion": "无序"
+    },
+    "noTrade": "不交易",
+    "direction": "方向",
+    "waited": "已等待 {bars} 根",
+    "thesis": "交易依据",
+    "thesisPlaceholder": "如果我把这张图给另一位交易者，他能复现我的入场吗？",
+    "thesisHint": "写清关键价位、触发条件，以及失效点为何必须在那里。",
+    "commit": "确认研判",
+    "wait": "前进一根",
+    "counterTrendLock": "当你判定为{state}时，逆势方向已锁定。"
+  },
+  "plan": {
+    "step": "第 2 / 2 步 · 计划",
+    "title": "先放失效点，再谈入场。",
+    "hint": "在图上拖动线条，或输入精确价格。止损应位于结构之外，而不是你的心理舒适区。",
+    "entry": "入场",
+    "entryHint": "限价或可成交价位",
+    "stop": "止损",
+    "stopHint": "摆动点之外",
+    "target": "目标",
+    "targetHint": "下一个结构位",
+    "rr": "盈亏比",
+    "contracts": "手数",
+    "risk": "风险",
+    "reward": "回报",
+    "fees": "手续费",
+    "margin": "保证金",
+    "checks": "结构检查",
+    "check": {
+      "stop_side": "止损位于入场的亏损方向。",
+      "target_side": "目标位于入场的盈利方向。",
+      "stop_tooTight": "止损距入场 {atr} ATR——落在噪音区内。",
+      "stop_tightness": "止损已越过近端噪音。",
+      "stop_tooWide": "止损距入场 {atr} ATR——比结构更宽。",
+      "stop_structure": "止损距最近摆动点 {atr} ATR。请放到摆动点之外。",
+      "target_structure": "目标距最近摆动点 {atr} ATR。请锚定到结构。",
+      "rr_missing": "缺少回报或风险。",
+      "rr_low": "盈亏比为 {rr}:1——低于 1.5R 下限。",
+      "rr_ok": "盈亏比为 {rr}:1。",
+      "rr_unrealistic": "盈亏比为 {rr}:1——超出这段盘面通常能给到的范围。",
+      "risk_tooSmall": "一手所需风险已超过单笔预算。",
+      "risk_ok": "风险预算可支持 {contracts} 手。",
+      "levels_missing": "入场、止损和目标均为必填。",
+      "direction_none": "选择观望。"
+    },
+    "back": "返回研判",
+    "submit": "挂出括号委托",
+    "standAsideTitle": "观望也是一种持仓。",
+    "standAsideBody": "你判定这段盘面不值得交易。本回合将在无订单的情况下结算，过程评分会评判你的研判。",
+    "standAsideNote": "不成交，无手续费，不做假动作。",
+    "confirmNoTrade": "确认不交易"
+  },
+  "ticket": {
+    "title": "交易单",
+    "riskBased": "按风险",
+    "working": "挂单中",
+    "cancel": "撤销订单",
+    "positionOpen": "已有持仓。请先在下方管理，再提交新订单。",
+    "side": "方向",
+    "orderType": "订单类型",
+    "market": "市价",
+    "limit": "限价",
+    "limitPrice": "限价价格",
+    "limitHint": "挂到被成交为止",
+    "qty": "手数",
+    "autoSize": "按风险计算的手数：{qty}",
+    "maxLoss": "最大亏损",
+    "stop": "止损",
+    "target": "目标",
+    "fees": "手续费",
+    "margin": "保证金",
+    "buy": "买入",
+    "sell": "卖出",
+    "long": "做多",
+    "short": "做空",
+    "footnote": "以 K 线收盘价模拟成交。止损与目标为括号委托。",
+    "sheetNote": "风险优先。手数由止损和单笔预算推导得出。"
+  },
+  "position": {
+    "openPnl": "浮动盈亏",
+    "breakeven": "止损移至保本",
+    "close": "市价平仓"
+  },
+  "rules": {
+    "title": "账户风控线",
+    "profit": "盈利目标",
+    "drawdown": "移动回撤",
+    "daily": "单日亏损",
+    "contracts": "手数",
+    "trades": "往返交易",
+    "evaluation": "考核",
+    "funded": "实盘",
+    "near": "仅剩 {amount} 缓冲。",
+    "breached": "已触及风控线——本回合锁定。"
+  },
+  "review": {
+    "roundComplete": "第 {index} / {total} 回合完成",
+    "title": "盘面已揭示。",
+    "barsHidden": "隐藏 {bars} 根",
+    "process": "过程",
+    "outcome": "结果",
+    "pnl": "回合盈亏",
+    "noFill": "未成交",
+    "parts": {
+      "state": "状态研判",
+      "direction": "方向",
+      "plan": "计划结构",
+      "process": "纪律"
+    },
+    "coach": "教练点评",
+    "noPlan": "未提交计划，因此没有过程评分。揭示本身仍是课程。",
+    "fees": "手续费",
+    "trades": "成交",
+    "exit": "出场",
+    "exits": {
+      "stop": "止损出场",
+      "target": "目标",
+      "manual": "手动平仓",
+      "flatten": "平掉仓位",
+      "breach": "违规",
+      "end": "回合结束"
+    },
+    "replay": "回放未来",
+    "nextRound": "下一回合",
+    "finishSession": "结束本次",
+    "standAside": "未交易",
+    "standAsideBody": "你在{regime}盘面选择观望。观望是有效答案——复盘看的是你的研判，不是盈亏。"
+  },
+  "summary": {
+    "title": "本次报告",
+    "subtitle": "{rounds} 回合 · 模拟账户",
+    "avgR": "平均 R",
+    "breaches": "违规次数",
+    "newSession": "新的一次",
+    "viewStats": "查看统计"
+  },
+  "chart": {
+    "undo": "撤销画线",
+    "clear": "清除画线",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fit": "适配",
+    "blind": "盲测",
+    "revealed": "已揭示"
+  },
+  "log": {
+    "title": "成交记录",
+    "empty": "成交后会显示在这里。",
+    "side": "方向",
+    "entry": "入场",
+    "exit": "出场",
+    "pnl": "盈亏",
+    "stop": "止损",
+    "target": "目标",
+    "manual": "手动",
+    "flatten": "平仓",
+    "breach": "违规",
+    "end": "回合结束"
+  },
+  "grade": {
+    "state": {
+      "correct": "状态研判正确：{state}。",
+      "partial": "状态接近但不干净。盘面实际为{actual}。",
+      "opposite": "状态与盘面相反（{actual}）。"
+    },
+    "direction": {
+      "aligned": "方向与趋势一致。",
+      "noneValid": "在这段盘面中观望是有效的。",
+      "noneTrend": "本有趋势可做；你选择不做。",
+      "chop": "在{actual}中做方向性交易；这段盘面会惩罚这种操作。",
+      "counterTrend": "在清晰趋势中逆势入场。"
+    },
+    "stop": {
+      "tooTight": "止损距入场 {atr} ATR——落在噪音区内。",
+      "insideNoise": "止损距最近摆动点 {atr} ATR，未越过摆动点。"
+    },
+    "rr": {
+      "low": "盈亏比为 {rr}:1，低于 1.5 下限。",
+      "unrealistic": "盈亏比为 {rr}:1；结构不支持这样的延伸。"
+    },
+    "thesis": {
+      "thin": "交易依据过于单薄，无法复现。"
+    },
+    "waited": {
+      "none": "你在第一根 K 线就行动，没有等待形态。"
+    },
+    "risk": {
+      "exceeded": "该止损所需风险超过单笔预算。"
+    },
+    "outcome": {
+      "noFill": "入场从未触发。未成交，无手续费。",
+      "stop": "止损出场，{r}R。",
+      "target": "触及目标，{r}R。",
+      "timeout": "回合结束时仍有 {r}R 浮盈。"
+    }
+  },
+  "settings": {
+    "languageNote": "英文为源语言，译文保留交易术语。",
+    "kicker": "交易台设置",
+    "title": "一次设好你的交易台。",
+    "subtitle": "此处所有内容仅保存在本浏览器。账户规则会驱动训练场、演练与风险手数计算。",
+    "saved": "已保存到本地",
+    "disclaimer": "仅使用模拟数据，不构成投资建议。",
+    "appearance": {
+      "title": "外观",
+      "hint": "温暖底色，陶土强调色，细线几何。",
+      "themeHint": "跟随系统会使用操作系统的设置。",
+      "full": "完整动效",
+      "reduced": "减弱动效",
+      "motion": "动效",
+      "motionHint": "减弱后会隐藏位移、视差和粒子爆发。"
+    },
+    "language": {
+      "title": "语言",
+      "hint": "英文为源语言；交易术语保持原样。"
+    },
+    "risk": {
+      "title": "账户与风险",
+      "hint": "用于每个回合、演练和 PK 对战。",
+      "preset": "账户预设",
+      "accountSize": "账户规模",
+      "accountSizeHint": "编辑后将切换为自定义预设。",
+      "riskPerTrade": "单笔风险",
+      "riskPerTradeHint": "每笔约 {amount}。",
+      "maxContracts": "最大手数",
+      "maxContractsHint": "任何单笔订单的硬上限。",
+      "fee": "手续费覆盖",
+      "feeHint": "为 0 时使用各合约内置的往返手续费。",
+      "profitTarget": "盈利目标",
+      "trailing": "移动回撤",
+      "daily": "单日亏损",
+      "contractCap": "手数上限"
+    },
+    "universe": {
+      "title": "品种池",
+      "hint": "仅从勾选的合约中抽取样本。"
+    },
+    "session": {
+      "title": "会话默认值",
+      "hint": "回放与提交行为。",
+      "speed": "回放速度",
+      "speedHint": "实时回放时每秒的 K 线数。",
+      "showR": "显示 R 倍数",
+      "showRHint": "在交易单和复盘中于盈亏旁显示 R。",
+      "confirm": "提交前确认",
+      "confirmHint": "发送计划或订单前先询问。"
+    },
+    "audio": {
+      "sound": "界面音效",
+      "hint": "在浏览器内合成，默认关闭。"
+    },
+    "data": {
+      "title": "数据",
+      "hint": "历史记录不会离开本浏览器。",
+      "export": "导出历史",
+      "exportHint": "包含会话、回合和交易的 JSON。",
+      "resetHistory": "重置练习历史",
+      "resetHistoryHint": "删除会话、演练和交易记录。",
+      "resetHistoryBody": "此操作无法撤销。",
+      "resetHistoryNote": "设置与 PK 房间会保留。如需备份请先导出。",
+      "resetSettings": "重置设置",
+      "resetSettingsHint": "恢复默认账户和外观。",
+      "resetSettingsBody": "此操作无法撤销。",
+      "resetSettingsNote": "练习历史会保留。",
+      "confirmReset": "重置",
+      "historyCleared": "练习历史已清除",
+      "settingsReset": "设置已恢复"
+    },
+    "presets": {
+      "eval50": "考核 · 50K",
+      "eval100": "考核 · 100K",
+      "funded50": "实盘 · 50K",
+      "custom": "自定义",
+      "evaluation": "考核",
+      "funded": "实盘",
+      "manual": "手动"
+    }
+  },
+  "error": {
+    "notFound": "该交易台不存在。",
+    "goHome": "返回大厅"
+  },
+  "drill": {
+    "kicker": "决策演练",
+    "title": "先读懂，再交易。",
+    "subtitle": "一个隐藏样本。提交状态、方向和失效点。评分看过程，不看盈亏。",
+    "newSample": "新样本",
+    "steps": {
+      "1": "研判",
+      "2": "计划",
+      "3": "复盘"
+    },
+    "blindHint": "K 线逐根打印。按空格等待形态出现。",
+    "revealHint": "未来已揭示。平移和缩放，查看计划之后发生了什么。",
+    "drawing": "正在抽取样本…",
+    "resultKicker": "结果 · 过程评分",
+    "resultTitle": "盘面给出的答案。",
+    "waited": "已等待 {bars} 根",
+    "plan": "计划",
+    "entry": "入场",
+    "stop": "止损",
+    "target": "目标",
+    "barsToEntry": "距入场根数",
+    "held": "持仓根数",
+    "share": "分享链接",
+    "copied": "链接已复制",
+    "next": "下一次演练"
+  },
+  "daily": {
+    "badge": "每日",
+    "subtitle": "一个由 UTC 日期生成的隐藏样本。提交研判与计划，再与确定性参考计划对比。",
+    "locked": "已封存",
+    "revealed": "已揭示",
+    "sealed": "样本已封存",
+    "lockTitle": "标的、日期与后续 500 根 K 线均已锁定。",
+    "lockBody": "今天打开 Prop Desk 的每个人都会得到同一段盘面。你只能看到 150 根 K 线，且不显示代码。研判、放下失效点并提交——提交后会解锁揭示与参考榜。",
+    "lockNote": "提交后解锁",
+    "stats": {
+      "sample": "样本",
+      "players": "参考计划",
+      "benchmarks": "{count} 个基准",
+      "reset": "重置次数",
+      "state": "状态",
+      "bars": "K 线数",
+      "submitted": "已提交"
+    },
+    "yourResult": "你的提交",
+    "board": "参考榜",
+    "boardNote": "同一样本",
+    "boardDisclaimer": "参考计划是基于该样本计算的确定性策略基准。它们不是真实交易者，也不是真人排行榜。",
+    "viewStats": "查看统计",
+    "how": {
+      "title": "每日挑战如何运作",
+      "one": "样本由 UTC 日期推导，因此每位玩家的样本完全一致。",
+      "two": "每天只有一次提交机会。提交后会揭示标的、日期与未来走势。",
+      "three": "评分衡量状态、方向、计划结构与纪律——不看盈亏。",
+      "note": "更改品种池不会改变每日样本。"
+    },
+    "history": {
+      "title": "最近 7 天",
+      "note": "圆点表示当天未提交。成绩仅保存在本浏览器。"
+    },
+    "benchmarks": {
+      "plan": "计划",
+      "direction": "方向",
+      "grade": "评级",
+      "trend": "趋势跟随",
+      "fade": "震荡反转",
+      "standAside": "观望"
+    },
+    "kicker": "每日盲测",
+    "title": "同一段盘面，同一套规则。",
+    "play": "开始今日样本"
+  },
+  "lobby": {
+    "eyebrow": "Prop Desk · 盲测复盘",
+    "headline": {
+      "line1": "交易图表。",
+      "line2": "不看代码。"
+    },
+    "subcopy": "隐藏标的，隐藏日期，一次一根 K 线。打造唯一能通过考核的优势：在不确定中可重复的流程。",
+    "cta": {
+      "start": "开始盲测",
+      "guide": "打开手册"
+    },
+    "stats": {
+      "instruments": "{count} 个品种",
+      "rounds": "20 回合 / 次",
+      "timeframe": "5 分钟回放",
+      "zero": "$0 真实美元"
+    },
+    "preview": {
+      "round": "回合",
+      "pnl": "回合盈亏"
+    },
+    "universe": {
+      "kicker": "品种池",
+      "title": "自营交易公司常做的品种，微型合约优先。",
+      "hint": "选择你实际交易的合约。所有样本都从这份列表抽取；标的在复盘前保持隐藏。"
+    },
+    "how": {
+      "kicker": "循环",
+      "title": "四个动作，重复到乏味。",
+      "read": {
+        "title": "研判状态",
+        "body": "交易前先判断盘面。趋势交易只顺趋势做。"
+      },
+      "plan": {
+        "title": "放下失效点",
+        "body": "止损在结构之外，目标在下一个位置，手数由风险预算决定。"
+      },
+      "run": {
+        "title": "让盘面说话",
+        "body": "一次一根 K 线。不回退，不挑指标，不问第二意见。"
+      },
+      "review": {
+        "title": "给过程打分",
+        "body": "研判、计划与纪律和盈亏分开评分。"
+      }
+    },
+    "rules": {
+      "kicker": "真正会咬人的规则",
+      "title": "模拟的风控线，真实的后果。",
+      "subtitle": "账户规则对应考核实际失败的方式：回撤、单日亏损，以及必须达到又不能吐回去的目标。",
+      "onAccount": "账户 {size}",
+      "drawdown": {
+        "title": "移动回撤",
+        "body": "底线跟随你的权益高点。从峰值回吐 {pct}% 账户即告结束。"
+      },
+      "daily": {
+        "title": "单日亏损上限",
+        "body": "单次交易亏损达 {pct}% 即锁定交易。不许报复性交易，不许摊平。"
+      },
+      "target": {
+        "title": "盈利目标",
+        "body": "达到 {pct}% 即通过考核。在到达之前保持流程完整。"
+      }
+    },
+    "daily": {
+      "kicker": "每日盲测",
+      "title": "一个样本，人人相同。",
+      "body": "由今天日期生成的一个隐藏场景。提交后解锁标的、日期与后续 500 根 K 线。",
+      "play": "开始今日样本",
+      "view": "查看结果"
+    },
+    "recent": {
+      "kicker": "近期状态",
+      "title": "你最近三次会话",
+      "all": "全部统计",
+      "net": "净额",
+      "rounds": "回合",
+      "empty": "还没有会话。你的第一个回合会写下这一页——图表不在乎你的感受。",
+      "start": "跑一个回合"
+    },
+    "discipline": {
+      "kicker": "过程，而非预测",
+      "title": "绿色的盈亏也可能是糟糕的交易。",
+      "body": "演练将研判与计划同结果分开评分，因此侥幸的盈利无法掩盖逆势入场。",
+      "plan": "遵守计划",
+      "avgR": "平均 R"
+    },
+    "footer": {
+      "disclaimer": "Prop Desk 是训练工具。所有行情均为模拟，不使用实时市场数据，此处任何内容都不构成投资建议。"
+    }
+  },
+  "modes": {
+    "trainer": "训练场会话",
+    "drill": "决策演练",
+    "daily": "每日挑战",
+    "pk": "好友 PK"
+  },
+  "pk": {
+    "kicker": "好友 PK",
+    "title": "同一段盘面，两位交易者。",
+    "subtitle": "传递设备，面对同一个隐藏样本，由过程评分决出胜负。无需实盘账户，也无需嘴上功夫。",
+    "localNote": "本地轮流对战",
+    "setup": {
+      "title": "创建房间",
+      "hint": "两位玩家看到完全相同的样本。",
+      "player1": "玩家 1",
+      "player2": "玩家 2",
+      "placeholder1": "例如 阿达",
+      "placeholder2": "例如 小凯",
+      "seed": "样本密钥",
+      "seedHint": "分享密钥即可在另一台设备上打同一段盘面。",
+      "create": "创建房间",
+      "reroll": "新密钥"
+    },
+    "rules": {
+      "title": "房间规则",
+      "one": "每位玩家只提交一次计划，不可反悔。",
+      "two": "过程评分决定胜负；R 用于打破平局。",
+      "three": "同一密钥，同样的 K 线，同一个隐藏日期。",
+      "four": "结果仅保存在本浏览器——分享密钥，像成年人一样比较。",
+      "note": "Prop Desk PK 是本地训练房间。没有服务器，没有账户同步，也不涉及真实资金。"
+    },
+    "room": {
+      "seed": "样本密钥",
+      "created": "创建于 {date}",
+      "rematch": "再战",
+      "close": "关闭房间",
+      "player1": "玩家 1",
+      "player2": "玩家 2",
+      "playAs": "以 {player} 身份操作",
+      "waitingBody": "{player} 还未开始该样本。准备好后请传递设备。",
+      "waiting": "等待中"
+    },
+    "winner": "胜者",
+    "submitted": "已提交",
+    "copied": "已复制",
+    "copySeed": "复制密钥",
+    "result": {
+      "title": "{player} 赢下本房间",
+      "body": "差距在过程，不在代码。换一个新样本再来一次。",
+      "rematch": "再战"
+    },
+    "backToRoom": "返回房间",
+    "copyLink": "复制邀请链接"
+  },
+  "statsPage": {
+    "kicker": "你的盘面",
+    "title": "你的盘面。",
+    "subtitle": "每一笔成交、每一个计划、每一次违规。图表就是图表；这一页是它背后的行为。",
+    "range": "日期范围",
+    "all": "全部",
+    "export": "导出 JSON",
+    "empty": {
+      "title": "你的第一次会话会写下这一页。",
+      "body": "跑一个盲测回合或一次演练。已平仓交易与过程评分会自动汇总到这里。",
+      "cta": "跑一个回合"
+    },
+    "kpi": {
+      "sessions": "会话",
+      "sessionsHint": "本设备上的训练场、演练与 PK 房间",
+      "rounds": "回合",
+      "roundsHint": "包含不交易的决策",
+      "winRate": "胜率",
+      "winRateHint": "盈亏为正的已平仓交易",
+      "avgR": "平均 R",
+      "avgRHint": "已平仓交易的平均 R"
+    },
+    "equity": {
+      "title": "权益曲线",
+      "drawdown": "最大回撤"
+    },
+    "process": {
+      "title": "过程",
+      "score": "平均过程评分",
+      "scoreBody": "演练与已计划回合，与结果分开评分。",
+      "plan": "遵守计划",
+      "breaches": "违规次数",
+      "profitFactor": "盈利因子",
+      "fees": "手续费支出"
+    },
+    "distribution": {
+      "title": "R 分布",
+      "body": "{count} 笔已平仓交易",
+      "bucket": "0.5R 区间"
+    },
+    "instruments": {
+      "title": "品种优势",
+      "trades": "交易",
+      "win": "胜",
+      "empty": "该范围内没有成交。"
+    },
+    "history": {
+      "title": "会话历史",
+      "rounds": "{count} 回合",
+      "empty": "该范围内没有会话。"
+    }
+  },
+  "guide": {
+    "kicker": "流程",
+    "title": "五个动作，不逞英雄。",
+    "subtitle": "盲测回放不是预测游戏。它是对五种行为的排练——当代码可见、资金真实时，你仍能重复这些行为。",
+    "cta": "开始一个盲测回合",
+    "fieldNote": "现场笔记",
+    "formula": "公式",
+    "sections": {
+      "read": {
+        "title": "交易前先研判状态。",
+        "body": "标出最近三个摆动点。更高的高点与更高的低点是上升趋势；更低的高点与更低的低点是下降趋势。若两者都不成立，在证明相反之前，你处在震荡中。",
+        "body2": "无序不是震荡。宽大、重叠且没有清晰摆动序列的 K 线，意味着没有结构性交易——观望就是正确输出。",
+        "b1": "在看手数栏之前，用一句话说出状态。",
+        "b2": "趋势交易只顺趋势做；判定为趋势时，逆势选项会被锁定。",
+        "b3": "状态不清时，选择无序并等待。",
+        "note": "HH / HL → 上升趋势\nLH / LL → 下降趋势\n重叠 → 震荡\n剧烈重叠 → 无序"
+      },
+      "invalidation": {
+        "title": "先放失效点，再谈入场。",
+        "body": "止损说明的是你的想法在哪里错了，而不是你愿意亏多少。把它放在会使结构失效的摆动点之外，然后计算手数。",
+        "body2": "如果结构性止损比风险预算允许的更宽，那就是这笔交易太大了。答案是放弃，或减少手数——绝不能把止损收紧到噪音里。",
+        "b1": "止损放在最近摆动低点/高点或震荡区间边缘之外。",
+        "b2": "目标设在下一个结构位，而不是整数关口。",
+        "b3": "1.5R 下限让算术保持诚实；超过 8R 时，先问结构是否支持。",
+        "note": "做多：止损 < 入场 < 目标\n做空：目标 < 入场 < 止损\n距离以 ATR 和跳动点计"
+      },
+      "sizing": {
+        "title": "按风险定手数，不按信心。",
+        "body": "手数 = 风险预算 /（止损跳动点数 × 每点价值 + 往返手续费）。应用会替你算好，但你应当能对你交易的合约在餐巾纸上算出来。",
+        "body2": "杠杆是结果，不是输入。止损更宽不是加仓的理由，而是持有更少手数的理由。",
+        "b1": "默认预算：每笔为账户的 1%。",
+        "b2": "手续费计入风险。高频计划就是更小的计划。",
+        "b3": "最大手数是硬上限，即使算出来更多。",
+        "note": "手数 = floor(预算 ÷ 每手风险)\nMNQ：40 跳动点 × $0.50 + $1.24\n    = 每手 $21.24"
+      },
+      "tape": {
+        "title": "让盘面说话。",
+        "body": "括号委托生效后，唯一的任务就是管理市场给你的东西。不回退，不加指标，不因为一根 K 线吓人就移动止损。",
+        "body2": "回放一次只打印一根 K 线是有原因的：它移除了那种让每张图看起来都很明显的后见之明。",
+        "b1": "空格播放或暂停；N 前进一根。",
+        "b2": "挂着的限价单在价位或更好处成交；跳空则在开盘价成交。",
+        "b3": "若一根 K 线同时触及止损与目标，模拟器按先触发止损处理。",
+        "note": "成交设计上偏保守。\n复盘不该恭维你。"
+      },
+      "grading": {
+        "title": "先给过程打分，再看盈亏。",
+        "body": "演练评四项：状态（40）、方向（20）、计划结构（25）与纪律（15）。结果单独报告，因此侥幸的盈利无法掩盖逆势入场。",
+        "body2": "亏损交易若有正确的研判、结构性的止损并遵守风险上限，仍可评为 A。那才是能通过考核的行为。",
+        "b1": "状态对照隐藏的市场状态评分。",
+        "b2": "计划结构奖励位于摆动点之外的止损与现实的盈亏比。",
+        "b3": "至少等待三根 K 线再行动可获得纪律分。",
+        "note": "过程 100\n结果 R\n好过程配坏结果\n仍是一次好的练习"
+      }
+    },
+    "keys": {
+      "title": "键盘",
+      "hint": "焦点不在文本框内时可用。",
+      "space": "播放 / 暂停实时回放，或在研判时等待一根",
+      "next": "恰好前进一根 K 线",
+      "state": "选择状态：上升趋势、下降趋势、震荡、无序",
+      "direction": "选择做多 / 做空",
+      "commit": "确认研判（可用时）",
+      "palette": "打开命令面板",
+      "escape": "关闭对话框或面板"
+    },
+    "glossary": {
+      "title": "术语表",
+      "r": "一个风险单位。+2R 表示这笔交易赚到止损风险的两倍，含手续费。",
+      "atr": "14 根 K 线的平均真实波幅。用于以噪音单位衡量止损与目标距离。",
+      "drawdownTerm": "移动回撤",
+      "drawdown": "从权益高点到账户允许回吐的最大距离，超过即失败。",
+      "bracketTerm": "括号委托",
+      "bracket": "附带止损与目标的入场单。一个订单，三个价格，风险明确。",
+      "noFillTerm": "未成交",
+      "noFill": "限价入场从未被触及。没有持仓，没有手续费，也是一种有效答案。",
+      "processTerm": "过程评分",
+      "process": "对状态、方向、计划结构与纪律的百分制评分，与盈亏无关。"
+    },
+    "disclaimer": {
+      "title": "模拟数据，不构成建议。",
+      "body": "每条行情都由隐藏种子确定性生成。没有券商连接，没有实时行情，也不承诺任何分成。Prop Desk 是练习软件。"
+    }
   }
 }
