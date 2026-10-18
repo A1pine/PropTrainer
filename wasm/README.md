@@ -34,6 +34,6 @@ including the PRNG call order and conservative stop-first fills.
 
 ## Scope
 
-Rust owns the O(n) batch paths. Broker state transitions, sizing, grading, formatting and canvas rendering stay in
-TypeScript: they are O(1) or render-bound, and crossing the wasm boundary would add latency without reducing real
-work.
+Rust owns the O(n) batch paths: generation, swing detection, plan simulation and chart analysis. Broker state
+transitions, sizing, grading, formatting and canvas rendering stay in TypeScript: they are O(1) or render-bound,
+and crossing the wasm boundary would add latency without reducing real work.

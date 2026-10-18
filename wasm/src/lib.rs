@@ -16,6 +16,8 @@
 use serde::{Deserialize, Serialize};
 use std::alloc::{alloc, dealloc, Layout};
 
+mod analysis;
+
 // ---------------------------------------------------------------------------
 // C ABI plumbing
 // ---------------------------------------------------------------------------
@@ -24,6 +26,10 @@ static mut RESULT: Vec<u8> = Vec::new();
 
 fn write_json<T: Serialize>(value: &T) {
     let bytes = serde_json::to_vec(value).unwrap_or_else(|_| b"{\"error\":\"serialize\"}".to_vec());
+    write_bytes(bytes);
+}
+
+fn write_bytes(bytes: Vec<u8>) {
     unsafe {
         RESULT = bytes;
     }
@@ -78,13 +84,13 @@ fn read_input(ptr: *const u8, len: usize) -> Option<Vec<u8>> {
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Candle {
-    time: i64,
-    open: f64,
-    high: f64,
-    low: f64,
-    close: f64,
-    volume: f64,
+pub(crate) struct Candle {
+    pub(crate) time: i64,
+    pub(crate) open: f64,
+    pub(crate) high: f64,
+    pub(crate) low: f64,
+    pub(crate) close: f64,
+    pub(crate) volume: f64,
 }
 
 #[derive(Serialize)]
@@ -104,12 +110,12 @@ struct GenerateResponse {
     metrics: Metrics,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SwingPoint {
-    index: usize,
-    price: f64,
-    kind: &'static str,
+pub(crate) struct SwingPoint {
+    pub(crate) index: usize,
+    pub(crate) price: f64,
+    pub(crate) kind: &'static str,
 }
 
 // ---------------------------------------------------------------------------
@@ -175,7 +181,7 @@ fn decimals_for(tick: f64) -> u32 {
     }
 }
 
-fn round_to(value: f64, decimals: u32) -> f64 {
+pub(crate) fn round_to(value: f64, decimals: u32) -> f64 {
     let factor = 10f64.powi(decimals as i32);
     (value * factor).round() / factor
 }
@@ -425,7 +431,7 @@ struct FindSwingsResponse {
     swings: Vec<SwingPoint>,
 }
 
-fn find_swings(candles: &[Candle], strength: usize) -> Vec<SwingPoint> {
+pub(crate) fn find_swings(candles: &[Candle], strength: usize) -> Vec<SwingPoint> {
     let mut swings = Vec::new();
     if strength == 0 || candles.len() <= strength * 2 {
         return swings;
@@ -779,4 +785,22 @@ pub extern "C" fn prop_simulate_plan(ptr: *const u8, len: usize) -> u32 {
     let outcome = simulate(&req);
     write_json(&outcome);
     1
+}
+
+#[no_mangle]
+pub extern "C" fn prop_analyze(ptr: *const u8, len: usize) -> u32 {
+    let Some(bytes) = read_input(ptr, len) else {
+        write_error("empty input");
+        return 0;
+    };
+    match analysis::analyze_json(&bytes) {
+        Ok(output) => {
+            write_bytes(output);
+            1
+        }
+        Err(error) => {
+            write_error(&error);
+            0
+        }
+    }
 }
