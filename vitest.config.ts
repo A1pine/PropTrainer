@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['tests/setup.ts'],
     include: ['tests/**/*.spec.ts'],
     coverage: {
       include: ['app/domain/**/*.ts', 'app/lib/**/*.ts'],
