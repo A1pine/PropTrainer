@@ -340,5 +340,102 @@
   },
   "daily": {
     "badge": "Daily"
+  },
+  "lobby": {
+    "eyebrow": "Prop Desk · Blind replay",
+    "headline": {
+      "line1": "Trade the chart.",
+      "line2": "Not the ticker."
+    },
+    "subcopy": "Hidden instrument. Hidden date. One bar at a time. Build the only edge that survives an evaluation: a repeatable process under uncertainty.",
+    "cta": {
+      "start": "Start blind session",
+      "guide": "Open the playbook"
+    },
+    "stats": {
+      "instruments": "{count} instruments",
+      "rounds": "20 rounds / session",
+      "timeframe": "5m replay",
+      "zero": "$0 real dollars"
+    },
+    "preview": {
+      "round": "Round",
+      "pnl": "Round P&L"
+    },
+    "universe": {
+      "kicker": "The universe",
+      "title": "Prop-firm favourites, micros first.",
+      "hint": "Pick the contracts you actually trade. Every sample is drawn from this list; the symbol stays hidden until review."
+    },
+    "how": {
+      "kicker": "The loop",
+      "title": "Four moves, repeated until they are boring.",
+      "read": {
+        "title": "Read the state",
+        "body": "Call the tape before the trade. Trend trades only go with the trend."
+      },
+      "plan": {
+        "title": "Place the invalidation",
+        "body": "Stop beyond structure, target at the next level, size from the risk budget."
+      },
+      "run": {
+        "title": "Let the tape speak",
+        "body": "One bar at a time. No rewinds, no indicator shopping, no second opinions."
+      },
+      "review": {
+        "title": "Grade the process",
+        "body": "Read, plan and discipline are scored separately from the P&L."
+      }
+    },
+    "rules": {
+      "kicker": "The rules that bite",
+      "title": "Simulated guardrails, real consequences.",
+      "subtitle": "The account rules match the way evaluations actually fail: drawdown, daily loss, and a target you have to reach without giving it back.",
+      "onAccount": "On {size}",
+      "drawdown": {
+        "title": "Trailing drawdown",
+        "body": "The floor follows your equity high. Give back {pct}% from the peak and the account is done."
+      },
+      "daily": {
+        "title": "Daily loss limit",
+        "body": "Down {pct}% in one session and trading locks. No revenge trades, no averaging out."
+      },
+      "target": {
+        "title": "Profit target",
+        "body": "Reach {pct}% and the evaluation passes. Keep the process intact on the way there."
+      }
+    },
+    "daily": {
+      "kicker": "Daily blind",
+      "title": "One sample. Same for everyone.",
+      "body": "A single hidden scenario seeded by today's date. The symbol, the date and the next 500 bars unlock after you commit.",
+      "play": "Play today's sample",
+      "view": "View result"
+    },
+    "recent": {
+      "kicker": "Recent form",
+      "title": "Your last three sessions",
+      "all": "All stats",
+      "net": "Net",
+      "rounds": "rounds",
+      "empty": "No sessions yet. Your first round writes this page — the chart does not care how you feel about it.",
+      "start": "Run a round"
+    },
+    "discipline": {
+      "kicker": "Process, not prediction",
+      "title": "A green P&L can still be a bad trade.",
+      "body": "The drill grades the read and the plan independently of the outcome, so a lucky win cannot hide a counter-trend entry.",
+      "plan": "Followed plan",
+      "avgR": "Avg R"
+    },
+    "footer": {
+      "disclaimer": "Prop Desk is a training tool. All series are simulated, no live market data is used, and nothing here is financial advice."
+    }
+  },
+  "modes": {
+    "trainer": "Trainer session",
+    "drill": "Decision drill",
+    "daily": "Daily challenge",
+    "pk": "Friends PK"
   }
 }
