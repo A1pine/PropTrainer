@@ -339,7 +339,50 @@
     "next": "Next drill"
   },
   "daily": {
-    "badge": "Daily"
+    "badge": "Daily",
+    "subtitle": "One hidden sample seeded by the UTC date. Commit a read and a plan, then compare it with deterministic reference plans.",
+    "locked": "Sealed",
+    "revealed": "Revealed",
+    "sealed": "Sample sealed",
+    "lockTitle": "The symbol, the date and the next 500 bars are locked.",
+    "lockBody": "Everyone who opens Prop Desk today gets the same tape. You see 150 bars and no ticker. Read it, place the invalidation, commit — the reveal and the reference board unlock after submission.",
+    "lockNote": "Unlocks after you submit",
+    "stats": {
+      "sample": "Sample",
+      "players": "Reference plans",
+      "benchmarks": "{count} baselines",
+      "reset": "Resets",
+      "state": "State",
+      "bars": "Bars",
+      "submitted": "Submitted"
+    },
+    "yourResult": "Your submission",
+    "board": "Reference board",
+    "boardNote": "Same sample",
+    "boardDisclaimer": "Reference plans are deterministic strategy baselines computed on this sample. They are not real traders, and they are not a leaderboard of people.",
+    "viewStats": "View stats",
+    "how": {
+      "title": "How the daily works",
+      "one": "The sample is derived from the UTC date, so it is identical for every player.",
+      "two": "You get one submission per day. Symbol, date and the future are revealed after it.",
+      "three": "The score weighs state, direction, plan structure and discipline — not the P&L.",
+      "note": "Changing your instrument universe does not change the daily sample."
+    },
+    "history": {
+      "title": "Last 7 days",
+      "note": "A dot means no submission that day. Grades are stored locally in this browser."
+    },
+    "benchmarks": {
+      "plan": "Plan",
+      "direction": "Side",
+      "grade": "Grade",
+      "trend": "Trend follower",
+      "fade": "Range fade",
+      "standAside": "Stand aside"
+    },
+    "kicker": "Daily blind",
+    "title": "Same tape. Same rules.",
+    "play": "Play today's sample"
   },
   "lobby": {
     "eyebrow": "Prop Desk · Blind replay",

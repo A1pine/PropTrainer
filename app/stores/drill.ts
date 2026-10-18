@@ -1,4 +1,5 @@
 import { createScenarioFactory, createSeed } from '~/domain/market/scenario'
+import { dailyScenarioNow } from '~/domain/market/daily'
 import { findSwings } from '~/domain/market/generator'
 import type { Scenario } from '~/domain/market/types'
 import {
@@ -73,15 +74,19 @@ export const useDrillStore = defineStore('drill', () => {
     })
   })
   const universe = computed(() => {
+    if (mode.value === 'daily') return instruments.list()
     const resolved = instruments.resolve(settings.settings.instruments)
     return resolved.length ? resolved : instruments.list()
   })
 
   function start(options: { seed?: string; mode?: 'drill' | 'daily' } = {}) {
-    const factory = createScenarioFactory({ universe: universe.value })
     seed.value = options.seed ?? createSeed()
     mode.value = options.mode ?? 'drill'
-    scenario.value = factory.create({ seed: seed.value })
+    const factory = createScenarioFactory({
+      universe: universe.value,
+      now: mode.value === 'daily' ? dailyScenarioNow(seed.value) : new Date(),
+    })
+    scenario.value = options.seed ? factory.createFromSeed(seed.value) : factory.create()
     visibleCount.value = scenario.value.replayStart
     plan.value = blankPlan()
     plan.value.submittedAtBar = visibleCount.value - 1
