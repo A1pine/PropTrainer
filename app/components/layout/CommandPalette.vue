@@ -15,6 +15,7 @@ interface Command {
 const { t } = useI18n()
 const router = useRouter()
 const settings = useSettingsStore()
+const trainer = useTrainerStore()
 const { toggle: toggleTheme } = useAppTheme()
 const { open, hide } = useCommandPalette()
 
@@ -30,7 +31,10 @@ const actions = computed<Command[]>(() => [
     label: t('actions.newSession'),
     hint: t('actions.newSessionHint'),
     icon: ArrowRight,
-    run: () => router.push({ path: '/trainer', query: { new: '1' } }),
+    run: () => {
+      router.push('/trainer')
+      void trainer.startSession()
+    },
   },
   { id: 'theme', group: 'actions', label: t('actions.toggleTheme'), icon: Moon, run: toggleTheme },
   {
