@@ -385,6 +385,13 @@
       "evaluation": "評価フェーズ",
       "funded": "ファンデッド",
       "manual": "手動"
+    },
+    "compute": {
+      "title": "計算コア",
+      "hint": "シナリオ生成・スイング検出・プラン検証は Rust/WebAssembly で実行し、TypeScript 実装をフォールバックとして残しています。",
+      "rust": "Rust / WebAssembly",
+      "typescript": "TypeScript フォールバック",
+      "fallback": "WASM コアを読み込めなかったため、TypeScript 実装を使用しています。"
     }
   },
   "error": {

@@ -385,6 +385,13 @@
       "evaluation": "Evaluation",
       "funded": "Funded",
       "manual": "Manual"
+    },
+    "compute": {
+      "title": "Compute core",
+      "hint": "Scenario generation, swing detection and plan simulation run in Rust/WebAssembly. The TypeScript reference stays as a fallback.",
+      "rust": "Rust / WebAssembly",
+      "typescript": "TypeScript fallback",
+      "fallback": "The wasm core did not load; using the TypeScript reference implementation."
     }
   },
   "error": {

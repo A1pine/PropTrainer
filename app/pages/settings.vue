@@ -8,6 +8,7 @@ useHead({ title: 'Settings' })
 const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
 const history = useHistoryStore()
+const computeStatus = useComputeCoreStatus()
 const toasts = useToastStore()
 
 const settings = computed(() => settingsStore.settings)
@@ -273,6 +274,18 @@ onMounted(() => {
             </div>
             <Switch :model-value="settings.sound" :aria-label="t('settings.audio.sound')" @update:model-value="settingsStore.update({ sound: $event })" />
           </div>
+        </div>
+      </Panel>
+
+      <Panel :padded="false">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+          <div>
+            <p class="text-[12.5px] font-semibold">{{ t('settings.compute.title') }}</p>
+            <p class="mt-0.5 max-w-[52ch] text-[10.5px] text-ink-3">{{ t('settings.compute.hint') }}</p>
+          </div>
+          <Badge :variant="computeStatus === 'rust' ? 'bull' : 'warn'" dot>
+            {{ t(`settings.compute.${computeStatus}`) }}
+          </Badge>
         </div>
       </Panel>
 

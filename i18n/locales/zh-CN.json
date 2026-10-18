@@ -385,6 +385,13 @@
       "evaluation": "考核",
       "funded": "实盘",
       "manual": "手动"
+    },
+    "compute": {
+      "title": "计算内核",
+      "hint": "场景生成、摆动点识别与计划模拟由 Rust/WebAssembly 执行，TypeScript 版本作为回退。",
+      "rust": "Rust / WebAssembly",
+      "typescript": "TypeScript 回退",
+      "fallback": "WASM 内核未加载，正在使用 TypeScript 参考实现。"
     }
   },
   "error": {
