@@ -97,6 +97,16 @@ async function dailyFlow() {
   check(await page.getByText('Reference board').isVisible(), 'daily: reference board')
 }
 
+async function analysisFlow() {
+  await page.goto(`${base}/analysis`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1000)
+  check(await page.getByText('Confluence').isVisible(), 'analysis: confluence report')
+  check((await page.getByText('Analysis core unavailable').count()) === 0, 'analysis: wasm core active')
+  await page.getByRole('tab', { name: 'ICT' }).click()
+  await page.waitForTimeout(200)
+  check(await page.getByText('Fair value gaps').isVisible(), 'analysis: ICT panel')
+}
+
 async function settingsFlow() {
   await page.goto(`${base}/settings`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(400)
@@ -123,6 +133,7 @@ try {
   await playTrainerRound()
   await drillFlow()
   await dailyFlow()
+  await analysisFlow()
   await settingsFlow()
   if (errors.length) throw new Error(`Console errors:\n${errors.slice(0, 5).join('\n')}`)
   console.log('\nSmoke test passed with no console errors.')
