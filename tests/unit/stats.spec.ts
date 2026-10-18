@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { aggregateTrades, buildRDistribution, filterTradesByDays, maxDrawdownOf } from '@/domain/stats/aggregate'
-import { formatMoney, formatR, formatPercent, maskPrice } from '@/lib/format'
+import { formatMoney, formatR, formatPercent, maskPrice } from '@/utils/format'
 import type { TradeRecord } from '@/domain/stats/types'
 
 function trade(partial: Partial<TradeRecord> & { pnl: number; r: number | null }): TradeRecord {
