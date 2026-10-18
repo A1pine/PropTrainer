@@ -40,6 +40,13 @@ describe('i18n locale bundles', () => {
     expect(empty).toEqual([])
   })
 
+  it('keeps landing chart labels in the chart namespace', () => {
+    const bundle = load('en')
+    expect(bundle.has('chart.priceHidden')).toBe(true)
+    expect(bundle.has('chart.printing')).toBe(true)
+    expect(bundle.has('playback.priceHidden')).toBe(false)
+  })
+
   it.each(locales)('%s preserves interpolation placeholders', (code) => {
     const bundle = load(code)
     for (const [key, value] of english) {
