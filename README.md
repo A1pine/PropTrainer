@@ -25,7 +25,7 @@ structure rather than at your comfort level.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins
   and R breaks ties. Results stay in the browser, by design.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (567 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (578 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -40,7 +40,7 @@ structure rather than at your comfort level.
 | i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
 | Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
 | Compute    | Rust → WebAssembly core for O(n) market/drill math, with a TypeScript fallback                        |
-| Tests      | Vitest, 80 domain tests including Rust/TypeScript parity                                              |
+| Tests      | Vitest, 90 tests including Rust/TypeScript parity                                              |
 | QA         | Playwright screenshot script                                                                          |
 
 ## Getting started
@@ -157,7 +157,7 @@ bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 567 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror the same 578 keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 
@@ -180,7 +180,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Testing
 
-80 unit tests cover:
+90 unit tests cover:
 
 - instrument economics and registry validation,
 - PRNG determinism and OHLC/tick invariants across all eight contracts,
