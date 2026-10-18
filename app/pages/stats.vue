@@ -195,11 +195,11 @@ onMounted(() => {
           <table class="mt-3 w-full text-left">
             <thead>
               <tr class="text-[9.5px] uppercase tracking-wide text-ink-3">
-                <th class="pb-1.5 font-medium">Symbol</th>
+                <th class="pb-1.5 font-medium">{{ t('statsPage.instruments.symbol') }}</th>
                 <th class="pb-1.5 text-right font-medium">{{ t('statsPage.instruments.trades') }}</th>
                 <th class="pb-1.5 text-right font-medium">{{ t('statsPage.instruments.win') }}</th>
-                <th class="pb-1.5 text-right font-medium">Avg R</th>
-                <th class="pb-1.5 text-right font-medium">P&L</th>
+                <th class="pb-1.5 text-right font-medium">{{ t('statsPage.instruments.avgR') }}</th>
+                <th class="pb-1.5 text-right font-medium">{{ t('statsPage.instruments.netPnl') }}</th>
               </tr>
             </thead>
             <tbody>

@@ -190,6 +190,12 @@
   },
   "position": {
     "openPnl": "Open P&L",
+    "open": "Open",
+    "entry": "Entry",
+    "mark": "Mark",
+    "stop": "Stop",
+    "target": "Target",
+    "r": "R",
     "breakeven": "Stop to break-even",
     "close": "Close at market"
   },
@@ -640,7 +646,8 @@
     },
     "equity": {
       "title": "Equity curve",
-      "drawdown": "Max drawdown"
+      "drawdown": "Max drawdown",
+      "empty": "No closed trades yet."
     },
     "process": {
       "title": "Process",
@@ -658,8 +665,11 @@
     },
     "instruments": {
       "title": "Instrument edge",
+      "symbol": "Symbol",
       "trades": "Trades",
       "win": "Win",
+      "avgR": "Avg R",
+      "netPnl": "P&L",
       "empty": "No fills in this range."
     },
     "history": {

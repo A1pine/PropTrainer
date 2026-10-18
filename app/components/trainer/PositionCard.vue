@@ -28,16 +28,16 @@ const pnlTone = computed(() => (props.unrealized > 0 ? 'text-bull-strong' : prop
         <ArrowDownRight v-else class="size-3.5" aria-hidden="true" />
         {{ isLong ? t('ticket.long') : t('ticket.short') }} · {{ position.qty }} {{ instrument.symbol }}
       </span>
-      <Badge :variant="isLong ? 'bull' : 'bear'" size="sm">OPEN</Badge>
+      <Badge :variant="isLong ? 'bull' : 'bear'" size="sm">{{ t('position.open') }}</Badge>
     </div>
 
     <div class="mt-3 grid grid-cols-3 gap-2 font-mono text-[11px]">
       <div>
-        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">Entry</p>
+        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.entry') }}</p>
         <p class="mt-0.5 tabular-nums">{{ formatPrice(position.entryPrice, instrument.pricePrecision) }}</p>
       </div>
       <div>
-        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">Mark</p>
+        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.mark') }}</p>
         <p class="mt-0.5 tabular-nums">{{ formatPrice(markPrice, instrument.pricePrecision) }}</p>
       </div>
       <div class="text-right">
@@ -45,15 +45,15 @@ const pnlTone = computed(() => (props.unrealized > 0 ? 'text-bull-strong' : prop
         <p class="mt-0.5 tabular-nums" :class="pnlTone">{{ formatMoney(unrealized, { signed: true }) }}</p>
       </div>
       <div>
-        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">Stop</p>
+        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.stop') }}</p>
         <p class="mt-0.5 tabular-nums text-bear">{{ position.stopLoss == null ? '—' : formatPrice(position.stopLoss, instrument.pricePrecision) }}</p>
       </div>
       <div>
-        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">Target</p>
+        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.target') }}</p>
         <p class="mt-0.5 tabular-nums text-bull">{{ position.takeProfit == null ? '—' : formatPrice(position.takeProfit, instrument.pricePrecision) }}</p>
       </div>
       <div class="text-right">
-        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">R</p>
+        <p class="text-[9.5px] uppercase tracking-wide text-ink-3">{{ t('position.r') }}</p>
         <p class="mt-0.5 tabular-nums" :class="pnlTone">{{ formatR(roundR) }}</p>
       </div>
     </div>

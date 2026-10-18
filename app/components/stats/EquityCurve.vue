@@ -1,4 +1,6 @@
 <script setup lang="ts">
+const { t } = useI18n()
+
 const props = withDefaults(
   defineProps<{
     points: { index: number; cumulative: number; drawdown: number }[]
@@ -86,7 +88,7 @@ const tone = computed(() => {
       </g>
       <circle :cx="geometry.x(geometry.data.length - 1)" :cy="geometry.y(geometry.data.at(-1)?.cumulative ?? 0)" r="2.5" :fill="tone" />
     </svg>
-    <div v-else class="grid h-[220px] place-items-center text-[11px] text-ink-3">No closed trades yet.</div>
+    <div v-else class="grid h-[220px] place-items-center text-[11px] text-ink-3">{{ t('statsPage.equity.empty') }}</div>
 
     <div
       v-if="hovered"

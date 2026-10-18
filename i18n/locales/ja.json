@@ -190,6 +190,12 @@
   },
   "position": {
     "openPnl": "評価損益",
+    "open": "保有中",
+    "entry": "建値",
+    "mark": "現在値",
+    "stop": "損切",
+    "target": "利確",
+    "r": "R",
     "breakeven": "ストップを建値へ",
     "close": "成行で決済"
   },
@@ -640,7 +646,8 @@
     },
     "equity": {
       "title": "資産曲線",
-      "drawdown": "最大ドローダウン"
+      "drawdown": "最大ドローダウン",
+      "empty": "決済済みの取引はまだありません。"
     },
     "process": {
       "title": "プロセス",
@@ -658,8 +665,11 @@
     },
     "instruments": {
       "title": "銘柄別の優位性",
+      "symbol": "銘柄",
       "trades": "取引",
       "win": "勝ち",
+      "avgR": "平均 R",
+      "netPnl": "損益",
       "empty": "この期間に約定はありません。"
     },
     "history": {

@@ -190,6 +190,12 @@
   },
   "position": {
     "openPnl": "浮动盈亏",
+    "open": "持仓中",
+    "entry": "入场",
+    "mark": "现价",
+    "stop": "止损",
+    "target": "目标",
+    "r": "R",
     "breakeven": "止损移至保本",
     "close": "市价平仓"
   },
@@ -640,7 +646,8 @@
     },
     "equity": {
       "title": "权益曲线",
-      "drawdown": "最大回撤"
+      "drawdown": "最大回撤",
+      "empty": "暂无已平仓交易。"
     },
     "process": {
       "title": "过程",
@@ -658,8 +665,11 @@
     },
     "instruments": {
       "title": "品种优势",
+      "symbol": "品种",
       "trades": "交易",
       "win": "胜",
+      "avgR": "平均 R",
+      "netPnl": "盈亏",
       "empty": "该范围内没有成交。"
     },
     "history": {
