@@ -36,7 +36,7 @@ function disabled(symbol: string) {
         <span class="font-mono text-[12px] font-semibold tracking-wide">{{ instrument.symbol }}</span>
         <span
           v-if="active(instrument.symbol)"
-          class="grid size-4 place-items-center rounded-full bg-clay text-white"
+          class="grid size-4 place-items-center rounded-full bg-clay text-on-clay"
           aria-hidden="true"
         >
           <Check class="size-2.5" :stroke-width="3" />

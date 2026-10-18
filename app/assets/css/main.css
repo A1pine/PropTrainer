@@ -38,6 +38,10 @@
   --clay-soft: #fbf3ef;
   --clay-ink: #8a3d22;
   --clay-glow: rgba(198, 97, 63, 0.28);
+  --on-clay: #ffffff;
+  --on-bull: #ffffff;
+  --on-bear: #ffffff;
+  --on-danger: #ffffff;
 
   /* Market semantics */
   --bull: #5b7f6b;
@@ -142,6 +146,10 @@
   --clay-soft: rgba(224, 130, 100, 0.14);
   --clay-ink: #f3b79f;
   --clay-glow: rgba(224, 130, 100, 0.24);
+  --on-clay: #1c0f0a;
+  --on-bull: #08130d;
+  --on-bear: #1b0c08;
+  --on-danger: #1b0c08;
 
   --bull: #83bfa0;
   --bull-strong: #9dd4b6;
@@ -209,6 +217,10 @@
   --color-clay-hover: var(--clay-hover);
   --color-clay-soft: var(--clay-soft);
   --color-clay-ink: var(--clay-ink);
+  --color-on-clay: var(--on-clay);
+  --color-on-bull: var(--on-bull);
+  --color-on-bear: var(--on-bear);
+  --color-on-danger: var(--on-danger);
 
   --color-bull: var(--bull);
   --color-bull-strong: var(--bull-strong);

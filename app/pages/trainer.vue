@@ -485,7 +485,7 @@ onBeforeUnmount(() => {
     <button
       v-if="trainer.phase === 'live'"
       type="button"
-      class="fixed bottom-[calc(var(--mobile-tabbar)+12px)] right-4 z-30 flex items-center gap-2 rounded-pill bg-clay px-4 py-3 text-[12px] font-medium text-white shadow-lg md:hidden"
+      class="fixed bottom-[calc(var(--mobile-tabbar)+12px)] right-4 z-30 flex items-center gap-2 rounded-pill bg-clay px-4 py-3 text-[12px] font-medium text-on-clay shadow-lg md:hidden"
       @click="showTicket = true"
     >
       <Crosshair class="size-4" aria-hidden="true" />

@@ -21,7 +21,7 @@ function toggleSound() {
     class="sticky top-0 z-30 flex h-[var(--topbar-height)] items-center gap-3 border-b-[length:var(--hairline)] border-line bg-surface-1/85 px-4 backdrop-blur-xl md:px-6"
   >
     <div class="flex min-w-0 flex-1 items-center gap-3">
-      <NuxtLink to="/" class="grid size-7 place-items-center rounded-md bg-clay text-white md:hidden" aria-label="Prop Desk home">
+      <NuxtLink to="/" class="grid size-7 place-items-center rounded-md bg-clay text-on-clay md:hidden" aria-label="Prop Desk home">
         <ChartCandlestick class="size-4" aria-hidden="true" />
       </NuxtLink>
       <div class="min-w-0">

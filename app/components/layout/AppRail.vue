@@ -12,7 +12,7 @@ const route = useRoute()
   >
     <NuxtLink
       to="/"
-      class="group relative grid size-10 place-items-center rounded-xl bg-clay text-white shadow-sm transition-transform duration-200 ease-snap hover:scale-105 active:scale-95"
+      class="group relative grid size-10 place-items-center rounded-xl bg-clay text-on-clay shadow-sm transition-transform duration-200 ease-snap hover:scale-105 active:scale-95"
       aria-label="Prop Desk home"
     >
       <svg viewBox="0 0 32 32" class="size-5" fill="none" aria-hidden="true">

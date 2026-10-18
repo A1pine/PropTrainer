@@ -16,14 +16,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-clay text-white shadow-xs hover:bg-clay-hover',
+        primary: 'bg-clay text-on-clay shadow-xs hover:bg-clay-hover',
         secondary: 'border border-line bg-surface-2 text-ink shadow-xs hover:border-line-strong hover:bg-surface-2',
         ghost: 'text-ink-2 hover:bg-ink/5 hover:text-ink',
         outline: 'border border-line-strong bg-transparent text-ink hover:bg-ink/5',
-        danger: 'bg-danger text-white hover:brightness-95',
+        danger: 'bg-danger text-on-danger hover:brightness-95',
         'danger-ghost': 'text-danger hover:bg-danger-soft',
-        bull: 'bg-bull text-white hover:brightness-95',
-        bear: 'bg-bear text-white hover:brightness-95',
+        bull: 'bg-bull text-on-bull hover:brightness-95',
+        bear: 'bg-bear text-on-bear hover:brightness-95',
         link: 'text-clay underline-offset-4 hover:underline',
       },
       size: {
