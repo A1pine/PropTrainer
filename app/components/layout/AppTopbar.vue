@@ -46,18 +46,20 @@ function toggleSound() {
         <Kbd :keys="['⌘', 'K']" class="ml-2" />
       </button>
 
-      <Tooltip :content="settings.settings.sound ? t('common.soundOn') : t('common.soundOff')">
-        <button
-          type="button"
-          class="grid size-8 place-items-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink"
-          :aria-label="settings.settings.sound ? t('common.soundOn') : t('common.soundOff')"
-          :aria-pressed="settings.settings.sound"
-          @click="toggleSound"
-        >
-          <Volume2 v-if="settings.settings.sound" class="size-4" aria-hidden="true" />
-          <VolumeX v-else class="size-4" aria-hidden="true" />
-        </button>
-      </Tooltip>
+      <ClientOnly>
+        <Tooltip :content="settings.settings.sound ? t('common.soundOn') : t('common.soundOff')">
+          <button
+            type="button"
+            class="grid size-8 place-items-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink"
+            :aria-label="settings.settings.sound ? t('common.soundOn') : t('common.soundOff')"
+            :aria-pressed="settings.settings.sound"
+            @click="toggleSound"
+          >
+            <Volume2 v-if="settings.settings.sound" class="size-4" aria-hidden="true" />
+            <VolumeX v-else class="size-4" aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </ClientOnly>
 
       <ThemeToggle />
     </div>

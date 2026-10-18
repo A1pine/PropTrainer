@@ -3,11 +3,11 @@ import { Monitor, Moon, Sun } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{ variant?: 'icon' | 'segmented'; labels?: Record<string, string> }>(), {
   variant: 'icon',
-  labels: () => ({ light: 'Light', dark: 'Dark', system: 'System' }),
+  labels: () => ({ light: 'Light', dark: 'Dark', system: 'System', theme: 'Toggle theme' }),
 })
 
 const settings = useSettingsStore()
-const { resolved, isDark, toggle, set } = useAppTheme()
+const { toggle, set } = useAppTheme()
 
 const options = computed(() => [
   { value: 'light', label: props.labels.light ?? 'Light', icon: Sun },
@@ -23,16 +23,15 @@ const mode = computed({
 
 <template>
   <SegmentedControl v-if="variant === 'segmented'" v-model="mode" :options="options" />
-  <Tooltip v-else :content="isDark ? labels.light ?? 'Light' : labels.dark ?? 'Dark'" side="right">
+  <Tooltip v-else :content="labels.theme ?? 'Toggle theme'" side="right">
     <button
       type="button"
       class="grid size-9 place-items-center rounded-md text-ink-3 transition-colors hover:bg-ink/5 hover:text-ink"
-      :aria-label="isDark ? labels.light ?? 'Light' : labels.dark ?? 'Dark'"
-      :aria-pressed="resolved === 'dark'"
+      :aria-label="labels.theme ?? 'Toggle theme'"
       @click="toggle"
     >
-      <Moon v-if="isDark" class="size-4" aria-hidden="true" />
-      <Sun v-else class="size-4" aria-hidden="true" />
+      <Sun class="size-4 dark:hidden" aria-hidden="true" />
+      <Moon class="hidden size-4 dark:block" aria-hidden="true" />
     </button>
   </Tooltip>
 </template>
