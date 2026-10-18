@@ -21,6 +21,9 @@ import type {
   DrawingPoint,
   DrawingType,
   CrosshairPayload,
+  ChartAnalysis,
+  ChartTone,
+  AnalysisSeries,
 } from './types'
 
 const AXIS_WIDTH = 64
@@ -47,6 +50,7 @@ export class ChartEngine {
   private drawings: ChartDrawing[] = []
   private draft: ChartDrawing | null = null
   private draftPoint: DrawingPoint | null = null
+  private analysis: ChartAnalysis | null = null
   private tool: ChartTool = 'cursor'
   private drag: DragState = { kind: 'none' }
   private hover: { x: number; y: number } | null = null
@@ -130,6 +134,11 @@ export class ChartEngine {
 
   setDrawings(drawings: ChartDrawing[]) {
     this.drawings = drawings
+    this.requestRender()
+  }
+
+  setAnalysis(analysis: ChartAnalysis | null) {
+    this.analysis = analysis
     this.requestRender()
   }
 
@@ -298,15 +307,24 @@ export class ChartEngine {
     ctx.beginPath()
     ctx.rect(plot.left, plot.top, plot.width, plot.height)
     ctx.clip()
+    if (this.analysis) {
+      this.drawAnalysisProfile(plot, scale)
+      this.drawAnalysisZones(plot, geo, scale, plot.width < 520)
+    }
     if (this.opts.showVolume && volume.height > 0) this.drawVolume(volume, geo, scale, start, end)
     this.drawCandles(price, geo, scale, start, end)
     this.drawOverlays(plot, scale)
     this.drawDrawings(plot, geo, scale)
+    if (this.analysis) this.drawAnalysisSeries(plot, geo, scale)
     if (this.opts.blind && this.opts.showWatermark) this.drawWatermark(price)
     ctx.restore()
 
     this.drawAxes(price, geo, scale)
     this.drawLastPrice(price, geo, scale, end)
+    if (this.analysis) {
+      this.drawAnalysisLevels(plot, scale, plot.width < 520)
+      this.drawAnalysisMarkers(plot, geo, scale, plot.width < 520)
+    }
     this.drawCrosshair(plot, geo, scale)
     if (this.draft) this.drawDraft(plot, geo, scale)
 
@@ -940,6 +958,196 @@ export class ChartEngine {
 
   private emitViewport() {
     this.callbacks.onViewportChange?.(this.viewport.end, this.viewport.span)
+  }
+
+  private toneColor(tone: ChartTone): string {
+    switch (tone) {
+      case 'bull':
+        return this.theme.bull
+      case 'bear':
+        return this.theme.bear
+      case 'clay':
+        return this.theme.clay
+      case 'ink':
+        return this.theme.text
+      case 'warn':
+        return this.theme.clay
+      default:
+        return this.theme.textMuted
+    }
+  }
+
+  private drawAnalysisProfile(plot: Rect, scale: ReturnType<typeof createPriceScale>) {
+    const bars = this.analysis?.profile ?? []
+    if (!bars.length) return
+    const max = Math.max(...bars.map((bar) => bar.volume), 1)
+    const widthLimit = Math.min(110, plot.width * 0.16)
+    const ctx = this.ctx
+    ctx.save()
+    for (const bar of bars) {
+      const y = scale.y(bar.price)
+      if (y < plot.top || y > plot.bottom) continue
+      const width = Math.max(1, (bar.volume / max) * widthLimit)
+      ctx.globalAlpha = bar.isPoc ? 0.38 : bar.inValueArea ? 0.16 : 0.07
+      ctx.fillStyle = bar.isPoc ? this.theme.clay : this.theme.textMuted
+      ctx.fillRect(plot.right - width, y - 2, width, 4)
+    }
+    ctx.restore()
+  }
+
+  private drawAnalysisZones(
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+    compact: boolean,
+  ) {
+    const zones = this.analysis?.zones ?? []
+    const ctx = this.ctx
+    for (const zone of zones) {
+      const x1 = Math.max(plot.left, geo.x(zone.from))
+      const x2 = Math.min(plot.right, geo.x(zone.to))
+      if (x2 <= plot.left || x1 >= plot.right) continue
+      const y1 = scale.y(zone.top)
+      const y2 = scale.y(zone.bottom)
+      const top = Math.max(plot.top, Math.min(y1, y2))
+      const bottom = Math.min(plot.bottom, Math.max(y1, y2))
+      if (bottom <= top) continue
+      const color = this.toneColor(zone.tone)
+      ctx.save()
+      ctx.globalAlpha = 0.1
+      ctx.fillStyle = color
+      ctx.fillRect(x1, top, x2 - x1, bottom - top)
+      ctx.globalAlpha = 0.32
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      ctx.strokeRect(Math.round(x1) + 0.5, Math.round(top) + 0.5, Math.round(x2 - x1), Math.round(bottom - top))
+      ctx.setLineDash([])
+      if (zone.label && !compact) {
+        ctx.globalAlpha = 0.85
+        ctx.fillStyle = color
+        ctx.font = `9px ${this.theme.fontMono}`
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(zone.label, x1 + 4, top - 2)
+      }
+      ctx.restore()
+    }
+  }
+
+  private drawAnalysisSeries(
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
+    const ctx = this.ctx
+    for (const series of this.analysis?.series ?? []) {
+      this.drawSeriesLine(series, plot, geo, scale)
+    }
+  }
+
+  private drawSeriesLine(
+    series: AnalysisSeries,
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
+    const points = series.points
+    if (!points.length) return
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = this.toneColor(series.tone)
+    ctx.lineWidth = series.width ?? 1.2
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.globalAlpha = 0.85
+    if (series.dashed) ctx.setLineDash([3, 4])
+    ctx.beginPath()
+    let drawing = false
+    const end = Math.min(points.length - 1, Math.ceil(geo.start + geo.span))
+    for (let index = Math.max(0, Math.floor(geo.start)); index <= end; index += 1) {
+      const value = points[index]
+      if (value == null || !Number.isFinite(value)) {
+        drawing = false
+        continue
+      }
+      const x = geo.x(index)
+      const y = scale.y(value)
+      if (x < plot.left - 4 || x > plot.right + 4) continue
+      if (!drawing) {
+        ctx.moveTo(x, y)
+        drawing = true
+      } else {
+        ctx.lineTo(x, y)
+      }
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  private drawAnalysisLevels(plot: Rect, scale: ReturnType<typeof createPriceScale>, compact: boolean) {
+    const ctx = this.ctx
+    for (const level of this.analysis?.levels ?? []) {
+      const y = Math.round(scale.y(level.price)) + 0.5
+      if (y < plot.top || y > plot.bottom) continue
+      ctx.save()
+      ctx.strokeStyle = this.toneColor(level.tone)
+      ctx.globalAlpha = 0.55
+      ctx.setLineDash([2, 4])
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      ctx.moveTo(plot.left, y)
+      ctx.lineTo(plot.right, y)
+      ctx.stroke()
+      ctx.setLineDash([])
+      if (!compact) {
+        ctx.font = `9px ${this.theme.fontMono}`
+        ctx.fillStyle = this.toneColor(level.tone)
+        ctx.globalAlpha = 0.9
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(level.label, plot.left + 4, y - 2)
+      }
+      ctx.restore()
+    }
+  }
+
+  private drawAnalysisMarkers(
+    plot: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+    compact: boolean,
+  ) {
+    const ctx = this.ctx
+    for (const marker of this.analysis?.markers ?? []) {
+      const x = geo.x(marker.index)
+      const y = scale.y(marker.price)
+      if (x < plot.left || x > plot.right || y < plot.top || y > plot.bottom) continue
+      const color = this.toneColor(marker.tone)
+      const up = marker.tone === 'bull'
+      ctx.save()
+      ctx.fillStyle = color
+      ctx.beginPath()
+      if (up) {
+        ctx.moveTo(x, y + 9)
+        ctx.lineTo(x - 3.5, y + 15)
+        ctx.lineTo(x + 3.5, y + 15)
+      } else {
+        ctx.moveTo(x, y - 9)
+        ctx.lineTo(x - 3.5, y - 15)
+        ctx.lineTo(x + 3.5, y - 15)
+      }
+      ctx.closePath()
+      ctx.fill()
+      if (!compact) {
+        ctx.font = `8.5px ${this.theme.fontMono}`
+        ctx.globalAlpha = 0.85
+        ctx.textAlign = 'center'
+        ctx.textBaseline = up ? 'top' : 'bottom'
+        ctx.fillText(marker.label, x, up ? y + 17 : y - 17)
+      }
+      ctx.restore()
+    }
   }
 
   /** Drawings currently on the chart, including the in-progress one. */

@@ -64,3 +64,53 @@ export interface ChartOptions {
   pricePrecision?: number
   tickSize?: number
 }
+
+export type ChartTone = 'bull' | 'bear' | 'clay' | 'ink' | 'muted' | 'warn'
+
+export interface AnalysisSeries {
+  id: string
+  tone: ChartTone
+  width?: number
+  dashed?: boolean
+  points: (number | null)[]
+}
+
+export interface AnalysisZone {
+  id: string
+  from: number
+  to: number
+  top: number
+  bottom: number
+  tone: ChartTone
+  label?: string
+}
+
+export interface AnalysisLevelLine {
+  id: string
+  price: number
+  tone: ChartTone
+  label: string
+}
+
+export interface AnalysisMarker {
+  id: string
+  index: number
+  price: number
+  tone: ChartTone
+  label: string
+}
+
+export interface AnalysisProfileBar {
+  price: number
+  volume: number
+  inValueArea: boolean
+  isPoc: boolean
+}
+
+export interface ChartAnalysis {
+  series: AnalysisSeries[]
+  zones: AnalysisZone[]
+  levels: AnalysisLevelLine[]
+  markers: AnalysisMarker[]
+  profile: AnalysisProfileBar[]
+}

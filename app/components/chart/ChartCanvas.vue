@@ -2,7 +2,7 @@
 import type { Candle } from '~/domain/market/types'
 import { ChartEngine } from '~/lib/chart/engine'
 import { readChartTheme } from '~/lib/chart/theme'
-import type { ChartDrawing, ChartOverlayLevels, ChartTool, CrosshairPayload } from '~/lib/chart/types'
+import type { ChartAnalysis, ChartDrawing, ChartOverlayLevels, ChartTool, CrosshairPayload } from '~/lib/chart/types'
 
 const props = withDefaults(
   defineProps<{
@@ -10,6 +10,7 @@ const props = withDefaults(
     visibleCount: number
     overlays?: ChartOverlayLevels
     drawings?: ChartDrawing[]
+    analysis?: ChartAnalysis | null
     tool?: ChartTool
     blind?: boolean
     timeframeMinutes?: number
@@ -22,6 +23,7 @@ const props = withDefaults(
   {
     overlays: () => ({ entry: null, stop: null, target: null }),
     drawings: () => [],
+    analysis: null,
     tool: 'cursor',
     blind: true,
     timeframeMinutes: 5,
@@ -82,6 +84,7 @@ function init() {
   chart.setCandles(props.candles, props.visibleCount)
   chart.setOverlays(props.overlays)
   chart.setDrawings(props.drawings)
+  chart.setAnalysis(props.analysis)
   chart.setTool(props.tool)
   chart.fit()
   engine.value = chart
@@ -132,6 +135,12 @@ watch(
 watch(
   () => props.tool,
   (tool) => engine.value?.setTool(tool),
+)
+
+watch(
+  () => props.analysis,
+  (analysis) => engine.value?.setAnalysis(analysis),
+  { deep: true },
 )
 
 watch(
