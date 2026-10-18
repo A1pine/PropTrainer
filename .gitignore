@@ -1,0 +1,28 @@
+# Nuxt / Node
+node_modules
+.nuxt
+.output
+.data
+dist
+*.log
+.DS_Store
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Tests / tooling
+coverage
+.vitest
+*.tsbuildinfo
+
+# Editors
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# Playwright
+playwright-report
+test-results
+screenshots/
