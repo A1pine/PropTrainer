@@ -192,6 +192,10 @@ export const useDrillStore = defineStore('drill', () => {
 
   function persist() {
     if (!scenario.value || !grade.value) return
+    history.hydrate()
+    // The daily is one submission per UTC day: practice replays are allowed,
+    // but they cannot overwrite the first committed result.
+    if (mode.value === 'daily' && history.sessions.some((session) => session.id === `drill-${seed.value}`)) return
     const now = new Date().toISOString()
     const round: RoundRecord = {
       id: `drill-${seed.value}-${Date.now()}`,

@@ -52,6 +52,8 @@ export const usePkStore = defineStore('pk', () => {
     const current = room.value
     if (!current) return
     if (seed && current.seed !== seed) return
+    // One committed attempt per player per room; rematch resets both slots.
+    if (current.results[slot]) return
     room.value = { ...current, results: { ...current.results, [slot]: result } }
     persist()
   }
