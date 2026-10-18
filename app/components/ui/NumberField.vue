@@ -38,9 +38,8 @@ const emit = defineEmits<{
 defineOptions({ inheritAttrs: false })
 
 const focused = ref(false)
-const draft = ref(format(props.modelValue))
-
 const decimals = computed(() => Math.max(0, props.precision))
+const draft = ref(format(props.modelValue))
 
 function format(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return ''

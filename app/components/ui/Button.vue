@@ -52,6 +52,7 @@ const props = withDefaults(
       size?: ButtonVariants['size']
       block?: boolean
       loading?: boolean
+      disabled?: boolean
       type?: 'button' | 'submit' | 'reset'
     }
   >(),
@@ -61,19 +62,26 @@ const props = withDefaults(
     size: 'md',
     block: false,
     loading: false,
+    disabled: false,
     type: 'button',
   },
 )
 
 defineOptions({ inheritAttrs: false })
+
+const forwardedAttrs = computed(() => {
+  const { class: _className, ...rest } = useAttrs()
+  return rest
+})
 </script>
 
 <template>
   <Primitive
+    v-bind="forwardedAttrs"
     :as="props.as"
     :as-child="props.asChild"
     :type="props.as === 'button' ? props.type : undefined"
-    :disabled="props.as === 'button' && props.loading ? true : undefined"
+    :disabled="props.as === 'button' ? props.disabled || props.loading : undefined"
     :aria-busy="props.loading || undefined"
     :class="cn(buttonVariants({ variant: props.variant, size: props.size }), props.block && 'w-full', $attrs.class as string)"
   >
