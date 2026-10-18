@@ -7,6 +7,15 @@ useHead({ title: 'Decision drill' })
 const { t } = useI18n()
 const route = useRoute()
 const drill = useDrillStore()
+const pk = usePkStore()
+const player = computed<1 | 2>(() => (Number(route.query.player) === 2 ? 2 : 1))
+const recordedFor = ref('')
+const DRILL_KEY = 'propdesk:last-drill-start'
+
+function startKey() {
+  const seed = typeof route.query.seed === 'string' ? route.query.seed : 'random'
+  return `${seed}:${route.query.mode ?? 'drill'}:${route.query.player ?? ''}`
+}
 const settings = useSettingsStore()
 const chart = ref<{ fit: () => void; zoom: (f: number) => void; focusOn: (i: number, s?: number) => void } | null>(null)
 
@@ -39,6 +48,7 @@ function startDrill() {
   const seed = typeof route.query.seed === 'string' ? route.query.seed : undefined
   const mode = route.query.mode === 'daily' ? 'daily' : 'drill'
   drill.start({ seed, mode })
+  if (import.meta.client) sessionStorage.setItem(DRILL_KEY, startKey())
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -57,9 +67,34 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+watch(
+  () => drill.phase,
+  (phase) => {
+    if (phase !== 'review' || !route.query.pk || !drill.grade || !drill.scenario) return
+    const key = `${drill.seed}:${player.value}`
+    if (recordedFor.value === key) return
+    recordedFor.value = key
+    pk.record(
+      player.value,
+      {
+        score: drill.grade.total,
+        grade: drill.grade.letter,
+        rMultiple: drill.outcome?.rMultiple ?? null,
+        symbol: drill.scenario.instrument.symbol,
+        sessionDate: drill.scenario.sessionDate,
+        regime: drill.scenario.regime,
+        playedAt: new Date().toISOString(),
+      },
+      drill.seed,
+    )
+  },
+)
+
 onMounted(() => {
   settings.hydrate()
-  if (drill.phase === 'idle') startDrill()
+  pk.hydrate()
+  const lastKey = import.meta.client ? sessionStorage.getItem(DRILL_KEY) : null
+  if (drill.phase === 'idle' || (lastKey && lastKey !== startKey())) startDrill()
   window.addEventListener('keydown', onKeydown)
 })
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
@@ -75,7 +110,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </div>
       <div class="ml-auto flex items-center gap-2">
         <Badge v-if="drill.mode === 'daily'" variant="clay">{{ t('daily.badge') }}</Badge>
-        <Badge variant="outline">{{ symbolLabel }} · {{ instrument?.timeframeMinutes ?? 5 }}m</Badge>
+        <Badge variant="outline">{{ symbolLabel }} · {{ drill.scenario?.timeframeMinutes ?? 5 }}m</Badge>
         <Button variant="secondary" size="sm" @click="startDrill()">
           <RefreshCw class="size-3.5" aria-hidden="true" />
           {{ t('drill.newSample') }}
@@ -138,7 +173,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           :overlays="overlays"
           :tool="drill.tool"
           :blind="!drill.revealed"
-          :timeframe-minutes="instrument?.timeframeMinutes ?? 5"
+          :timeframe-minutes="drill.scenario?.timeframeMinutes ?? 5"
           :price-precision="instrument?.pricePrecision ?? 2"
           :tick-size="instrument?.tickSize ?? 0.25"
           :overlay-draggable="drill.phase === 'planning'"
@@ -187,6 +222,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           :seed="drill.seed"
           @next="drill.next()"
         />
+        <NuxtLink v-if="route.query.pk" to="/pk" class="mt-2 block text-center text-[10.5px] text-ink-3 hover:text-ink-2">
+          {{ t('pk.backToRoom') }}
+        </NuxtLink>
         <div v-else class="py-10 text-center text-[12px] text-ink-3">{{ t('drill.drawing') }}</div>
       </aside>
     </div>

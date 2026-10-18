@@ -480,5 +480,53 @@
     "drill": "Decision drill",
     "daily": "Daily challenge",
     "pk": "Friends PK"
+  },
+  "pk": {
+    "kicker": "Friends PK",
+    "title": "Same tape. Two traders.",
+    "subtitle": "Pass the device, take the same hidden sample, and let the process grade settle it. No live account, no trash talk required.",
+    "localNote": "Local pass-and-play",
+    "setup": {
+      "title": "Create a room",
+      "hint": "Both players see the identical sample.",
+      "player1": "Player 1",
+      "player2": "Player 2",
+      "placeholder1": "e.g. Ada",
+      "placeholder2": "e.g. Kai",
+      "seed": "Sample key",
+      "seedHint": "Share the key to play the same tape on another device.",
+      "create": "Create room",
+      "reroll": "New key"
+    },
+    "rules": {
+      "title": "Room rules",
+      "one": "One committed plan per player, no take-backs.",
+      "two": "Process score decides the winner; R breaks ties.",
+      "three": "Same seed, same candles, same hidden date.",
+      "four": "Results stay in this browser — share the key, compare like adults.",
+      "note": "Prop Desk PK is a local training room. There is no server, no account sync, and no real money involved."
+    },
+    "room": {
+      "seed": "Sample key",
+      "created": "Created {date}",
+      "rematch": "Rematch",
+      "close": "Close room",
+      "player1": "Player 1",
+      "player2": "Player 2",
+      "playAs": "Play as {player}",
+      "waitingBody": "{player} has not taken the sample yet. Hand over the device when ready.",
+      "waiting": "Waiting"
+    },
+    "winner": "Winner",
+    "submitted": "Submitted",
+    "copied": "Copied",
+    "copySeed": "Copy key",
+    "result": {
+      "title": "{player} takes the room",
+      "body": "The gap is in the process, not the ticker. Run it back with a fresh sample.",
+      "rematch": "Rematch"
+    },
+    "backToRoom": "Back to the room",
+    "copyLink": "Copy invite link"
   }
 }
