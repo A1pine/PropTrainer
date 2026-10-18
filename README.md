@@ -40,7 +40,7 @@ structure rather than at your comfort level.
 | i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
 | Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
 | Compute    | Rust → WebAssembly core for O(n) market/drill math, with a TypeScript fallback                        |
-| Tests      | Vitest, 92 tests including Rust/TypeScript parity                                                     |
+| Tests      | Vitest, 93 tests including Rust/TypeScript parity                                                     |
 | QA         | Playwright screenshot script                                                                          |
 
 ## Getting started
@@ -180,7 +180,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Testing
 
-92 unit and component tests cover:
+93 unit and component tests cover:
 
 - instrument economics and registry validation,
 - PRNG determinism and OHLC/tick invariants across all eight contracts,

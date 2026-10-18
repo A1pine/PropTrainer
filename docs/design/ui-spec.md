@@ -413,5 +413,5 @@ scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a 
   and plan simulation. A TypeScript reference remains as a fallback and parity is enforced by tests.
 - i18n ships 583 keys in `en`, `zh-CN` and `ja`; the locale and settings are cookie-hydrated so SSR and hydration
   agree on language and theme.
-- Verification: `bun run test` (92 tests), `bun run typecheck`, `bun run build`, `bun run smoke`, plus Playwright
+- Verification: `bun run test` (93 tests), `bun run typecheck`, `bun run build`, `bun run smoke`, plus Playwright
   screenshots at 1440×900 and 390×844 in light and dark themes.
