@@ -88,6 +88,7 @@
     "progress": "進捗",
     "winRate": "勝率",
     "sessionPnl": "セッション損益",
+    "sessionSummary": "セッション概要",
     "fees": "手数料",
     "trades": "取引"
   },

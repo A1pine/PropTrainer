@@ -46,12 +46,16 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
 
 <template>
   <div class="border-t-[length:var(--hairline)] border-line bg-surface-2">
-    <div class="grid grid-cols-2 divide-x-[length:var(--hairline)] divide-line sm:grid-cols-3 lg:grid-cols-6">
-      <div class="px-3 py-2.5">
+    <div
+      class="scroll-fade flex snap-x snap-mandatory divide-x-[length:var(--hairline)] divide-line overflow-x-auto lg:grid lg:grid-cols-6 lg:overflow-visible"
+      role="group"
+      :aria-label="t('stats.sessionSummary')"
+    >
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.starting') }}</p>
         <p class="num mt-1 text-[15px] font-medium">{{ formatMoney(account?.startBalance ?? 0, { decimals: 0 }) }}</p>
       </div>
-      <div class="px-3 py-2.5">
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.equity') }}</p>
         <NumberTicker
           :value="account?.equity ?? 0"
@@ -61,7 +65,7 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
           class="mt-1 block text-[15px] font-medium"
         />
       </div>
-      <div class="px-3 py-2.5">
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.roundPnl') }}</p>
         <NumberTicker
           :value="roundPnl"
@@ -73,7 +77,7 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
           :class="roundPnl > 0 ? 'text-bull-strong' : roundPnl < 0 ? 'text-bear-strong' : 'text-ink'"
         />
       </div>
-      <div class="px-3 py-2.5">
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.progress') }}</p>
         <div class="mt-1 flex items-center gap-2">
           <span class="num text-[15px] font-medium">{{ roundIndex }}/{{ totalRounds }}</span>
@@ -82,11 +86,11 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
           </div>
         </div>
       </div>
-      <div class="px-3 py-2.5">
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.winRate') }}</p>
         <p class="num mt-1 text-[15px] font-medium">{{ winRate.toFixed(1) }}%</p>
       </div>
-      <div class="px-3 py-2.5">
+      <div class="min-w-[138px] shrink-0 snap-start px-3 py-2.5 lg:min-w-0">
         <p class="label-micro">{{ t('stats.sessionPnl') }}</p>
         <NumberTicker
           :value="sessionPnl"
@@ -103,7 +107,7 @@ const roundPnl = computed(() => props.account?.netPnl ?? 0)
     <div class="flex flex-wrap items-center gap-2 border-t-[length:var(--hairline)] border-line px-3 py-2">
       <button
         type="button"
-        class="grid size-9 place-items-center rounded-md bg-clay text-white transition-transform active:scale-95 disabled:opacity-40"
+        class="grid size-9 place-items-center rounded-md bg-clay text-on-clay transition-transform active:scale-95 disabled:opacity-40"
         :disabled="!canPlay"
         :aria-label="playing ? t('playback.pause') : t('playback.play')"
         @click="emit('toggle')"

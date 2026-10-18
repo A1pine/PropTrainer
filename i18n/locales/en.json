@@ -88,6 +88,7 @@
     "progress": "Progress",
     "winRate": "Win rate",
     "sessionPnl": "Session P&L",
+    "sessionSummary": "Session summary",
     "fees": "Fees",
     "trades": "Trades"
   },
