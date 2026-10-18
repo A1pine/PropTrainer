@@ -1,6 +1,7 @@
 import type { Candle, ScenarioMetrics, SwingPoint } from '~/domain/market/types'
 import type { DrillPlan, PlanOutcome } from '~/domain/drill/plan'
 import type { InstrumentSpec } from '~/domain/instruments/types'
+import type { AnalysisReport } from '~/domain/analysis/types'
 
 export interface GenerateInput {
   seed: string
@@ -30,6 +31,7 @@ export interface WasmCore {
     instrument: InstrumentSpec,
     horizonBars: number,
   ): PlanOutcome
+  analyze(candles: readonly Candle[]): AnalysisReport
 }
 
 interface WasmExports {
@@ -41,6 +43,7 @@ interface WasmExports {
   prop_generate(pointer: number, length: number): number
   prop_find_swings(pointer: number, length: number): number
   prop_simulate_plan(pointer: number, length: number): number
+  prop_analyze(pointer: number, length: number): number
 }
 
 const encoder = new TextEncoder()
@@ -106,6 +109,9 @@ export function createWasmCore(exports: WasmExports): WasmCore {
         },
         horizonBars,
       })
+    },
+    analyze(candles) {
+      return call<AnalysisReport>(exports.prop_analyze, { candles })
     },
   }
 }
