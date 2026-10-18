@@ -21,7 +21,9 @@
     "statsShort": "统计",
     "guideShort": "指南",
     "settingsShort": "设置",
-    "more": "更多"
+    "more": "更多",
+    "analysis": "分析实验室",
+    "analysisShort": "分析"
   },
   "common": {
     "search": "搜索",
@@ -765,5 +767,159 @@
       "title": "模拟数据，不构成建议。",
       "body": "每条行情都由隐藏种子确定性生成。没有券商连接，没有实时行情，也不承诺任何分成。Prop Desk 是练习软件。"
     }
+  },
+  "analysis": {
+    "kicker": "分析实验室",
+    "title": "用结构解读盘面。",
+    "subtitle": "价格行为、ICT 概念与基于 OHLCV 的订单流代理，同图呈现。由 Rust 计算，如实标注，并与盲练训练器相互独立。",
+    "sampleHidden": "样本已隐藏",
+    "reveal": "揭示",
+    "newSample": "新样本",
+    "nextBar": "下一根",
+    "play": "播放",
+    "pause": "暂停",
+    "speed": "分析回放速度",
+    "chartNote": "EMA / VWAP / 布林带 · FVG + OB 区域 · 流动性与成交量分布",
+    "controls": {
+      "ema": "EMA",
+      "vwap": "VWAP",
+      "bb": "布林带",
+      "fvg": "FVG",
+      "ob": "OB",
+      "liquidity": "流动性",
+      "profile": "成交量分布"
+    },
+    "bias": {
+      "title": "共振",
+      "confidence": "置信度",
+      "bullish": "看涨",
+      "bearish": "看跌",
+      "neutral": "中性"
+    },
+    "reasons": {
+      "structureBullish": "市场结构正在抬高高点与低点。",
+      "structureBearish": "市场结构正在压低高点与低点。",
+      "emaBullish": "EMA 排列偏多（20 > 50 > 200）。",
+      "emaBearish": "EMA 排列偏空（20 < 50 < 200）。",
+      "zoneDiscount": "价格位于区间的折价三分之一（{value}%）。",
+      "zonePremium": "价格位于区间的溢价三分之一（{value}%）。",
+      "sweepBullish": "卖方流动性在 {value} 附近被扫并收回。",
+      "sweepBearish": "买方流动性在 {value} 附近被扫并被打回。",
+      "flowBuying": "德尔塔代理为正（{value}）。",
+      "flowSelling": "德尔塔代理为负（{value}）。",
+      "momentumBullish": "RSI 高于 55（{value}）。",
+      "momentumBearish": "RSI 低于 45（{value}）。",
+      "divergenceBullish": "低点处形成看涨德尔塔背离。",
+      "divergenceBearish": "高点处形成看跌德尔塔背离。",
+      "neutral": "没有共振超过噪音阈值。"
+    },
+    "tabs": {
+      "overview": "概览",
+      "pa": "PA",
+      "ict": "ICT",
+      "flow": "订单流",
+      "indicators": "指标",
+      "label": "分析板块"
+    },
+    "unavailable": {
+      "title": "分析核心不可用",
+      "body": "Rust/WASM 核心未加载，分析模块已停用。应用其余部分仍可正常使用。"
+    },
+    "structure": {
+      "hh_hl": "HH / HL",
+      "lh_ll": "LH / LL",
+      "mixed": "混合"
+    },
+    "alignment": {
+      "bullish": "多头排列",
+      "bearish": "空头排列",
+      "flat": "排列走平"
+    },
+    "overview": {
+      "trend": "趋势与结构",
+      "ict": "ICT 背景",
+      "flow": "订单流代理",
+      "levels": "关键价位",
+      "events": "近期事件"
+    },
+    "flow": {
+      "pressure": "德尔塔压力",
+      "divergence": "背离",
+      "none": "无",
+      "proxy": "代理",
+      "cumDelta": "累计德尔塔",
+      "imbalance": "失衡",
+      "absorption": "吸收",
+      "noAbsorption": "最近 30 根 K 线内没有吸收。",
+      "note": "订单流由 OHLCV 推导：按收盘价在 K 线中的位置对成交量加权，得到买卖德尔塔代理。没有买一卖一或足迹数据。"
+    },
+    "ict": {
+      "killzone": "关键时段",
+      "outsideKillzone": "非关键时段",
+      "fvg": "公平价值缺口",
+      "filled": "已回补 {pct}%",
+      "orderBlocks": "订单块",
+      "liquidity": "流动性池",
+      "sweeps": "流动性扫单",
+      "noSweeps": "近期没有扫单。",
+      "zones": {
+        "premium": "溢价",
+        "equilibrium": "均衡",
+        "discount": "折价"
+      },
+      "sessions": {
+        "asia": "亚洲",
+        "london": "伦敦",
+        "newYork": "纽约",
+        "late": "尾盘"
+      }
+    },
+    "pa": {
+      "structure": "结构",
+      "ema": "EMA 排列",
+      "premium": "区间位置",
+      "range": "区间",
+      "swings": "近期摆动",
+      "patterns": "K 线形态",
+      "noPatterns": "最近 30 根 K 线内没有清晰形态。",
+      "levels": "支撑 / 阻力"
+    },
+    "patterns": {
+      "bullishEngulfing": "看涨吞没",
+      "bearishEngulfing": "看跌吞没",
+      "bullishPin": "看涨针形线",
+      "bearishPin": "看跌针形线",
+      "doji": "十字星",
+      "insideBar": "内包线"
+    },
+    "levels": {
+      "support": "支撑",
+      "resistance": "阻力"
+    },
+    "indicators": {
+      "ema20": "EMA 20",
+      "ema50": "EMA 50",
+      "ema200": "EMA 200",
+      "vwap": "VWAP",
+      "rsi": "RSI 14",
+      "macd": "MACD 柱",
+      "atr": "ATR 14",
+      "adx": "ADX 14",
+      "bbWidth": "BB 宽度",
+      "volumeSma": "成交量 SMA 20",
+      "name": "指标",
+      "value": "数值"
+    },
+    "events": {
+      "bos": "结构突破",
+      "choch": "性质转变",
+      "fvg": "公平价值缺口",
+      "sweep": "流动性扫单",
+      "absorption": "吸收",
+      "divergence": "德尔塔背离",
+      "pattern": "K 线形态"
+    },
+    "disclaimer": "基于模拟 OHLCV 的教学分析。订单流为代理指标，ICT 概念属经验性方法，均不构成投资建议。",
+    "loading": "正在抽取样本…"
   }
 }

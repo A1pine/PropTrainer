@@ -21,7 +21,9 @@
     "statsShort": "統計",
     "guideShort": "ガイド",
     "settingsShort": "設定",
-    "more": "その他"
+    "more": "その他",
+    "analysis": "分析ラボ",
+    "analysisShort": "分析"
   },
   "common": {
     "search": "検索",
@@ -765,5 +767,159 @@
       "title": "シミュレーションデータであり、助言ではありません。",
       "body": "すべての系列は非表示のシードから決定論的に生成されます。ブローカー接続、リアルタイムの市場フィード、支払いの約束はありません。Prop Desk は練習用ソフトウェアです。"
     }
+  },
+  "analysis": {
+    "kicker": "分析ラボ",
+    "title": "構造でテープを読む。",
+    "subtitle": "プライスアクション、ICT コンセプト、OHLCV のオーダーフロー代理指標を1つのチャートに。Rust で計算し、正直にラベル付けし、ブラインドトレーナーとは分離しています。",
+    "sampleHidden": "サンプル非表示",
+    "reveal": "表示",
+    "newSample": "新しいサンプル",
+    "nextBar": "次の足",
+    "play": "再生",
+    "pause": "一時停止",
+    "speed": "分析の再生速度",
+    "chartNote": "EMA / VWAP / ボリンジャー · FVG + OB ゾーン · 流動性 + 出来高プロファイル",
+    "controls": {
+      "ema": "EMA",
+      "vwap": "VWAP",
+      "bb": "ボリンジャー",
+      "fvg": "FVG",
+      "ob": "OB",
+      "liquidity": "流動性",
+      "profile": "出来高プロファイル"
+    },
+    "bias": {
+      "title": "コンフルエンス",
+      "confidence": "確信度",
+      "bullish": "強気",
+      "bearish": "弱気",
+      "neutral": "中立"
+    },
+    "reasons": {
+      "structureBullish": "市場構造は高値・安値を切り上げています。",
+      "structureBearish": "市場構造は高値・安値を切り下げています。",
+      "emaBullish": "EMA の並びは強気に揃っています（20 > 50 > 200）。",
+      "emaBearish": "EMA の並びは弱気に揃っています（20 < 50 < 200）。",
+      "zoneDiscount": "価格はレンジのディスカウント側3分の1にあります（{value}%）。",
+      "zonePremium": "価格はレンジのプレミアム側3分の1にあります（{value}%）。",
+      "sweepBullish": "{value} 付近で売り側の流動性が掃引され、戻りました。",
+      "sweepBearish": "{value} 付近で買い側の流動性が掃引され、拒否されました。",
+      "flowBuying": "デルタ代理指標はプラスです（{value}）。",
+      "flowSelling": "デルタ代理指標はマイナスです（{value}）。",
+      "momentumBullish": "RSI は 55 を上回っています（{value}）。",
+      "momentumBearish": "RSI は 45 を下回っています（{value}）。",
+      "divergenceBullish": "安値圏で強気のデルタ・ダイバージェンスが形成されました。",
+      "divergenceBearish": "高値圏で弱気のデルタ・ダイバージェンスが形成されました。",
+      "neutral": "ノイズ水準を超えるコンフルエンスはありません。"
+    },
+    "tabs": {
+      "overview": "概要",
+      "pa": "PA",
+      "ict": "ICT",
+      "flow": "フロー",
+      "indicators": "指標",
+      "label": "分析セクション"
+    },
+    "unavailable": {
+      "title": "分析コアを利用できません",
+      "body": "Rust/WASM コアが読み込まれなかったため、分析機能は無効です。アプリの他の機能は動作します。"
+    },
+    "structure": {
+      "hh_hl": "HH / HL",
+      "lh_ll": "LH / LL",
+      "mixed": "混在"
+    },
+    "alignment": {
+      "bullish": "強気の並び",
+      "bearish": "弱気の並び",
+      "flat": "フラットな並び"
+    },
+    "overview": {
+      "trend": "トレンドと構造",
+      "ict": "ICT コンテキスト",
+      "flow": "オーダーフロー代理",
+      "levels": "主要レベル",
+      "events": "直近のイベント"
+    },
+    "flow": {
+      "pressure": "デルタの圧力",
+      "divergence": "ダイバージェンス",
+      "none": "なし",
+      "proxy": "代理指標",
+      "cumDelta": "累積デルタ",
+      "imbalance": "不均衡",
+      "absorption": "アブソープション",
+      "noAbsorption": "直近30本にアブソープションはありません。",
+      "note": "フローは OHLCV から算出します。ローソク足の終値位置で出来高を買い／売りデルタの代理指標に重み付けします。板情報やフットプリントのデータはありません。"
+    },
+    "ict": {
+      "killzone": "キルゾーン",
+      "outsideKillzone": "キルゾーン外",
+      "fvg": "フェアバリューギャップ",
+      "filled": "{pct}% 埋まり",
+      "orderBlocks": "オーダーブロック",
+      "liquidity": "流動性プール",
+      "sweeps": "流動性の掃引",
+      "noSweeps": "直近の掃引はありません。",
+      "zones": {
+        "premium": "プレミアム",
+        "equilibrium": "均衡",
+        "discount": "ディスカウント"
+      },
+      "sessions": {
+        "asia": "アジア",
+        "london": "ロンドン",
+        "newYork": "ニューヨーク",
+        "late": "後半"
+      }
+    },
+    "pa": {
+      "structure": "構造",
+      "ema": "EMA の並び",
+      "premium": "レンジ内の位置",
+      "range": "レンジ",
+      "swings": "直近のスイング",
+      "patterns": "ローソク足パターン",
+      "noPatterns": "直近30本に明確なパターンはありません。",
+      "levels": "サポート／レジスタンス"
+    },
+    "patterns": {
+      "bullishEngulfing": "強気の包み足",
+      "bearishEngulfing": "弱気の包み足",
+      "bullishPin": "強気のピンバー",
+      "bearishPin": "弱気のピンバー",
+      "doji": "同時線",
+      "insideBar": "インサイドバー"
+    },
+    "levels": {
+      "support": "サポート",
+      "resistance": "レジスタンス"
+    },
+    "indicators": {
+      "ema20": "EMA 20",
+      "ema50": "EMA 50",
+      "ema200": "EMA 200",
+      "vwap": "VWAP",
+      "rsi": "RSI 14",
+      "macd": "MACD ヒストグラム",
+      "atr": "ATR 14",
+      "adx": "ADX 14",
+      "bbWidth": "BB 幅",
+      "volumeSma": "出来高 SMA 20",
+      "name": "指標",
+      "value": "値"
+    },
+    "events": {
+      "bos": "構造ブレイク",
+      "choch": "キャラクター転換",
+      "fvg": "フェアバリューギャップ",
+      "sweep": "流動性の掃引",
+      "absorption": "アブソープション",
+      "divergence": "デルタ・ダイバージェンス",
+      "pattern": "ローソク足パターン"
+    },
+    "disclaimer": "シミュレーションの OHLCV を用いた教育目的の分析です。オーダーフローは代理指標、ICT コンセプトはヒューリスティックであり、いずれも投資助言ではありません。",
+    "loading": "サンプルを抽选中…"
   }
 }
