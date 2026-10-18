@@ -105,6 +105,15 @@ async function settingsFlow() {
   check(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'settings: dark theme applied')
   await page.getByRole('tab', { name: 'Light' }).click()
   await page.waitForTimeout(300)
+  await page.getByRole('tab', { name: 'Reduced motion' }).click()
+  await page.waitForTimeout(300)
+  check(
+    await page.evaluate(() => document.documentElement.dataset.motion === 'reduced'),
+    'settings: reduced motion applied',
+  )
+  check((await page.getByRole('tab').count()) > 0, 'settings: reduced motion keeps the page mounted')
+  await page.getByRole('tab', { name: 'Full motion' }).click()
+  await page.waitForTimeout(300)
 }
 
 try {

@@ -756,3 +756,7 @@ html[data-motion='reduced'] *::after {
 html[data-motion='reduced'] .grain::after {
   display: none;
 }
+
+html[data-motion='reduced'] .celebration {
+  display: none;
+}

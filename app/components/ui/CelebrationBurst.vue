@@ -75,8 +75,4 @@ const pieces = computed<Piece[]>(() =>
     display: none;
   }
 }
-
-:global(html[data-motion='reduced']) .celebration {
-  display: none;
-}
 </style>
