@@ -19,7 +19,7 @@ export default defineNuxtPlugin({
         join(process.cwd(), '../public/wasm/prop_core.wasm'),
       ]
       const path = candidates.find((candidate) => existsSync(candidate))
-      if (!path) throw new Error('wasm artifact not found; run npm run wasm:build')
+      if (!path) throw new Error('wasm artifact not found; run bun run wasm:build')
       const bytes = await readFile(path)
       const { instance } = await WebAssembly.instantiate(bytes, {})
       setWasmCore(createWasmCoreFromInstance(instance))

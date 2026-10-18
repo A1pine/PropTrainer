@@ -46,25 +46,25 @@ structure rather than at your comfort level.
 ## Getting started
 
 ```bash
-npm install
-npm run dev        # http://localhost:3000
+bun install
+bun run dev        # http://localhost:3000
 ```
 
 ```bash
-npm run test        # unit tests (runs through the real wasm core)
-npm run typecheck   # vue-tsc
-npm run build       # production build
-npm run preview     # preview the production build
-npm run screenshot  # visual QA at 1440 and 390 (requires the dev server)
-npm run smoke       # end-to-end flows against a running dev server
+bun run test        # unit tests (runs through the real wasm core)
+bun run typecheck   # vue-tsc
+bun run build       # production build
+bun run preview     # preview the production build
+bun run screenshot  # visual QA at 1440 and 390 (requires the dev server)
+bun run smoke       # end-to-end flows against a running dev server
 ```
 
-Node 22+ is recommended. The committed `public/wasm/prop_core.wasm` means Rust is **not** required to run the app.
+Bun 1.3+ is the package manager. The committed `public/wasm/prop_core.wasm` means Rust is **not** required to run the app.
 To rebuild the core you need Rust with the `wasm32-unknown-unknown` target:
 
 ```bash
 rustup target add wasm32-unknown-unknown
-npm run wasm:build
+bun run wasm:build
 ```
 
 ## Routes
@@ -191,7 +191,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 - trade analytics, history repository round-trips, and settings schema fallbacks,
 - exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes.
 
-Visual QA: `npm run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
+Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
 
 ## Limitations
 

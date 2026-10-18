@@ -3,4 +3,4 @@
 node_modules
 screenshots
 i18n/locales
-package-lock.json
+bun.lock

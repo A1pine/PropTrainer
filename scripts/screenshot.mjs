@@ -1,6 +1,6 @@
 /**
  * Visual QA helper: capture key routes at desktop and mobile widths.
- * Usage: node scripts/screenshot.mjs [route ...]
+ * Usage: bun scripts/screenshot.mjs [route ...]
  */
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright'

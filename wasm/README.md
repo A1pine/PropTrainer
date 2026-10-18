@@ -21,7 +21,7 @@ the request. The module is single-threaded and keeps one reusable result buffer.
 
 ```bash
 rustup target add wasm32-unknown-unknown
-npm run wasm:build
+bun run wasm:build
 ```
 
 The script writes `public/wasm/prop_core.wasm`, which is committed so the app runs without Rust.

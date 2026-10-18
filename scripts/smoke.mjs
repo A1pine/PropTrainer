@@ -1,6 +1,6 @@
 /**
  * End-to-end smoke test against a running dev server.
- * Usage: npm run dev (another terminal), then `node scripts/smoke.mjs`.
+ * Usage: `bun run dev` in another terminal, then `bun scripts/smoke.mjs`.
  */
 import { chromium } from 'playwright'
 
