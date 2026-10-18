@@ -99,10 +99,6 @@
     "nextBar": "下一根",
     "speed": "回放速度",
     "revealed": "已揭示",
-    "priceHidden": "价格隐藏",
-    "printing": "K 线播放中",
-    "waiting": "等待中",
-    "dayMask": "日期 ??",
     "blind": "盲测",
     "replayFuture": "回放未来"
   },
@@ -264,7 +260,11 @@
     "zoomOut": "缩小",
     "fit": "适配",
     "blind": "盲测",
-    "revealed": "已揭示"
+    "revealed": "已揭示",
+    "priceHidden": "价格隐藏",
+    "printing": "K 线播放中",
+    "waiting": "等待中",
+    "dayMask": "日期 ??"
   },
   "log": {
     "title": "成交记录",

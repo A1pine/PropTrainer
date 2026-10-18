@@ -99,14 +99,6 @@
     "nextBar": "Next bar",
     "speed": "Playback speed",
     "revealed": "Revealed",
-    "priceHidden": "price hidden",
-    "printing": "Candles printing",
-    "waiting": "Waiting",
-    "dayMask": "DAY ??",
-    "priceHidden": "price hidden",
-    "printing": "Candles printing",
-    "waiting": "Waiting",
-    "dayMask": "DAY ??",
     "blind": "Blind",
     "replayFuture": "Replay future"
   },
@@ -268,7 +260,11 @@
     "zoomOut": "Zoom out",
     "fit": "Fit",
     "blind": "Blind",
-    "revealed": "Revealed"
+    "revealed": "Revealed",
+    "priceHidden": "price hidden",
+    "printing": "Candles printing",
+    "waiting": "Waiting",
+    "dayMask": "DAY ??"
   },
   "log": {
     "title": "Execution log",
