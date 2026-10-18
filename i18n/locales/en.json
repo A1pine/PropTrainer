@@ -311,5 +311,34 @@
   "error": {
     "notFound": "This desk does not exist.",
     "goHome": "Back to the lobby"
+  },
+  "drill": {
+    "kicker": "Decision drill",
+    "title": "Read it before you trade it.",
+    "subtitle": "One hidden sample. Commit the state, the direction and the invalidation. The grade weighs the process, not the P&L.",
+    "newSample": "New sample",
+    "steps": {
+      "1": "Read",
+      "2": "Plan",
+      "3": "Review"
+    },
+    "blindHint": "Candles print one at a time. Use Space to wait for the setup.",
+    "revealHint": "The future is revealed. Pan and zoom to inspect what happened after your plan.",
+    "drawing": "Drawing a sample…",
+    "resultKicker": "Result · process grade",
+    "resultTitle": "What the tape said.",
+    "waited": "waited {bars} bars",
+    "plan": "Plan",
+    "entry": "Entry",
+    "stop": "Stop",
+    "target": "Target",
+    "barsToEntry": "Bars to entry",
+    "held": "Bars held",
+    "share": "Share link",
+    "copied": "Link copied",
+    "next": "Next drill"
+  },
+  "daily": {
+    "badge": "Daily"
   }
 }
