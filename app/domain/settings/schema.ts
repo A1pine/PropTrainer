@@ -36,7 +36,7 @@ export const defaultSettings: Settings = {
   accountSize: 50_000,
   riskPerTrade: 1,
   maxContracts: 5,
-  feePerContract: 1.24,
+  feePerContract: 0,
   autoPlaySpeed: 2,
   instruments: ['MNQ', 'MES', 'MYM', 'M2K', 'MGC', 'MCL'],
   showRMultiple: true,

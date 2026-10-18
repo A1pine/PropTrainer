@@ -5,6 +5,7 @@ import { createRules, PROP_PRESETS } from '@/domain/trading/types'
 describe('settings schema', () => {
   it('accepts the defaults', () => {
     expect(settingsSchema.safeParse(defaultSettings).success).toBe(true)
+    expect(defaultSettings.feePerContract).toBe(0)
   })
 
   it('falls back to defaults for invalid input', () => {
