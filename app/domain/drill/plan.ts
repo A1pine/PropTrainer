@@ -1,6 +1,7 @@
 import type { InstrumentSpec } from '~/domain/instruments/types'
 import type { Candle, Regime, Scenario, SwingPoint } from '~/domain/market/types'
 import { findSwings, nearestSwingDistance } from '~/domain/market/generator'
+import { getWasmCore, recordWasmError } from '~/domain/wasm/core'
 import { computePositionSize } from '~/domain/trading/sizing'
 import type { Side } from '~/domain/trading/types'
 
@@ -194,6 +195,23 @@ export interface PlanOutcome {
  * - if a bar touches both stop and target, the stop is assumed first.
  */
 export function simulatePlan(
+  plan: DrillPlan,
+  candles: readonly Candle[],
+  instrument: InstrumentSpec,
+  horizonBars = 260,
+): PlanOutcome {
+  const core = getWasmCore()
+  if (core) {
+    try {
+      return core.simulatePlan(plan, candles, instrument, horizonBars)
+    } catch (error) {
+      recordWasmError(error)
+    }
+  }
+  return simulatePlanTs(plan, candles, instrument, horizonBars)
+}
+
+export function simulatePlanTs(
   plan: DrillPlan,
   candles: readonly Candle[],
   instrument: InstrumentSpec,

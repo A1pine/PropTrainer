@@ -1,9 +1,10 @@
 import { roundTo, roundToTick } from '~/domain/shared/math'
 import { createRng, gaussian, randomFloat, randomInt, type Rng } from '~/domain/shared/rng'
 import type { InstrumentSpec } from '~/domain/instruments/types'
+import { getWasmCore, recordWasmError, type GeneratedMarket } from '~/domain/wasm/core'
 import type { Candle, Regime, ScenarioMetrics, SwingPoint } from './types'
 
-interface GenerateOptions {
+export interface GenerateOptions {
   seed: string
   instrument: InstrumentSpec
   regime: Regime
@@ -18,7 +19,7 @@ interface GenerateOptions {
  * The output is snapped to the instrument tick grid and every bar satisfies
  * low <= min(open, close) <= max(open, close) <= high.
  */
-export function generateCandles(options: GenerateOptions): Candle[] {
+export function generateCandlesTs(options: GenerateOptions): Candle[] {
   const { instrument, regime, bars, startPrice, startTime, timeframeMinutes } = options
   const rng = createRng(options.seed)
   const sigma = instrument.anchorPrice * 0.0009 * instrument.volatility
@@ -122,6 +123,60 @@ export function generateCandles(options: GenerateOptions): Candle[] {
   return candles
 }
 
+export interface MarketGenerationOptions extends GenerateOptions {
+  /** Index where the hidden replay starts; metrics are computed from here. */
+  replayStart: number
+}
+
+export function baseVolumeFor(instrument: InstrumentSpec): number {
+  if (instrument.category === 'commodity-future') return 1_600
+  if (instrument.category === 'mini-future') return 3_200
+  return 5_400
+}
+
+/**
+ * Single entry point for market generation. Prefers the Rust/WASM core and
+ * falls back to the TypeScript reference implementation if it is unavailable.
+ */
+export function generateMarketData(options: MarketGenerationOptions): GeneratedMarket {
+  const core = getWasmCore()
+  if (core) {
+    try {
+      return core.generate({
+        seed: options.seed,
+        anchorPrice: options.instrument.anchorPrice,
+        volatility: options.instrument.volatility,
+        tickSize: options.instrument.tickSize,
+        regime: options.regime,
+        bars: options.bars,
+        startPrice: options.startPrice,
+        startTime: options.startTime,
+        timeframeMinutes: options.timeframeMinutes,
+        replayStart: options.replayStart,
+        baseVolume: baseVolumeFor(options.instrument),
+      })
+    } catch (error) {
+      recordWasmError(error)
+    }
+  }
+  return generateMarketDataTs(options)
+}
+
+export function generateMarketDataTs(options: MarketGenerationOptions): GeneratedMarket {
+  const candles = generateCandlesTs(options)
+  const metrics = computeMetrics(candles, options.replayStart, options.instrument)
+  if (options.replayStart > 0) {
+    metrics.atr = computeAtr(candles, 14, options.replayStart)
+  }
+  metrics.atr = Math.round(metrics.atr * 100) / 100
+  return { candles, metrics }
+}
+
+/** Candle-only helper kept for callers that do not need metrics. */
+export function generateCandles(options: GenerateOptions): Candle[] {
+  return generateMarketData({ ...options, replayStart: 0 }).candles
+}
+
 function volumeFor(instrument: InstrumentSpec, standardizedReturn: number, rng: Rng): number {
   const base = instrument.category === 'commodity-future' ? 1_600 : instrument.category === 'mini-future' ? 3_200 : 5_400
   const noise = 0.65 + rng() * 0.9
@@ -181,6 +236,18 @@ export function computeMetrics(
  * target validation in the drill.
  */
 export function findSwings(candles: readonly Candle[], strength = 3): SwingPoint[] {
+  const core = getWasmCore()
+  if (core) {
+    try {
+      return core.findSwings(candles, strength)
+    } catch (error) {
+      recordWasmError(error)
+    }
+  }
+  return findSwingsTs(candles, strength)
+}
+
+export function findSwingsTs(candles: readonly Candle[], strength = 3): SwingPoint[] {
   const swings: SwingPoint[] = []
   for (let index = strength; index < candles.length - strength; index += 1) {
     const candle = candles[index]

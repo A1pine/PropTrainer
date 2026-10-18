@@ -1,7 +1,7 @@
 import { randomInt, createRng } from '~/domain/shared/rng'
 import { instruments } from '~/domain/instruments/catalog'
 import type { InstrumentSpec } from '~/domain/instruments/types'
-import { computeAtr, computeMetrics, generateCandles } from './generator'
+import { generateMarketData } from './generator'
 import type { Regime, Scenario, ScenarioFactory, ScenarioRequest } from './types'
 
 const REGIME_WEIGHTS: { regime: Regime; weight: number }[] = [
@@ -69,7 +69,8 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
     const sessionDate = pickSessionDate(rng, now)
     const totalBars = warmupBars + futureBars + revealBars
     const startPrice = instrument.anchorPrice * (0.94 + rng() * 0.12)
-    const candles = generateCandles({
+    const replayStart = warmupBars
+    const { candles, metrics } = generateMarketData({
       seed: `${seed}:${symbol}:${regime}`,
       instrument,
       regime,
@@ -77,12 +78,8 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
       startPrice,
       startTime: Math.floor(sessionDate.getTime() / 1000),
       timeframeMinutes,
+      replayStart,
     })
-    const replayStart = warmupBars
-    const metrics = computeMetrics(candles, replayStart, instrument)
-    // Recompute ATR at the replay decision point so the plan validator only
-    // sees information available to the trader.
-    metrics.atr = computeAtr(candles, 14, replayStart)
 
     return {
       id: `${symbol.toLowerCase()}-${seed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10)}-${replayStart}`,
@@ -93,7 +90,7 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
       candles,
       replayStart,
       revealBars,
-      metrics: { ...metrics, atr: Math.round(metrics.atr * 100) / 100 },
+      metrics,
       sessionDate: sessionDate.toISOString(),
       createdAt: now.getTime(),
     }
