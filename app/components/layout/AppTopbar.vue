@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ChartCandlestick, Search, Volume2, VolumeX } from '@lucide/vue'
-import { navItems, isActivePath } from '~/composables/useNav'
+import { navItems, secondaryNavItems, isActivePath } from '~/composables/useNav'
 
 const { t } = useI18n()
 const route = useRoute()
 const settings = useSettingsStore()
 const palette = useCommandPalette()
 
-const activeItem = computed(() => navItems.find((item) => isActivePath(route.path, item.to)))
+const activeItem = computed(() => [...navItems, ...secondaryNavItems].find((item) => isActivePath(route.path, item.to)))
 
 const title = computed(() => (activeItem.value ? t(activeItem.value.labelKey) : t('app.name')))
 

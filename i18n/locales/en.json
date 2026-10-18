@@ -306,7 +306,86 @@
     }
   },
   "settings": {
-    "languageNote": "English is the source language. Translations preserve trading terms."
+    "languageNote": "English is the source language. Translations preserve trading terms.",
+    "kicker": "Desk settings",
+    "title": "Set the desk up once.",
+    "subtitle": "Everything here is stored in this browser. The account rules drive the trainer, the drill and the risk sizing.",
+    "saved": "Saved locally",
+    "disclaimer": "Simulated data only. Not financial advice.",
+    "appearance": {
+      "title": "Appearance",
+      "hint": "Warm surfaces, clay accent, hairline geometry.",
+      "themeHint": "System follows your OS setting.",
+      "full": "Full motion",
+      "reduced": "Reduced motion",
+      "motion": "Motion",
+      "motionHint": "Reduced hides travel, parallax and particle bursts."
+    },
+    "language": {
+      "title": "Language",
+      "hint": "English is the source language; trading terms stay intact."
+    },
+    "risk": {
+      "title": "Account & risk",
+      "hint": "Used for every round, drill and PK match.",
+      "preset": "Account preset",
+      "accountSize": "Account size",
+      "accountSizeHint": "Editing this switches to a custom preset.",
+      "riskPerTrade": "Risk per trade",
+      "riskPerTradeHint": "About {amount} per trade.",
+      "maxContracts": "Max contracts",
+      "maxContractsHint": "Hard cap on any single order.",
+      "fee": "Commission override",
+      "feeHint": "0 uses each contract's built-in round-turn fee.",
+      "profitTarget": "Profit target",
+      "trailing": "Trailing drawdown",
+      "daily": "Daily loss",
+      "contractCap": "Contract cap"
+    },
+    "universe": {
+      "title": "Instrument universe",
+      "hint": "Samples are drawn only from the ticked contracts."
+    },
+    "session": {
+      "title": "Session defaults",
+      "hint": "Playback and submission behaviour.",
+      "speed": "Playback speed",
+      "speedHint": "Bars per second during live replay.",
+      "showR": "Show R multiples",
+      "showRHint": "Display R next to P&L in the ticket and review.",
+      "confirm": "Confirm before submitting",
+      "confirmHint": "Ask before a plan or order is sent."
+    },
+    "audio": {
+      "sound": "Interface sounds",
+      "hint": "Synthesized in the browser, off by default."
+    },
+    "data": {
+      "title": "Data",
+      "hint": "History never leaves this browser.",
+      "export": "Export history",
+      "exportHint": "JSON with sessions, rounds and trades.",
+      "resetHistory": "Reset practice history",
+      "resetHistoryHint": "Deletes sessions, drills and trades.",
+      "resetHistoryBody": "This cannot be undone.",
+      "resetHistoryNote": "Settings and the PK room are kept. Export first if you want a copy.",
+      "resetSettings": "Reset settings",
+      "resetSettingsHint": "Restore the default account and appearance.",
+      "resetSettingsBody": "This cannot be undone.",
+      "resetSettingsNote": "Practice history is kept.",
+      "confirmReset": "Reset",
+      "historyCleared": "Practice history cleared",
+      "settingsReset": "Settings restored"
+    },
+    "presets": {
+      "eval50": "Evaluation · 50K",
+      "eval100": "Evaluation · 100K",
+      "funded50": "Funded · 50K",
+      "custom": "Custom",
+      "evaluation": "Evaluation",
+      "funded": "Funded",
+      "manual": "Manual"
+    }
   },
   "error": {
     "notFound": "This desk does not exist.",
@@ -577,7 +656,7 @@
     },
     "history": {
       "title": "Session history",
-      "rounds": "{count, plural, one {# round} other {# rounds}}",
+      "rounds": "{count} rounds",
       "empty": "No sessions in this range."
     }
   }
