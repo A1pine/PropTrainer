@@ -402,15 +402,15 @@ scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a 
 
 ## 12. Implementation notes (as built)
 
-- Routes shipped: the five specified routes plus `/drill` (standalone decision drill), `/daily` (UTC-seeded
+- Routes shipped: the five specified routes plus `/analysis` (PA/ICT/order-flow lab), `/drill` (standalone decision drill), `/daily` (UTC-seeded
   challenge with deterministic reference plans) and `/pk` (local pass-and-play room). The rail carries six primary
   destinations; Guide and Settings sit in the rail footer.
 - Tokens are implemented under the `--surface-*`, `--ink*`, `--line*`, `--clay*`, `--bull*`, `--bear*` names in
   `app/assets/css/main.css`; the visual values match §3.
 - The chart is a dependency-free Canvas 2D engine (`app/lib/chart/engine.ts`): blind axes, relative time axis,
   candle grow-in, crosshair, drawings and draggable plan overlays.
-- Heavy O(n) math runs in Rust/WebAssembly on both SSR and the client: scenario generation, fractal swing detection
-  and plan simulation. A TypeScript reference remains as a fallback and parity is enforced by tests.
+- Heavy O(n) math runs in Rust/WebAssembly on both SSR and the client: scenario generation, fractal swing detection,
+  plan simulation and the analysis stack (indicators, market structure, ICT zones, volume profile, delta proxy). A TypeScript reference remains as a fallback and parity is enforced by tests.
 - i18n ships 583 keys in `en`, `zh-CN` and `ja`; the locale and settings are cookie-hydrated so SSR and hydration
   agree on language and theme.
 - Verification: `bun run test` (93 tests), `bun run typecheck`, `bun run build`, `bun run smoke`, plus Playwright

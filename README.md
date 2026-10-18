@@ -14,6 +14,8 @@ structure rather than at your comfort level.
 
 ![Trainer](docs/media/trainer.png)
 
+![Analysis lab](docs/media/analysis.png)
+
 ## Features
 
 - **Blind replay trainer** — hidden instrument, date and price axis; candle-by-candle playback, market/limit
@@ -24,8 +26,11 @@ structure rather than at your comfort level.
   board. First submission is locked; replays cannot overwrite it.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins
   and R breaks ties. Results stay in the browser, by design.
+- **Analysis lab** — price action, ICT concepts and an OHLCV order-flow proxy on one chart: EMA/VWAP/Bollinger,
+  market structure (BOS/CHoCH), FVG and order blocks, liquidity levels/sweeps, volume profile, delta pressure and
+  a weighted confluence score. All computed in Rust/WASM.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (583 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (703 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -39,8 +44,8 @@ structure rather than at your comfort level.
 | State      | Pinia setup stores                                                                                    |
 | i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
 | Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
-| Compute    | Rust → WebAssembly core for O(n) market/drill math, with a TypeScript fallback                        |
-| Tests      | Vitest, 93 tests including Rust/TypeScript parity                                                     |
+| Compute    | Rust → WebAssembly core for O(n) market, drill and analysis math, with a TypeScript fallback          |
+| Tests      | Vitest, 98 tests including Rust/TypeScript parity and analysis invariants                             |
 | QA         | Playwright screenshot script                                                                          |
 
 ## Getting started
@@ -73,6 +78,7 @@ bun run wasm:build
 | ----------- | -------------------------------------------------------------------------------- |
 | `/`         | Lobby: pitch, animated preview, universe picker, rules, daily entry, recent form |
 | `/trainer`  | Blind session: read → plan → live bracket → review → next round                  |
+| `/analysis` | Analysis lab: indicators, PA, ICT, order-flow proxy, confluence                  |
 | `/drill`    | Standalone decision drill (`?seed=` for a shared sample)                         |
 | `/daily`    | Daily sample, lock state, result and reference board                             |
 | `/pk`       | Pass-and-play room, shared seed, rematch                                         |
@@ -93,6 +99,7 @@ app/
     trading/              broker, futures P&L, sizing, prop rules
     drill/                plan validation, conservative simulation, grading, reference plans
     stats/                trade analytics + persistence record types
+    analysis/             analysis report types and the Rust-core entry point
     settings/             zod schema and defaults
   lib/
     chart/                canvas engine, geometry, theme reader
@@ -136,6 +143,7 @@ The expensive O(n) batch work runs in Rust, compiled to a 162 KiB wasm module:
 | Regime scenario generation (710 OHLCV bars + ATR/efficiency metrics) | Runs for every round, daily sample, PK rematch and lobby preview |
 | Fractal swing detection                                              | Re-runs on every plan keystroke and chart drag                   |
 | Plan simulation (bracket fill, gaps, stop-first, MAE/MFE, R)         | 300-bar conservative walk for trainer reviews and drill grading  |
+| Chart analysis (indicators, structure, ICT, flow)                    | Recomputed on every visible-bar step in the analysis lab         |
 
 Both the Nuxt server and the browser load the **same** module: the server reads
 `public/wasm/prop_core.wasm` at boot, the client fetches it in a blocking plugin before hydration, so SSR and
@@ -148,6 +156,16 @@ TypeScript — moving them across the boundary would add latency and lose reacti
 Parity is enforced by tests that generate candles, find swings and simulate plans through both paths and require
 deep equality.
 
+### Analysis lab
+
+The lab is deliberately separate from the blind trainer. It runs the same Rust core over the visible bars and returns
+indicator series, market structure, ICT zones and an order-flow proxy in one JSON report. The UI renders four overlay
+families (indicator lines, FVG/OB zones, liquidity/S-R/POC levels, BOS/sweep markers) and a confluence score with
+translated reason codes. On narrow screens annotation labels are suppressed while the geometry stays visible.
+
+Order flow is **OHLCV-derived**: candle close position weights volume into a delta proxy. There is no bid/ask or
+footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG, OB, liquidity), not vendor signals.
+
 ### Chart engine
 
 `ChartEngine` is a small retained-mode renderer: it owns viewport math, price scales, candles, volume, overlay
@@ -157,7 +175,7 @@ bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 583 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror the same 703 keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 
@@ -180,7 +198,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Testing
 
-93 unit and component tests cover:
+98 unit and component tests cover:
 
 - instrument economics and registry validation,
 - PRNG determinism and OHLC/tick invariants across all eight contracts,
@@ -189,6 +207,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 - drill validation, conservative simulation and grading,
 - daily seed determinism, reference plans and key parity-ready i18n bundles,
 - trade analytics, history repository round-trips, and settings schema fallbacks,
+- analysis report shape, profile/POC bounds, FVG/OB geometry and event ordering,
 - exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
