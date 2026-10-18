@@ -14,6 +14,7 @@ const props = withDefaults(
     defaultTarget?: number | null
     riskBudget: number
     maxContracts: number
+    symbolLabel?: string
     disabled?: boolean
     pending: boolean
   }>(),
@@ -32,6 +33,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const displaySymbol = computed(() => props.symbolLabel || props.instrument.symbol)
 
 const side = ref<'long' | 'short'>(props.defaultSide)
 const type = ref<'market' | 'limit'>('market')
@@ -195,7 +198,7 @@ function submit() {
     <Button :variant="side === 'long' ? 'bull' : 'bear'" size="lg" block :disabled="!canSubmit" @click="submit">
       <ArrowUpRight v-if="side === 'long'" class="size-4" aria-hidden="true" />
       <ArrowDownRight v-else class="size-4" aria-hidden="true" />
-      {{ side === 'long' ? t('ticket.buy') : t('ticket.sell') }} {{ instrument.symbol }} · {{ Math.round(qty) }}
+      {{ side === 'long' ? t('ticket.buy') : t('ticket.sell') }} {{ displaySymbol }} · {{ Math.round(qty) }}
     </Button>
     <p class="text-center text-[10px] leading-snug text-ink-3">{{ t('ticket.footnote') }}</p>
   </div>

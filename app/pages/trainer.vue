@@ -319,7 +319,9 @@ onBeforeUnmount(() => {
             <Badge :variant="trainer.revealed ? 'bull' : 'clay'" size="sm" dot>
               {{ trainer.revealed ? t('chart.revealed') : t('chart.blind') }}
             </Badge>
-            <span class="font-mono text-[10px] text-ink-3">{{ trainer.scenario?.instrument.exchange ?? '' }}</span>
+            <span v-if="trainer.revealed" class="font-mono text-[10px] text-ink-3">{{
+              trainer.scenario?.instrument.exchange
+            }}</span>
           </div>
         </div>
 
@@ -416,6 +418,7 @@ onBeforeUnmount(() => {
                 :mark-price="account.markPrice"
                 :unrealized="account.unrealizedPnl"
                 :round-r="account.roundR"
+                :symbol-label="symbolLabel"
                 @close="trainer.closePosition()"
                 @breakeven="trainer.moveStopToBreakEven()"
               />
@@ -430,6 +433,7 @@ onBeforeUnmount(() => {
                   :risk-budget="trainer.riskBudget"
                   :max-contracts="trainer.rules.maxContracts"
                   :pending="trainer.orderPending"
+                  :symbol-label="symbolLabel"
                   :disabled="account?.status !== 'active'"
                   @submit="submitTicket"
                   @cancel="trainer.cancelOrder"
@@ -593,6 +597,7 @@ onBeforeUnmount(() => {
           :mark-price="account.markPrice"
           :unrealized="account.unrealizedPnl"
           :round-r="account.roundR"
+          :symbol-label="symbolLabel"
           @close="trainer.closePosition()"
           @breakeven="trainer.moveStopToBreakEven()"
         />
@@ -607,6 +612,7 @@ onBeforeUnmount(() => {
           :risk-budget="trainer.riskBudget"
           :max-contracts="trainer.rules.maxContracts"
           :pending="trainer.orderPending"
+          :symbol-label="symbolLabel"
           @submit="submitTicket"
           @cancel="trainer.cancelOrder"
         />

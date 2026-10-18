@@ -25,6 +25,10 @@ const thesis =
 async function playTrainerRound() {
   await page.goto(`${base}/trainer`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1200)
+  const readBody = await page.locator('body').innerText()
+  check(readBody.includes('M???'), 'trainer: symbol is masked')
+  check(!/\b(MNQ|NQ|MES|ES|MYM|M2K|MGC|MCL)\b/.test(readBody), 'trainer: contract symbol is hidden')
+  check(!/COMEX|NYMEX|CBOT/.test(readBody), 'trainer: exchange is hidden')
   await page.getByRole('radio', { name: /Uptrend/ }).click()
   await page.getByRole('tab', { name: /^Long/ }).click()
   await page.locator('#thesis').fill(thesis)
@@ -46,6 +50,8 @@ async function playTrainerRound() {
         .catch(() => false)),
     'trainer: live step',
   )
+  const liveBody = await page.locator('body').innerText()
+  check(!/\b(MNQ|NQ|MES|ES|MYM|M2K|MGC|MCL)\b/.test(liveBody), 'trainer: symbol stays hidden while live')
   await page
     .getByRole('button', { name: /Pause/ })
     .click()

@@ -9,12 +9,15 @@ const props = defineProps<{
   markPrice: number
   unrealized: number
   roundR: number | null
+  symbolLabel?: string
   disabled?: boolean
 }>()
 
 const emit = defineEmits<{ close: []; breakeven: [] }>()
 
 const { t } = useI18n()
+
+const displaySymbol = computed(() => props.symbolLabel || props.instrument.symbol)
 
 const isLong = computed(() => props.position.side === 'long')
 const pnlTone = computed(() =>
@@ -31,7 +34,7 @@ const pnlTone = computed(() =>
       >
         <ArrowUpRight v-if="isLong" class="size-3.5" aria-hidden="true" />
         <ArrowDownRight v-else class="size-3.5" aria-hidden="true" />
-        {{ isLong ? t('ticket.long') : t('ticket.short') }} · {{ position.qty }} {{ instrument.symbol }}
+        {{ isLong ? t('ticket.long') : t('ticket.short') }} · {{ position.qty }} {{ displaySymbol }}
       </span>
       <Badge :variant="isLong ? 'bull' : 'bear'" size="sm">{{ t('position.open') }}</Badge>
     </div>
