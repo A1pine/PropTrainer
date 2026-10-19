@@ -38,7 +38,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const report = computed<AnalysisReport | null>(() => {
     // Depend on coreReady so the report recomputes once the wasm core lands.
     if (!coreReady.value || visible.value.length < 30) return null
-    return analyzeMarket(visible.value)
+    return analyzeMarket(visible.value, instrument.value?.pricePrecision ?? 2)
   })
   const maxVisible = computed(() => {
     if (!scenario.value) return 0

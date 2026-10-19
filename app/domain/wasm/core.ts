@@ -31,7 +31,7 @@ export interface WasmCore {
     instrument: InstrumentSpec,
     horizonBars: number,
   ): PlanOutcome
-  analyze(candles: readonly Candle[]): AnalysisReport
+  analyze(candles: readonly Candle[], precision?: number): AnalysisReport
 }
 
 interface WasmExports {
@@ -110,8 +110,8 @@ export function createWasmCore(exports: WasmExports): WasmCore {
         horizonBars,
       })
     },
-    analyze(candles) {
-      return call<AnalysisReport>(exports.prop_analyze, { candles })
+    analyze(candles, precision = 2) {
+      return call<AnalysisReport>(exports.prop_analyze, { candles, precision })
     },
   }
 }

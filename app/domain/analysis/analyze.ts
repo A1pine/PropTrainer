@@ -7,11 +7,11 @@ import type { AnalysisReport } from './types'
  * TypeScript duplicate: if wasm is unavailable the lab shows an explicit
  * unavailable state instead of a second, drifting implementation.
  */
-export function analyzeMarket(candles: readonly Candle[]): AnalysisReport | null {
+export function analyzeMarket(candles: readonly Candle[], precision = 2): AnalysisReport | null {
   const core = getWasmCore()
   if (!core || candles.length < 30) return null
   try {
-    return core.analyze(candles)
+    return core.analyze(candles, precision)
   } catch (error) {
     recordWasmError(error)
     return null

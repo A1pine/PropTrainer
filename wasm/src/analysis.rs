@@ -9,6 +9,13 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct AnalyzeRequest {
     candles: Vec<Candle>,
+    /// Price decimals for the instrument; keeps series JSON compact.
+    #[serde(default = "default_precision")]
+    precision: u32,
+}
+
+fn default_precision() -> u32 {
+    2
 }
 
 #[derive(Serialize)]
@@ -187,12 +194,6 @@ struct Indicators {
     vwap: Vec<Option<f64>>,
     bb_upper: Vec<Option<f64>>,
     bb_lower: Vec<Option<f64>>,
-    rsi: Vec<Option<f64>>,
-    macd: Vec<Option<f64>>,
-    macd_signal: Vec<Option<f64>>,
-    macd_hist: Vec<Option<f64>>,
-    atr: Vec<Option<f64>>,
-    adx: Vec<Option<f64>>,
     latest: Latest,
 }
 
@@ -234,11 +235,11 @@ pub fn analyze_json(input: &[u8]) -> Result<Vec<u8>, String> {
     if request.candles.len() < 30 {
         return Err("at least 30 candles are required for analysis".into());
     }
-    let report = analyze(&request.candles);
+    let report = analyze(&request.candles, request.precision.clamp(0, 6));
     serde_json::to_vec(&report).map_err(|error| error.to_string())
 }
 
-fn analyze(candles: &[Candle]) -> Report {
+fn analyze(candles: &[Candle], precision: u32) -> Report {
     let n = candles.len();
     let closes: Vec<f64> = candles.iter().map(|c| c.close).collect();
     let ema20 = ema_series(&closes, 20);
@@ -418,7 +419,7 @@ fn analyze(candles: &[Candle]) -> Report {
         },
         flow: Flow {
             pressure: round_to(pressure, 3),
-            delta: cumulative,
+            delta: cumulative.iter().map(|value| value.map(|inner| round_to(inner, 0))).collect(),
             profile,
             poc: round_to(poc, 4),
             vah: round_to(vah, 4),
@@ -428,18 +429,12 @@ fn analyze(candles: &[Candle]) -> Report {
             imbalance: round_to(imbalance, 3),
         },
         indicators: Indicators {
-            ema20: rounded_series(&ema20),
-            ema50: rounded_series(&ema50),
-            ema200: rounded_series(&ema200),
-            vwap: rounded_series(&vwap),
-            bb_upper: rounded_series(&bb_upper),
-            bb_lower: rounded_series(&bb_lower),
-            rsi: rounded_series(&rsi),
-            macd: rounded_series(&macd),
-            macd_signal: rounded_series(&macd_signal),
-            macd_hist: rounded_series(&macd_hist),
-            atr: rounded_series(&atr),
-            adx: rounded_series(&adx),
+            ema20: rounded_series(&ema20, precision),
+            ema50: rounded_series(&ema50, precision),
+            ema200: rounded_series(&ema200, precision),
+            vwap: rounded_series(&vwap, precision),
+            bb_upper: rounded_series(&bb_upper, precision),
+            bb_lower: rounded_series(&bb_lower, precision),
             latest,
         },
         events,
@@ -681,8 +676,11 @@ fn last_value(series: &[Option<f64>]) -> Option<f64> {
     series.iter().rev().find_map(|value| *value)
 }
 
-fn rounded_series(series: &[Option<f64>]) -> Vec<Option<f64>> {
-    series.iter().map(|value| value.map(|inner| round_to(inner, 4))).collect()
+fn rounded_series(series: &[Option<f64>], decimals: u32) -> Vec<Option<f64>> {
+    series
+        .iter()
+        .map(|value| value.map(|inner| round_to(inner, decimals)))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------

@@ -155,12 +155,6 @@ export interface AnalysisIndicators {
   vwap: (number | null)[]
   bbUpper: (number | null)[]
   bbLower: (number | null)[]
-  rsi: (number | null)[]
-  macd: (number | null)[]
-  macdSignal: (number | null)[]
-  macdHist: (number | null)[]
-  atr: (number | null)[]
-  adx: (number | null)[]
   latest: IndicatorLatest
 }
 
