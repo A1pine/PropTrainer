@@ -49,6 +49,25 @@ dropped by 18 KiB brotli. Network dominates: 1 ms of compute is not worth 41% mo
 If a future workload becomes compute-bound, switch the profile back to `opt-level = 3`; the benchmark makes that
 trade-off measurable instead of guessed.
 
+## Payload trim
+
+The analysis report previously shipped 12 indicator series at 4-decimal precision. Only four are drawn (EMA 20/50/200,
+VWAP) plus the Bollinger pair; RSI/MACD/ATR/ADX were duplicated in `latest` and never plotted. Removing the unused
+series and rounding the drawn ones to the instrument's price precision cut the response from **90.9 KiB to 50.6 KiB**
+(−44%) with no visual change. `flow.delta` is rounded to whole contracts.
+
+## Transport
+
+`nitro.compressPublicAssets` emits `.br` and `.gz` next to the artifact at build time, and `/wasm/**` is served with
+`cache-control: public, max-age=31536000, immutable` (the URL carries the content hash). Verified with curl:
+
+```
+Content-Encoding: br
+Content-Length: 56539        # 55.2 KiB instead of 145.2 KiB
+cache-control: public, max-age=31536000, immutable
+content-type: application/wasm
+```
+
 ## Targets
 
 | Target                          | Budget                                   |
