@@ -137,10 +137,12 @@ watch(
   (tool) => engine.value?.setTool(tool),
 )
 
+// `analysis` is rebuilt as a fresh object whenever the report changes, so a
+// shallow watch is enough. Deep traversal would walk every indicator series
+// (thousands of numbers) on each playback step.
 watch(
   () => props.analysis,
   (analysis) => engine.value?.setAnalysis(analysis),
-  { deep: true },
 )
 
 watch(
