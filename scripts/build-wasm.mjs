@@ -4,7 +4,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
@@ -19,6 +19,39 @@ execFileSync('cargo', ['build', '--release', '--target', 'wasm32-unknown-unknown
 
 mkdirSync(resolve(root, 'public/wasm'), { recursive: true })
 copyFileSync(wasm, target)
+
+// Optional post-pass: binaryen's wasm-opt typically removes another 10–15%
+// from a serde-based module. It is a dev dependency, so the step is skipped
+// (with a note) on machines that have not installed it.
+const wasmOpt = resolve(root, 'node_modules/binaryen/bin/wasm-opt')
+if (existsSync(wasmOpt)) {
+  const optimized = `${target}.opt`
+  try {
+    execFileSync(
+      wasmOpt,
+      [
+        '-Oz',
+        '--strip-debug',
+        '--strip-dwarf',
+        '--strip-producers',
+        '--enable-bulk-memory',
+        '--enable-bulk-memory-opt',
+        '--enable-nontrapping-float-to-int',
+        '--enable-sign-ext',
+        '-o',
+        optimized,
+        target,
+      ],
+      { stdio: 'inherit' },
+    )
+    if (statSync(optimized).size < statSync(target).size) renameSync(optimized, target)
+    else execFileSync('rm', ['-f', optimized])
+  } catch (error) {
+    console.warn(`wasm-opt skipped: ${error instanceof Error ? error.message : String(error)}`)
+  }
+} else {
+  console.log('wasm-opt not installed; run bun install to enable the size post-pass')
+}
 const size = statSync(target).size
 const hash = createHash('sha256').update(readFileSync(target)).digest('hex').slice(0, 16)
 mkdirSync(resolve(root, 'app/wasm'), { recursive: true })
