@@ -7,6 +7,19 @@ export default defineNuxtConfig({
   modules: ['@pinia/nuxt', '@vueuse/nuxt', '@nuxtjs/i18n'],
   components: [{ path: '~/components', pathPrefix: false }],
   css: ['~/assets/css/main.css'],
+  nitro: {
+    // Pre-compress public assets so the 145 KiB wasm ships as ~55 KiB brotli.
+    compressPublicAssets: { gzip: true, brotli: true },
+  },
+  routeRules: {
+    // Content-hashed wasm URL (?v=<hash>) can be cached forever.
+    '/wasm/**': {
+      headers: {
+        'cache-control': 'public, max-age=31536000, immutable',
+        'content-type': 'application/wasm',
+      },
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
