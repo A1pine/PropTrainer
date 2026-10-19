@@ -76,6 +76,18 @@ The build writes a content hash to `app/wasm/artifact.ts`; the browser fetches `
 artifact is never served from cache. Restart the dev server (SSR loads the module at boot) and reload the page after
 a rebuild.
 
+Performance work is measured, not guessed:
+
+```bash
+bun run bench:wasm     # size, brotli/gzip, compile, generate/analyze/simulate
+bun run measure:wasm   # real browser timings against a running server
+bun run check:wasm     # proves the core never blocks first paint and loads once
+```
+
+Current artifact: **145 KiB raw / 55 KiB brotli**, compiled in ~0.4 ms; the analysis report renders in ~154 ms from
+a cold page load. The wasm never gates hydration — it warms on idle and the analysis route preloads it. See
+[`docs/perf/wasm.md`](docs/perf/wasm.md) for the full log.
+
 ## Routes
 
 | Route       | Purpose                                                                          |
@@ -159,6 +171,21 @@ Stateful O(1) work (per-bar broker state, risk sizing, formatting), rendering an
 TypeScript — moving them across the boundary would add latency and lose reactivity without reducing real CPU work.
 Parity is enforced by tests that generate candles, find swings and simulate plans through both paths and require
 deep equality.
+
+### Performance notes
+
+- **Wasm is an accelerator, not a dependency.** The client plugin starts the load on idle and never awaits it;
+  the trainer and lobby run on the TypeScript fallback until the core lands. The analysis route awaits it and
+  shows a skeleton.
+- **One download, one compile.** `WebAssembly.compileStreaming` plus a module cache and an instance cache means a
+  session fetches and compiles the artifact once, even across client-side navigation. SSR reuses one instance per
+  process.
+- **Cache-safe delivery.** The URL carries a content hash, `/wasm/**` is immutable for a year, and Nitro emits
+  `.br`/`.gz` variants at build time.
+- **Small payloads.** Analysis input is sent as numeric columns (67 KiB → 22 KiB) and the response only contains
+  the indicator series the chart draws (91 KiB → 51 KiB).
+- **Budgets in CI.** `tests/unit/wasm-budget.spec.ts` fails if the artifact exceeds 160 KiB raw / 60 KiB brotli,
+  if compression ratio drops below 2×, if an export disappears, or if the cache-busting hash goes stale.
 
 ### Analysis lab
 
