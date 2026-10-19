@@ -7,8 +7,9 @@ guardrails: profit target, trailing drawdown, daily loss limit.
 The decision drill then grades the part most traders skip — state, thesis, and a plan whose stop belongs beyond
 structure rather than at your comfort level.
 
-> **Simulated data.** Every series is generated deterministically from a seeded regime model. There is no live
-> market feed, no broker connection, and nothing in this app is financial advice.
+> **Simulated by default.** Every series is generated deterministically from a seeded regime model. Optionally,
+> you can drop in a local pack of real 5-minute futures bars (`bun run data:fetch`) and practice on that instead.
+> There is no live market feed, no broker connection, and nothing in this app is financial advice.
 
 ![Lobby](docs/media/lobby.png)
 
@@ -29,6 +30,8 @@ structure rather than at your comfort level.
 - **Analysis lab** — price action, ICT concepts and an OHLCV order-flow proxy on one chart: EMA/VWAP/Bollinger,
   market structure (BOS/CHoCH), FVG and order blocks, liquidity levels/sweeps, volume profile, delta pressure and
   a weighted confluence score. All computed in Rust/WASM.
+- **Optional real data** — fetch a local 5-minute pack from Yahoo Finance, switch sources in Settings, and train
+  on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
 - **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (706 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
@@ -60,6 +63,7 @@ bun run test        # unit tests (runs through the real wasm core)
 bun run typecheck   # vue-tsc
 bun run build       # production build
 bun run preview     # preview the production build
+bun run data:fetch  # optional: fetch a local real-data pack (Yahoo Finance, gitignored)
 bun run screenshot  # visual QA at 1440 and 390 (requires the dev server)
 bun run smoke       # end-to-end flows against a running dev server
 ```
@@ -186,6 +190,19 @@ deep equality.
 - **Contrast is tested.** `tests/unit/theme-contrast.spec.ts` asserts WCAG AA (4.5:1) for body text, muted text,
   rails and every filled accent (`--on-clay`, `--on-bull`, `--on-bear`, `--on-danger`) in both modes.
   `bun run audit:theme` walks the real DOM in a browser and fails on any text node below AA.
+
+### Market data packs
+
+`bun run data:fetch` pulls free 5-minute bars for `MNQ`, `MES`, `NQ`, `ES`, `MYM`, `M2K`, `MGC` and `MCL` from
+Yahoo Finance into `public/data/market/` (gitignored). `Settings → Market data` switches the sample source for the
+trainer, drill and analysis; daily and PK remain generated for reproducibility.
+
+- The loader validates every column, rejects out-of-order or inconsistent OHLC bars, and falls back to simulated
+  tape instead of plotting corruption.
+- A round draws a seeded `150 warm-up + 260 hidden + 300 reveal` window and shifts prices by a tick-aligned
+  constant so the absolute level cannot leak the era or contract.
+- Packs are local-only: nothing is uploaded, no runtime third-party request is made, and the repo never carries
+  vendor data. See [docs/data/market-data.md](docs/data/market-data.md) for the schema, provenance and limits.
 
 ### Performance notes
 

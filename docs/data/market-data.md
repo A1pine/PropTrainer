@@ -1,0 +1,113 @@
+# Market data packs
+
+Prop Desk trains on **simulated tape by default**. You can optionally practice on real
+5-minute futures bars from a local pack. The pack never ships with the app, never leaves
+your machine, and is safe to delete at any time.
+
+## Fetch
+
+```bash
+bun run data:fetch
+# or target a subset
+bun run data:fetch --symbols MNQ,MES --range 60d --interval 5m
+```
+
+The script writes:
+
+```
+public/data/market/manifest.json
+public/data/market/MNQ.json
+public/data/market/MES.json
+...
+```
+
+Both are gitignored. A fresh clone has no pack, and that is a supported state: the app
+reports “Not installed” and falls back to simulated bars.
+
+Provider: Yahoo Finance’s undocumented chart endpoint, symbol `<ROOT>=F`
+(`MNQ=F`, `MES=F`, …). It is free but unofficial and rate-limited. **Do not commit,
+redistribute or resell the downloaded bars.** Use them for local evaluation only.
+
+## Schema
+
+Column-oriented JSON, one file per instrument:
+
+```json
+{
+  "symbol": "MNQ",
+  "source": "yahoo",
+  "sourceSymbol": "MNQ=F",
+  "timeframe": "5m",
+  "timezone": "UTC",
+  "license": "Yahoo Finance (unofficial) — local evaluation only, do not redistribute",
+  "fetchedAt": "2026-10-20T04:12:00.000Z",
+  "bars": 13548,
+  "t": [1786...],
+  "o": [29870.25],
+  "h": [29880.0],
+  "l": [29860.5],
+  "c": [29875.25],
+  "v": [412]
+}
+```
+
+- `t` is the bar open time in Unix **seconds**, strictly increasing.
+- `o/h/l/c` are in the contract’s native price grid.
+- The loader rejects any file where arrays disagree, a timestamp repeats, or
+  `high < max(open, close)` / `low > min(open, close)`. A corrupt pack degrades to
+  synthetic tape instead of poisoning the charts.
+
+## How a round uses a pack
+
+- `150` warm-up bars → the replay starts.
+- `260` hidden bars → the round resolves.
+- `300` reveal bars → context after the decision.
+
+That is `710` bars per sample. A 60-day 5m pack holds ~13.5k bars per instrument, so there
+are thousands of windows. Selection is seeded: `seed × dataset.symbol` picks the window,
+which is why replay links and seeded drills reproduce exactly.
+
+Two safeguards keep the blind contract intact:
+
+1. **Price rebasing.** The whole window is shifted by one tick-aligned constant so the
+   first close sits near the instrument’s anchor level (for example ~19,450 for MNQ).
+   Deltas, ranges, ATR and tick geometry are preserved, but the absolute level no longer
+   leaks the year or the contract.
+2. **No look-ahead.** Only the warm-up slice is handed to the chart before the decision.
+   `simulatePlan` and the wasm analyzer receive the revealed slice after the round ends.
+
+The regime label (`uptrend`, `downtrend`, `range`, `disorder`) is **derived** from the
+window’s efficiency ratio and net change. It describes what happened, not what will happen.
+
+## Settings
+
+`Settings → Market data → Sample source`:
+
+| Source     | Used by                                               |
+| ---------- | ----------------------------------------------------- |
+| Simulated  | Everything (default; fully offline and deterministic) |
+| Local pack | Trainer, drill and analysis                           |
+
+Daily challenge and PK always stay on generated tape so their baselines remain
+reproducible across devices. If the pack is missing when a local round starts, the round
+runs on simulated bars and the trainer shows a `Fallback` badge plus a one-time toast.
+
+## Limitations
+
+- Yahoo returns a **continuous front-month** series. Roll days can contain a price gap
+  that is not tradable structure; treat those samples as noise.
+- 5-minute history is capped at roughly 60 days (1-minute at 7 days). There is no tick or
+  bid/ask data, so the order-flow panel remains an OHLCV proxy.
+- Timestamps are normalized to UTC; sessions are displayed in `America/New_York`.
+- Futures volume from Yahoo is indicative, not exchange-certified.
+
+For longer history or certified CME data, use Dukascopy (index/commodity proxies) or
+Databento (GLB.3) and convert to this schema. Keep those files out of git as well.
+
+## Checks
+
+```bash
+bun run test                 # dataset parser, window selection, rebasing
+bun run smoke                # end-to-end flow
+bun run data:fetch           # refresh the pack
+```
