@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { ArrowRight, Eye, Gauge, Layers, Pause, Play, RefreshCw, SkipForward, TriangleAlert } from '@lucide/vue'
-
-useHead({ title: 'Analysis lab' })
+import { wasmArtifactVersion } from '~/wasm/artifact'
 
 const { t, locale } = useI18n()
 const store = useAnalysisStore()
+const config = useRuntimeConfig()
+const wasmHref = `${(config.app.baseURL || '/').replace(/\/$/, '')}/wasm/prop_core.wasm?v=${wasmArtifactVersion}`
+
+// Only this route needs the core at first paint, so the preload lives here
+// instead of the global head: the browser starts the download while parsing
+// HTML, in parallel with hydration, and the loader then hits the same URL.
+useHead({
+  title: 'Analysis lab',
+  link: [{ rel: 'preload', href: wasmHref, as: 'fetch', crossorigin: 'anonymous', type: 'application/wasm' }],
+})
+
 const chart = ref<{ fit: () => void; zoom: (factor: number) => void } | null>(null)
 
 const report = computed(() => store.report)
