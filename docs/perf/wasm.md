@@ -79,6 +79,30 @@ cache-control: public, max-age=31536000, immutable
 content-type: application/wasm
 ```
 
+## Load path
+
+| Change                                          | Effect                                                   |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| Client plugin no longer awaits the fetch        | Hydration and first paint are independent of wasm        |
+| Idle warm-up (`requestIdleCallback`, 2.5 s cap) | Core is ready before the lab is opened                   |
+| `router.beforeResolve` on `/analysis`           | Early intent starts the load sooner                      |
+| `rel=preload` on the analysis route only        | Download starts during HTML parse, not after hydration   |
+| `WebAssembly.compileStreaming` + module cache   | One download, one compile, one instantiation per session |
+| SSR module + instance reused per process        | No re-instantiation per request                          |
+
+Measured on the production build (`bun run measure:wasm`, localhost):
+
+| Metric              | Value                        |
+| ------------------- | ---------------------------- |
+| DOMContentLoaded    | 72 ms                        |
+| `load`              | 72 ms                        |
+| wasm request starts | 25 ms (preload, in parallel) |
+| wasm fetch          | 13 ms · 56.3 KiB encoded     |
+| Report visible      | 154 ms                       |
+
+Before this work the client plugin awaited the wasm fetch **before** hydration, so every route paid for it. Now the
+trainer and lobby never wait, and the lab reaches a rendered report in ~154 ms on a warm localhost.
+
 ## Targets
 
 | Target                          | Budget                                   |
