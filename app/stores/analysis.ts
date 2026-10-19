@@ -5,6 +5,9 @@ import { analyzeMarket } from '~/domain/analysis/analyze'
 import type { AnalysisReport } from '~/domain/analysis/types'
 import type { ChartAnalysis, ChartTone } from '~/lib/chart/types'
 import { ensureWasmCore } from '~/domain/wasm/loader'
+import { prepareLocalScenarioInput } from '~/lib/market/local-data'
+import type { LocalDataset } from '~/lib/market/types'
+import type { ScenarioSource } from '~/domain/market/types'
 
 export type AnalysisTab = 'overview' | 'pa' | 'ict' | 'flow' | 'indicators'
 
@@ -20,6 +23,7 @@ const defaultToggles = {
 
 export const useAnalysisStore = defineStore('analysis', () => {
   const settings = useSettingsStore()
+  const config = useRuntimeConfig()
   const scenario = ref<Scenario | null>(null)
   const visibleCount = ref(0)
   const playing = ref(false)
@@ -30,6 +34,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const coreReady = ref(false)
   const coreError = ref(false)
   const toggles = ref({ ...defaultToggles })
+  const scenarioSource = ref<ScenarioSource>('synthetic')
   let timer: ReturnType<typeof setInterval> | null = null
 
   const candles = computed(() => scenario.value?.candles ?? [])
@@ -173,13 +178,23 @@ export const useAnalysisStore = defineStore('analysis', () => {
     playing.value = false
   }
 
-  function start(options: { seed?: string } = {}) {
+  async function start(options: { seed?: string } = {}) {
     stopPlayback()
     settings.hydrate()
     const universe = instruments.resolve(settings.settings.instruments)
     const factory = createScenarioFactory({ universe: universe.length ? universe : instruments.list() })
     seed.value = options.seed ?? createSeed()
-    const next = factory.create({ seed: seed.value })
+    let dataset: LocalDataset | undefined
+    if (settings.settings.dataSource === 'local') {
+      const prepared = await prepareLocalScenarioInput({
+        baseURL: config.app.baseURL,
+        symbols: (universe.length ? universe : instruments.list()).map((item) => item.symbol),
+        seed: seed.value,
+      })
+      dataset = prepared?.dataset
+    }
+    const next = factory.create({ seed: seed.value, dataset })
+    scenarioSource.value = next.source
     scenario.value = next
     visibleCount.value = Math.min(next.candles.length, next.replayStart + 80)
     revealed.value = false
@@ -248,6 +263,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     overlay,
     maskedSymbol,
     sampleDate,
+    scenarioSource,
     start,
     ensureCore,
     newSample,

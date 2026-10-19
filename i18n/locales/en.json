@@ -327,7 +327,7 @@
     "title": "Set the desk up once.",
     "subtitle": "Everything here is stored in this browser. The account rules drive the trainer, the drill and the risk sizing.",
     "saved": "Saved locally",
-    "disclaimer": "Simulated data only. Not financial advice.",
+    "disclaimer": "Simulated by default. Local packs are optional and never leave this device.",
     "appearance": {
       "title": "Appearance",
       "hint": "Warm surfaces, clay accent, hairline geometry.",
@@ -411,6 +411,25 @@
       "reload": "Reload core",
       "hintDetail": "If you just rebuilt the core, restart the dev server and reload this page.",
       "loading": "Loading core…"
+    },
+    "dataSource": {
+      "title": "Market data",
+      "hint": "Practice on generated tape or on a local pack of real 5-minute futures bars.",
+      "mode": "Sample source",
+      "modeHint": "Trainer, drill and analysis use this source. Daily and PK stay generated so results remain reproducible.",
+      "synthetic": "Simulated",
+      "local": "Local pack",
+      "checking": "Checking",
+      "ready": "Ready",
+      "missing": "Not installed",
+      "statusChecking": "Looking for a local pack…",
+      "statusMissing": "No local pack found. Run the command below, then re-check. Rounds fall back to simulated bars.",
+      "statusReady": "{count} symbols · {interval} · last {days} days · fetched {date}",
+      "recheck": "Re-check",
+      "commandHint": "Fetch free Yahoo Finance bars (stays local, never committed):",
+      "syntheticShort": "Simulated",
+      "localShort": "Real 5m",
+      "fallbackShort": "Fallback"
     }
   },
   "error": {

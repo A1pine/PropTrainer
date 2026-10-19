@@ -205,7 +205,13 @@ function onKeydown(event: KeyboardEvent) {
         <Badge variant="outline" class="font-mono"
           >{{ store.maskedSymbol }} · {{ store.scenario?.timeframeMinutes ?? 5 }}m</Badge
         >
+        <Badge v-if="store.scenarioSource === 'local'" variant="bull" dot>{{
+          t('settings.dataSource.localShort')
+        }}</Badge>
         <Badge v-if="store.revealed" variant="bull" dot>{{ sessionDate }}</Badge>
+        <Badge v-if="store.revealed && store.scenario?.dataset" variant="outline" class="font-mono">
+          {{ store.scenario.dataset.sourceSymbol }}
+        </Badge>
         <Badge v-else variant="neutral" dot>{{ t('analysis.sampleHidden') }}</Badge>
         <Button v-if="!store.revealed" variant="secondary" size="sm" @click="store.reveal()">
           <Eye class="size-3.5" aria-hidden="true" />

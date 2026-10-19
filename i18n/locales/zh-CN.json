@@ -327,7 +327,7 @@
     "title": "一次设好你的交易台。",
     "subtitle": "此处所有内容仅保存在本浏览器。账户规则会驱动训练场、演练与风险手数计算。",
     "saved": "已保存到本地",
-    "disclaimer": "仅使用模拟数据，不构成投资建议。",
+    "disclaimer": "默认使用模拟数据。真实数据包可选，且不会离开本机。",
     "appearance": {
       "title": "外观",
       "hint": "温暖底色，陶土强调色，细线几何。",
@@ -411,6 +411,25 @@
       "reload": "重新加载内核",
       "hintDetail": "如果刚重新构建内核，请重启开发服务器并刷新本页。",
       "loading": "内核加载中…"
+    },
+    "dataSource": {
+      "title": "行情数据",
+      "hint": "可以用生成行情，也可以使用本地真实 5 分钟期货数据包。",
+      "mode": "样本来源",
+      "modeHint": "训练、演练和分析使用此来源；每日挑战与 PK 保持生成数据，保证可复现。",
+      "synthetic": "模拟",
+      "local": "本地数据包",
+      "checking": "检查中",
+      "ready": "已就绪",
+      "missing": "未安装",
+      "statusChecking": "正在查找本地数据包…",
+      "statusMissing": "未找到本地数据包。先运行下方命令，再点重新检查；期间自动回退到模拟行情。",
+      "statusReady": "{count} 个品种 · {interval} · 最近 {days} 天 · 抓取于 {date}",
+      "recheck": "重新检查",
+      "commandHint": "抓取免费 Yahoo Finance 行情（仅存本地，不提交仓库）：",
+      "syntheticShort": "模拟",
+      "localShort": "真实 5m",
+      "fallbackShort": "回退"
     }
   },
   "error": {

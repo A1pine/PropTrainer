@@ -117,6 +117,20 @@ const symbolLabel = computed(() => {
   return trainer.revealed ? instrument.value.symbol : instrument.value.mask
 })
 
+const sourceBadge = computed(() => {
+  const key = trainer.dataSource
+  const variant = key === 'local' ? 'bull' : key === 'fallback' ? 'warn' : 'outline'
+  return { variant, label: t(`settings.dataSource.${key}Short`) } as const
+})
+
+const datasetWindow = computed(() => {
+  const meta = trainer.scenario?.dataset
+  if (!meta || !trainer.revealed) return ''
+  const start = new Date(meta.windowStart * 1000).toISOString()
+  const end = new Date(meta.windowEnd * 1000).toISOString()
+  return `${formatDate(start, locale.value)} → ${formatDate(end, locale.value)}`
+})
+
 const tools: { value: ChartTool; icon: typeof Crosshair; label: string }[] = [
   { value: 'cursor', icon: MousePointer2, label: 'Cursor / pan' },
   { value: 'trend', icon: TrendingUp, label: 'Trend line' },
@@ -233,7 +247,7 @@ onBeforeUnmount(() => {
             >{{ symbolLabel }} · {{ trainer.scenario?.timeframeMinutes ?? 5 }}m</span
           >
           <span class="hidden font-mono text-[11px] text-ink-3 sm:inline"
-            >· {{ trainer.revealed ? revealedDate : t('trainer.dayHidden') }}</span
+            >· {{ trainer.revealed ? datasetWindow || revealedDate : t('trainer.dayHidden') }}</span
           >
         </div>
       </div>
@@ -248,7 +262,7 @@ onBeforeUnmount(() => {
             class="text-[13px] font-medium"
           />
         </div>
-        <Badge variant="outline" dot class="hidden lg:inline-flex">{{ t('common.simulated') }}</Badge>
+        <Badge :variant="sourceBadge.variant" dot class="hidden lg:inline-flex">{{ sourceBadge.label }}</Badge>
         <Button v-if="trainer.phase !== 'summary'" variant="ghost" size="sm" @click="trainer.endSession()">
           {{ t('trainer.endSession') }}
         </Button>

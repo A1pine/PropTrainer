@@ -11,6 +11,15 @@ const activeItem = computed(() => [...navItems, ...secondaryNavItems].find((item
 
 const title = computed(() => (activeItem.value ? t(activeItem.value.labelKey) : t('app.name')))
 
+// Daily and PK always run generated tape, so only the practice routes may
+// advertise the local pack.
+const usesLocalData = computed(
+  () =>
+    settings.settings.dataSource === 'local' &&
+    ['/trainer', '/drill', '/analysis'].some((path) => route.path === path || route.path.startsWith(`${path}/`)),
+)
+const dataBadge = computed(() => (usesLocalData.value ? t('settings.dataSource.local') : t('common.simulated')))
+
 function toggleSound() {
   settings.update({ sound: !settings.settings.sound })
 }
@@ -37,7 +46,7 @@ function toggleSound() {
     <div class="flex items-center gap-1.5">
       <span class="hidden items-center gap-1.5 rounded-pill border border-line px-2 py-1 lg:inline-flex">
         <span class="size-1.5 rounded-full bg-clay animate-pulse-dot" aria-hidden="true" />
-        <span class="text-[10.5px] font-medium text-ink-2">{{ t('common.simulated') }}</span>
+        <span class="text-[10.5px] font-medium text-ink-2">{{ dataBadge }}</span>
       </span>
 
       <button

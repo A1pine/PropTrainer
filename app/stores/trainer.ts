@@ -1,4 +1,7 @@
 import { createScenarioFactory, createSeed } from '~/domain/market/scenario'
+import { prepareLocalScenarioInput } from '~/lib/market/local-data'
+import type { LocalDataset } from '~/lib/market/types'
+import type { ScenarioSource } from '~/domain/market/types'
 import { findSwings } from '~/domain/market/generator'
 import type { Scenario } from '~/domain/market/types'
 import { createBroker, type Broker } from '~/domain/trading/broker'
@@ -35,6 +38,7 @@ export const useTrainerStore = defineStore('trainer', () => {
   const settings = useSettingsStore()
   const history = useHistoryStore()
   const toasts = useToastStore()
+  const config = useRuntimeConfig()
 
   const scenario = ref<Scenario | null>(null)
   const phase = ref<TrainerPhase>('idle')
@@ -58,9 +62,11 @@ export const useTrainerStore = defineStore('trainer', () => {
   const sessionEnded = ref(false)
   const orderPending = ref(false)
   const lastPrice = ref(0)
+  const scenarioSource = ref<ScenarioSource>('synthetic')
 
   let timer: ReturnType<typeof setInterval> | null = null
   let loadToken = 0
+  let warnedFallback = false
 
   const rules = computed(() =>
     createRules({
@@ -77,6 +83,15 @@ export const useTrainerStore = defineStore('trainer', () => {
   })
 
   const factory = computed(() => createScenarioFactory({ universe: universe.value }))
+
+  /**
+   * `fallback` means the local pack was requested but no dataset could be
+   * loaded, so this round silently used the synthetic generator.
+   */
+  const dataSource = computed<'synthetic' | 'local' | 'fallback'>(() => {
+    if (settings.settings.dataSource !== 'local') return 'synthetic'
+    return scenarioSource.value === 'local' ? 'local' : 'fallback'
+  })
 
   const instrument = computed(() => scenario.value?.instrument ?? null)
   const candles = computed(() => scenario.value?.candles ?? [])
@@ -193,7 +208,28 @@ export const useTrainerStore = defineStore('trainer', () => {
     await sleep(600)
     if (token !== loadToken) return
 
-    const next = factory.value.create({ seed: createSeed() })
+    const seed = createSeed()
+    let dataset: LocalDataset | undefined
+    if (settings.settings.dataSource === 'local') {
+      const prepared = await prepareLocalScenarioInput({
+        baseURL: config.app.baseURL,
+        symbols: universe.value.map((item) => item.symbol),
+        seed,
+      })
+      dataset = prepared?.dataset
+      if (!dataset && !warnedFallback) {
+        warnedFallback = true
+        toasts.push({
+          title: 'Local pack unavailable',
+          description: 'Falling back to simulated bars. Run `bun run data:fetch` and re-check in Settings.',
+          variant: 'warn',
+        })
+      }
+    }
+    if (token !== loadToken) return
+
+    const next = factory.value.create({ seed, dataset })
+    scenarioSource.value = next.source
     scenario.value = next
     visibleCount.value = next.replayStart
     syncPlanBar()
@@ -563,6 +599,7 @@ export const useTrainerStore = defineStore('trainer', () => {
     grade.value = null
     outcome.value = null
     sessionEnded.value = false
+    scenarioSource.value = 'synthetic'
   }
 
   function advanceRound() {
@@ -602,6 +639,8 @@ export const useTrainerStore = defineStore('trainer', () => {
     sessionEnded,
     orderPending,
     lastPrice,
+    scenarioSource,
+    dataSource,
     // derived
     rules,
     universe,

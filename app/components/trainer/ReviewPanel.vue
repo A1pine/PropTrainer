@@ -33,6 +33,14 @@ const outcomeTone = computed(() => {
   return r > 0 ? 'text-bull-strong' : r < 0 ? 'text-bear-strong' : 'text-ink'
 })
 
+const windowLabel = computed(() => {
+  const meta = props.scenario.dataset
+  if (!meta) return ''
+  const start = new Date(meta.windowStart * 1000).toISOString()
+  const end = new Date(meta.windowEnd * 1000).toISOString()
+  return `${formatDate(start, locale.value)} → ${formatDate(end, locale.value)}`
+})
+
 const dateLabel = computed(() => {
   const date = new Date(props.scenario.sessionDate)
   return new Intl.DateTimeFormat(locale.value, {
@@ -82,7 +90,11 @@ function noteTone(note: GradeNote) {
         <Badge variant="neutral">{{
           t('review.barsHidden', { bars: scenario.candles.length - scenario.replayStart })
         }}</Badge>
+        <Badge v-if="scenario.dataset" variant="bull" :title="scenario.dataset.license">
+          {{ scenario.dataset.sourceSymbol }}
+        </Badge>
       </div>
+      <p v-if="windowLabel" class="mt-1.5 font-mono text-[10px] text-ink-3">{{ windowLabel }}</p>
     </div>
 
     <div v-if="grade" class="grid grid-cols-3 gap-2">

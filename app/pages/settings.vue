@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { Check, Download, RotateCcw, Trash2 } from '@lucide/vue'
+import { Check, Download, RefreshCw, RotateCcw, Trash2 } from '@lucide/vue'
 import { PROP_PRESETS, createRules } from '~/domain/trading/types'
-import type { AccountPresetId } from '~/domain/settings/schema'
+import type { AccountPresetId, DataSource } from '~/domain/settings/schema'
+import { loadLocalManifest } from '~/lib/market/local-data'
+import type { LocalManifest } from '~/lib/market/types'
 
 useHead({ title: 'Settings' })
 
@@ -10,6 +12,7 @@ const settingsStore = useSettingsStore()
 const history = useHistoryStore()
 const computeStatus = useComputeCoreStatus()
 const toasts = useToastStore()
+const config = useRuntimeConfig()
 
 const settings = computed(() => settingsStore.settings)
 const themeLabels = computed(() => ({ light: t('common.light'), dark: t('common.dark'), system: t('common.system') }))
@@ -53,6 +56,48 @@ const motionOptions = computed(() => [
   { value: 'full', label: t('settings.appearance.full') },
   { value: 'reduced', label: t('settings.appearance.reduced') },
 ])
+
+const dataSourceModel = computed({
+  get: () => settings.value.dataSource,
+  set: (value: string) => settingsStore.update({ dataSource: value as DataSource }),
+})
+const dataSourceOptions = computed(() => [
+  { value: 'synthetic', label: t('settings.dataSource.synthetic') },
+  { value: 'local', label: t('settings.dataSource.local') },
+])
+
+const localManifest = ref<LocalManifest | null>(null)
+const localChecked = ref(false)
+const checkingLocal = ref(false)
+
+const localState = computed(() => {
+  if (checkingLocal.value) return { key: 'checking', tone: 'neutral' as const }
+  if (!localChecked.value) return { key: 'checking', tone: 'neutral' as const }
+  return localManifest.value ? { key: 'ready', tone: 'bull' as const } : { key: 'missing', tone: 'warn' as const }
+})
+
+const localStatusText = computed(() => {
+  if (!localChecked.value || checkingLocal.value) return t('settings.dataSource.statusChecking')
+  const manifest = localManifest.value
+  if (!manifest) return t('settings.dataSource.statusMissing')
+  const days = manifest.range.endsWith('d') ? manifest.range.slice(0, -1) : manifest.range
+  return t('settings.dataSource.statusReady', {
+    count: manifest.datasets.length,
+    interval: manifest.interval,
+    days,
+    date: formatDate(manifest.generatedAt, locale.value),
+  })
+})
+
+async function checkLocal(force = false) {
+  checkingLocal.value = true
+  try {
+    localManifest.value = await loadLocalManifest(config.app.baseURL, force)
+  } finally {
+    checkingLocal.value = false
+    localChecked.value = true
+  }
+}
 
 const themeModel = computed({
   get: () => settings.value.theme,
@@ -116,6 +161,7 @@ function resetSettings() {
 onMounted(() => {
   settingsStore.hydrate()
   history.hydrate()
+  void checkLocal()
 })
 </script>
 
@@ -260,6 +306,46 @@ onMounted(() => {
         </div>
         <div class="px-5 py-4">
           <InstrumentRail :selected="settings.instruments" wrap @toggle="toggleInstrument" />
+        </div>
+      </Panel>
+
+      <Panel :padded="false">
+        <div class="border-b-[length:var(--hairline)] border-line px-5 py-3.5">
+          <p class="text-[12.5px] font-semibold">{{ t('settings.dataSource.title') }}</p>
+          <p class="mt-0.5 text-[10.5px] text-ink-3">{{ t('settings.dataSource.hint') }}</p>
+        </div>
+        <div class="space-y-3 px-5 py-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-[11.5px] font-medium">{{ t('settings.dataSource.mode') }}</p>
+              <p class="text-[10.5px] text-ink-3">{{ t('settings.dataSource.modeHint') }}</p>
+            </div>
+            <SegmentedControl
+              v-model="dataSourceModel"
+              :options="dataSourceOptions"
+              size="sm"
+              :aria-label="t('settings.dataSource.mode')"
+              class="w-[260px]"
+            />
+          </div>
+          <div
+            class="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line bg-sunken px-3 py-2.5"
+          >
+            <div class="min-w-0">
+              <Badge :variant="localState.tone" size="sm" dot>
+                {{ t(`settings.dataSource.${localState.key}`) }}
+              </Badge>
+              <p class="mt-1 text-[10.5px] leading-relaxed text-ink-3">{{ localStatusText }}</p>
+            </div>
+            <Button variant="ghost" size="sm" :disabled="checkingLocal" @click="checkLocal(true)">
+              <RefreshCw class="size-3.5" :class="checkingLocal ? 'animate-spin' : ''" aria-hidden="true" />
+              {{ t('settings.dataSource.recheck') }}
+            </Button>
+          </div>
+          <p class="text-[10px] leading-relaxed text-ink-3">
+            {{ t('settings.dataSource.commandHint') }}
+            <code class="ml-1 rounded-sm bg-ink/[0.06] px-1.5 py-0.5 font-mono text-[10px]">bun run data:fetch</code>
+          </p>
         </div>
       </Panel>
 

@@ -1,4 +1,7 @@
 import { createScenarioFactory, createSeed } from '~/domain/market/scenario'
+import { prepareLocalScenarioInput } from '~/lib/market/local-data'
+import type { LocalDataset } from '~/lib/market/types'
+import type { ScenarioSource } from '~/domain/market/types'
 import { dailyScenarioNow } from '~/domain/market/daily'
 import { findSwings } from '~/domain/market/generator'
 import type { Scenario } from '~/domain/market/types'
@@ -36,6 +39,7 @@ function blankPlan(): DrillPlan {
 export const useDrillStore = defineStore('drill', () => {
   const settings = useSettingsStore()
   const history = useHistoryStore()
+  const config = useRuntimeConfig()
 
   const phase = ref<DrillPhase>('idle')
   const scenario = ref<Scenario | null>(null)
@@ -50,6 +54,7 @@ export const useDrillStore = defineStore('drill', () => {
   const revealed = ref(false)
   const submittedAt = ref('')
   const mode = ref<'drill' | 'daily'>('drill')
+  const scenarioSource = ref<ScenarioSource>('synthetic')
 
   const instrument = computed(() => scenario.value?.instrument ?? null)
   const candles = computed(() => scenario.value?.candles ?? [])
@@ -79,14 +84,26 @@ export const useDrillStore = defineStore('drill', () => {
     return resolved.length ? resolved : instruments.list()
   })
 
-  function start(options: { seed?: string; mode?: 'drill' | 'daily' } = {}) {
+  async function start(options: { seed?: string; mode?: 'drill' | 'daily' } = {}) {
     seed.value = options.seed ?? createSeed()
     mode.value = options.mode ?? 'drill'
     const factory = createScenarioFactory({
       universe: universe.value,
       now: mode.value === 'daily' ? dailyScenarioNow(seed.value) : new Date(),
     })
-    scenario.value = options.seed ? factory.createFromSeed(seed.value) : factory.create()
+    let dataset: LocalDataset | undefined
+    if (mode.value === 'drill' && settings.settings.dataSource === 'local') {
+      const prepared = await prepareLocalScenarioInput({
+        baseURL: config.app.baseURL,
+        symbols: universe.value.map((item) => item.symbol),
+        seed: seed.value,
+      })
+      dataset = prepared?.dataset
+    }
+    scenario.value = options.seed
+      ? factory.createFromSeed(seed.value, undefined, undefined, dataset)
+      : factory.create({ seed: seed.value, dataset })
+    scenarioSource.value = scenario.value.source
     visibleCount.value = scenario.value.replayStart
     plan.value = blankPlan()
     plan.value.submittedAtBar = visibleCount.value - 1
@@ -254,6 +271,7 @@ export const useDrillStore = defineStore('drill', () => {
     revealed,
     submittedAt,
     mode,
+    scenarioSource,
     instrument,
     candles,
     rules,

@@ -130,6 +130,9 @@ onBeforeUnmount(() => {
       </div>
       <div class="ml-auto flex items-center gap-2">
         <Badge v-if="drill.mode === 'daily'" variant="clay">{{ t('daily.badge') }}</Badge>
+        <Badge v-else-if="drill.scenarioSource === 'local'" variant="bull" dot>{{
+          t('settings.dataSource.localShort')
+        }}</Badge>
         <Badge variant="outline">{{ symbolLabel }} · {{ drill.scenario?.timeframeMinutes ?? 5 }}m</Badge>
         <Button variant="secondary" size="sm" @click="startDrill()">
           <RefreshCw class="size-3.5" aria-hidden="true" />
