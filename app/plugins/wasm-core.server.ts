@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { createWasmCoreFromInstance, recordWasmError, setWasmCore } from '~/domain/wasm/core'
 
 let serverModule: Promise<WebAssembly.Module | null> | null = null
+let serverCore: ReturnType<typeof createWasmCoreFromInstance> | null = null
 
 async function loadModule(): Promise<WebAssembly.Module | null> {
   if (!serverModule) {
@@ -34,10 +35,16 @@ export default defineNuxtPlugin({
   async setup() {
     const status = useState<'rust' | 'typescript' | 'loading'>('compute-core', () => 'loading')
     try {
-      const module = await loadModule()
-      if (!module) throw new Error('wasm module unavailable')
-      const instance = await WebAssembly.instantiate(module, {})
-      setWasmCore(createWasmCoreFromInstance(instance))
+      if (!serverCore) {
+        const module = await loadModule()
+        if (!module) throw new Error('wasm module unavailable')
+        const instance = await WebAssembly.instantiate(module, {})
+        serverCore = createWasmCoreFromInstance(instance)
+      }
+      // One instance per process: the core is synchronous, so concurrent SSR
+      // requests cannot interleave inside a call, and repeated instantiation
+      // would allocate a fresh linear memory for every request.
+      setWasmCore(serverCore)
       status.value = 'rust'
     } catch (error) {
       recordWasmError(error)
