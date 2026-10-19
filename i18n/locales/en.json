@@ -405,7 +405,9 @@
       "hint": "Scenario generation, swing detection and plan simulation run in Rust/WebAssembly. The TypeScript reference stays as a fallback.",
       "rust": "Rust / WebAssembly",
       "typescript": "TypeScript fallback",
-      "fallback": "The wasm core did not load; using the TypeScript reference implementation."
+      "fallback": "The wasm core did not load; using the TypeScript reference implementation.",
+      "reload": "Reload core",
+      "hintDetail": "If you just rebuilt the core, restart the dev server and reload this page."
     }
   },
   "error": {
@@ -823,7 +825,8 @@
     },
     "unavailable": {
       "title": "Analysis core unavailable",
-      "body": "The Rust/WASM core did not load, so the analysis stack is disabled. The rest of the app still works."
+      "body": "The Rust/WASM core did not load, so the analysis stack is disabled. The rest of the app still works.",
+      "reload": "Reload core"
     },
     "structure": {
       "hh_hl": "HH / HL",

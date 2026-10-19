@@ -123,6 +123,10 @@ const sessionDate = computed(() => {
 const zoneLabel = computed(() => (report.value ? t(`analysis.ict.zones.${report.value.ict.zone}`) : '—'))
 const sessionLabel = computed(() => (report.value ? t(`analysis.ict.sessions.${report.value.ict.session}`) : '—'))
 
+function reloadCore() {
+  if (import.meta.client) window.location.reload()
+}
+
 function toneClass(tone: string) {
   if (tone === 'bull') return 'text-bull-strong'
   if (tone === 'bear') return 'text-bear-strong'
@@ -348,6 +352,9 @@ function onKeydown(event: KeyboardEvent) {
             <TriangleAlert class="mx-auto size-5 text-warn" aria-hidden="true" />
             <p class="mt-2 text-[11.5px] text-ink-2">{{ t('analysis.unavailable.title') }}</p>
             <p class="mt-1 text-[10px] text-ink-3">{{ t('analysis.unavailable.body') }}</p>
+            <Button variant="secondary" size="sm" class="mt-3" @click="reloadCore">
+              {{ t('analysis.unavailable.reload') }}
+            </Button>
           </div>
 
           <div v-else class="max-h-[520px] overflow-y-auto px-4 pb-4">

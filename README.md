@@ -30,7 +30,7 @@ structure rather than at your comfort level.
   market structure (BOS/CHoCH), FVG and order blocks, liquidity levels/sweeps, volume profile, delta pressure and
   a weighted confluence score. All computed in Rust/WASM.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (703 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (706 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -71,6 +71,10 @@ To rebuild the core you need Rust with the `wasm32-unknown-unknown` target:
 rustup target add wasm32-unknown-unknown
 bun run wasm:build
 ```
+
+The build writes a content hash to `app/wasm/artifact.ts`; the browser fetches `prop_core.wasm?v=<hash>` so a new
+artifact is never served from cache. Restart the dev server (SSR loads the module at boot) and reload the page after
+a rebuild.
 
 ## Routes
 
@@ -175,7 +179,7 @@ bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 703 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror the same 706 keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 

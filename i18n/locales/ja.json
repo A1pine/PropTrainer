@@ -405,7 +405,9 @@
       "hint": "シナリオ生成・スイング検出・プラン検証は Rust/WebAssembly で実行し、TypeScript 実装をフォールバックとして残しています。",
       "rust": "Rust / WebAssembly",
       "typescript": "TypeScript フォールバック",
-      "fallback": "WASM コアを読み込めなかったため、TypeScript 実装を使用しています。"
+      "fallback": "WASM コアを読み込めなかったため、TypeScript 実装を使用しています。",
+      "reload": "コアを再読み込み",
+      "hintDetail": "コアを再ビルドした直後は、開発サーバーを再起動してこのページを再読み込みしてください。"
     }
   },
   "error": {
@@ -823,7 +825,8 @@
     },
     "unavailable": {
       "title": "分析コアを利用できません",
-      "body": "Rust/WASM コアが読み込まれなかったため、分析機能は無効です。アプリの他の機能は動作します。"
+      "body": "Rust/WASM コアが読み込まれなかったため、分析機能は無効です。アプリの他の機能は動作します。",
+      "reload": "コアを再読み込み"
     },
     "structure": {
       "hh_hl": "HH / HL",

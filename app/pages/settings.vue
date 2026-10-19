@@ -103,6 +103,10 @@ function resetHistory() {
   toasts.success(t('settings.data.historyCleared'))
 }
 
+function reloadCore() {
+  if (import.meta.client) window.location.reload()
+}
+
 function resetSettings() {
   settingsStore.reset()
   resetSettingsOpen.value = false
@@ -319,10 +323,18 @@ onMounted(() => {
           <div>
             <p class="text-[12.5px] font-semibold">{{ t('settings.compute.title') }}</p>
             <p class="mt-0.5 max-w-[52ch] text-[10.5px] text-ink-3">{{ t('settings.compute.hint') }}</p>
+            <p v-if="computeStatus === 'typescript'" class="mt-1 max-w-[52ch] text-[10px] text-ink-3">
+              {{ t('settings.compute.hintDetail') }}
+            </p>
           </div>
-          <Badge :variant="computeStatus === 'rust' ? 'bull' : 'warn'" dot>
-            {{ t(`settings.compute.${computeStatus}`) }}
-          </Badge>
+          <div class="flex items-center gap-2">
+            <Badge :variant="computeStatus === 'rust' ? 'bull' : 'warn'" dot>
+              {{ t(`settings.compute.${computeStatus}`) }}
+            </Badge>
+            <Button v-if="computeStatus === 'typescript'" variant="ghost" size="sm" @click="reloadCore">
+              {{ t('settings.compute.reload') }}
+            </Button>
+          </div>
         </div>
       </Panel>
 

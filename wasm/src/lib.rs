@@ -242,7 +242,7 @@ fn generate(req: &GenerateRequest) -> GenerateResponse {
 
     for index in 0..req.bars {
         let mut drift: f64;
-        let mut vol: f64;
+        let vol: f64;
 
         if req.regime == "uptrend" || req.regime == "downtrend" {
             if phase_left <= 0 {

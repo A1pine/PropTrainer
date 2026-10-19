@@ -9,7 +9,7 @@ import {
 } from '@/domain/market/generator'
 import { simulatePlan, simulatePlanTs, type DrillPlan } from '@/domain/drill/plan'
 import { createScenarioFactory } from '@/domain/market/scenario'
-import { getWasmCore, setWasmCore } from '@/domain/wasm/core'
+import { createWasmCoreFromInstance, getWasmCore, setWasmCore } from '@/domain/wasm/core'
 
 const options: MarketGenerationOptions = {
   seed: 'wasm-parity-seed:MNQ:uptrend',
@@ -80,6 +80,10 @@ describe('rust compute core', () => {
     const ts = withoutCore(() => simulatePlanTs(plan, scenario.candles, scenario.instrument, 300))
     expect(rust).toEqual(ts)
     expect(rust.filled).toBe(true)
+  })
+
+  it('rejects an outdated artifact missing the analysis export', () => {
+    expect(() => createWasmCoreFromInstance({ exports: {} } as unknown as WebAssembly.Instance)).toThrow(/outdated/)
   })
 
   it('falls back cleanly when the core is unavailable', () => {

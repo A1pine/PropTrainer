@@ -117,7 +117,13 @@ export function createWasmCore(exports: WasmExports): WasmCore {
 }
 
 export function createWasmCoreFromInstance(instance: WebAssembly.Instance): WasmCore {
-  return createWasmCore(instance.exports as unknown as WasmExports)
+  const exports = instance.exports as unknown as Record<string, unknown>
+  const required = ['prop_generate', 'prop_find_swings', 'prop_simulate_plan', 'prop_analyze']
+  const missing = required.filter((name) => typeof exports[name] !== 'function')
+  if (missing.length) {
+    throw new Error(`wasm artifact is outdated (missing ${missing.join(', ')}); run bun run wasm:build and reload`)
+  }
+  return createWasmCore(exports as unknown as WasmExports)
 }
 
 export function recordWasmError(error: unknown) {

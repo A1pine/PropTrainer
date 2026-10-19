@@ -24,7 +24,9 @@ rustup target add wasm32-unknown-unknown
 bun run wasm:build
 ```
 
-The script writes `public/wasm/prop_core.wasm`, which is committed so the app runs without Rust.
+The script writes `public/wasm/prop_core.wasm`, which is committed so the app runs without Rust, plus a content
+hash in `app/wasm/artifact.ts` used for cache busting. Restart the dev server after a rebuild: the SSR plugin loads
+the module at boot, while the browser fetches the hashed URL.
 
 ## Parity
 
