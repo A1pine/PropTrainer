@@ -70,9 +70,3 @@ export function warmWasmCore(baseURL = '/'): void {
   if (getWasmCore() || pending || import.meta.server) return
   void ensureWasmCore(baseURL)
 }
-
-/** Test hook: reset module/instance caches. */
-export function resetWasmLoader(): void {
-  pending = null
-  compiled = null
-}
