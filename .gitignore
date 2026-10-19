@@ -22,6 +22,10 @@ coverage
 .vscode/*
 !.vscode/extensions.json
 
+# Local market data packs (fetched, never committed)
+public/data/market/*
+!public/data/market/.gitkeep
+
 # Playwright
 playwright-report
 test-results

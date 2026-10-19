@@ -6,6 +6,14 @@ export type LocaleCode = z.infer<typeof localeSchema>
 export const themeSchema = z.enum(['light', 'dark', 'system'])
 export type ThemeMode = z.infer<typeof themeSchema>
 
+/**
+ * Where trainer/drill/analysis samples come from. `synthetic` is the offline
+ * deterministic generator; `local` reads the gitignored pack fetched by
+ * `bun run data:fetch` and falls back to synthetic when the pack is missing.
+ */
+export const dataSourceSchema = z.enum(['synthetic', 'local'])
+export type DataSource = z.infer<typeof dataSourceSchema>
+
 export const accountPresetSchema = z.enum(['eval-50k', 'eval-100k', 'funded-50k', 'custom'])
 export type AccountPresetId = z.infer<typeof accountPresetSchema>
 
@@ -21,6 +29,8 @@ export const settingsSchema = z.object({
   feePerContract: z.number().min(0).max(100),
   autoPlaySpeed: z.number().int().min(1).max(8),
   instruments: z.array(z.string()).min(1),
+  // `default` keeps existing stored settings valid when the field is absent.
+  dataSource: dataSourceSchema.default('synthetic'),
   showRMultiple: z.boolean(),
   confirmBeforeSubmit: z.boolean(),
 })
@@ -39,6 +49,7 @@ export const defaultSettings: Settings = {
   feePerContract: 0,
   autoPlaySpeed: 2,
   instruments: ['MNQ', 'MES', 'MYM', 'M2K', 'MGC', 'MCL'],
+  dataSource: 'synthetic',
   showRMultiple: true,
   confirmBeforeSubmit: true,
 }

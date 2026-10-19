@@ -1,4 +1,5 @@
 import type { InstrumentSpec } from '~/domain/instruments/types'
+import type { LocalDataset } from '~/lib/market/types'
 
 export type Regime = 'uptrend' | 'downtrend' | 'range' | 'expansion'
 
@@ -31,6 +32,21 @@ export interface ScenarioMetrics {
   atr: number
 }
 
+export type ScenarioSource = 'synthetic' | 'local'
+
+/** Provenance attached to a real-data sample; null for generated tape. */
+export interface ScenarioDatasetMeta {
+  source: string
+  sourceSymbol: string
+  fetchedAt: string
+  license: string
+  /** Unix seconds of the first bar in the window. */
+  windowStart: number
+  /** Unix seconds of the last bar in the window. */
+  windowEnd: number
+  bars: number
+}
+
 export interface Scenario {
   id: string
   seed: string
@@ -45,6 +61,9 @@ export interface Scenario {
   metrics: ScenarioMetrics
   sessionDate: string
   createdAt: number
+  source: ScenarioSource
+  /** Real-data provenance, or null when the tape was generated. */
+  dataset: ScenarioDatasetMeta | null
 }
 
 export interface ScenarioRequest {
@@ -52,12 +71,14 @@ export interface ScenarioRequest {
   seed?: string
   regime?: Regime
   timeframeMinutes?: number
+  /** When present, the sample is cut from a local pack instead of generated. */
+  dataset?: LocalDataset
 }
 
 export interface ScenarioFactory {
   create(request?: ScenarioRequest): Scenario
   /** Deterministic sample, used by daily challenges and PK links. */
-  createFromSeed(seed: string, symbol?: string, regime?: Regime): Scenario
+  createFromSeed(seed: string, symbol?: string, regime?: Regime, dataset?: LocalDataset): Scenario
   universe(): InstrumentSpec[]
 }
 
