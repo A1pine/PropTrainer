@@ -65,7 +65,7 @@ function toggleSound() {
         </Tooltip>
       </ClientOnly>
 
-      <ThemeToggle />
+      <ThemeToggle :labels="{ switchToLight: t('actions.switchToLight'), switchToDark: t('actions.switchToDark') }" />
     </div>
   </header>
 </template>

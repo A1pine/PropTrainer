@@ -52,7 +52,9 @@
     "newSessionHint": "训练场",
     "toggleTheme": "切换浅色 / 深色主题",
     "muteSound": "关闭界面音效",
-    "unmuteSound": "开启界面音效"
+    "unmuteSound": "开启界面音效",
+    "switchToLight": "切换到浅色主题",
+    "switchToDark": "切换到深色主题"
   },
   "palette": {
     "placeholder": "跳转到页面或执行操作…",

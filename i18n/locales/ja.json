@@ -52,7 +52,9 @@
     "newSessionHint": "トレーナー",
     "toggleTheme": "ライト／ダークを切替",
     "muteSound": "操作音を消す",
-    "unmuteSound": "操作音を有効化"
+    "unmuteSound": "操作音を有効化",
+    "switchToLight": "ライトテーマに切り替え",
+    "switchToDark": "ダークテーマに切り替え"
   },
   "palette": {
     "placeholder": "ページへ移動、またはアクションを実行…",

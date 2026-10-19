@@ -62,7 +62,10 @@ const extraItems = computed(() => [...navItems.filter((item) => !item.primary), 
         </div>
         <div class="flex items-center justify-between rounded-md px-3 py-2">
           <span class="text-[12.5px] text-ink-2">{{ t('common.theme') }}</span>
-          <ThemeToggle variant="segmented" />
+          <ThemeToggle
+            variant="segmented"
+            :labels="{ light: t('common.light'), dark: t('common.dark'), system: t('common.system') }"
+          />
         </div>
       </div>
     </Sheet>

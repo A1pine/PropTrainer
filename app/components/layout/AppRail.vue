@@ -48,7 +48,7 @@ const route = useRoute()
 
     <div class="mt-auto flex w-full flex-col items-center gap-1 px-2 pt-3">
       <div class="mb-1 h-[length:var(--hairline)] w-8 bg-line" aria-hidden="true" />
-      <ThemeToggle />
+      <ThemeToggle :labels="{ switchToLight: t('actions.switchToLight'), switchToDark: t('actions.switchToDark') }" />
       <LocaleSwitcher variant="button" />
       <NuxtLink
         v-for="item in secondaryNavItems"

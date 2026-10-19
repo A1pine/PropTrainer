@@ -52,7 +52,9 @@
     "newSessionHint": "Trainer",
     "toggleTheme": "Toggle light / dark theme",
     "muteSound": "Mute interface sounds",
-    "unmuteSound": "Enable interface sounds"
+    "unmuteSound": "Enable interface sounds",
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
   },
   "palette": {
     "placeholder": "Jump to a page or run an action…",
