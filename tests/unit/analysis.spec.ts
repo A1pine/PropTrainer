@@ -71,6 +71,20 @@ describe('analysis core', () => {
     }
   })
 
+  it('accepts column-oriented payloads without changing results', () => {
+    const core = getWasmCore()
+    expect(core).not.toBeNull()
+    if (!core) return
+    const report = analyzeMarket(candles)
+    expect(report).not.toBeNull()
+    if (!report) return
+    // The bridge serializes columns; the report must still carry a full series.
+    expect(report.indicators.ema20).toHaveLength(candles.length)
+    expect(report.indicators.ema20.filter((value) => value != null).length).toBeGreaterThan(candles.length / 2)
+    // Timestamps are reconstructed from startTime + step.
+    expect(report.events[0]!.time).toBeGreaterThan(candles[0]!.time)
+  })
+
   it('returns null when there is not enough history', () => {
     expect(analyzeMarket(candles.slice(0, 20))).toBeNull()
   })

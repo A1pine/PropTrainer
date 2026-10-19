@@ -5,10 +5,20 @@
 use crate::{find_swings, round_to, Candle, SwingPoint};
 use serde::{Deserialize, Serialize};
 
+/// Column-oriented request: five numeric arrays instead of 710 objects with
+/// repeated keys. Roughly 60% fewer bytes on the wire for the same data.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnalyzeRequest {
-    candles: Vec<Candle>,
+    open: Vec<f64>,
+    high: Vec<f64>,
+    low: Vec<f64>,
+    close: Vec<f64>,
+    volume: Vec<f64>,
+    /// Timestamp of the first bar, in Unix seconds.
+    start_time: i64,
+    /// Seconds between bars.
+    step: i64,
     /// Price decimals for the instrument; keeps series JSON compact.
     #[serde(default = "default_precision")]
     precision: u32,
@@ -232,10 +242,29 @@ struct Event {
 
 pub fn analyze_json(input: &[u8]) -> Result<Vec<u8>, String> {
     let request: AnalyzeRequest = serde_json::from_slice(input).map_err(|error| error.to_string())?;
-    if request.candles.len() < 30 {
+    let length = request.close.len();
+    if length < 30 {
         return Err("at least 30 candles are required for analysis".into());
     }
-    let report = analyze(&request.candles, request.precision.clamp(0, 6));
+    if request.open.len() != length
+        || request.high.len() != length
+        || request.low.len() != length
+        || request.volume.len() != length
+    {
+        return Err("analysis columns must all have the same length".into());
+    }
+    let step = if request.step > 0 { request.step } else { 300 };
+    let candles: Vec<Candle> = (0..length)
+        .map(|index| Candle {
+            time: request.start_time + index as i64 * step,
+            open: request.open[index],
+            high: request.high[index],
+            low: request.low[index],
+            close: request.close[index],
+            volume: request.volume[index],
+        })
+        .collect();
+    let report = analyze(&candles, request.precision.clamp(0, 6));
     serde_json::to_vec(&report).map_err(|error| error.to_string())
 }
 

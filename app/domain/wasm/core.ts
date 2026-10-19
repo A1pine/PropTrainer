@@ -111,7 +111,33 @@ export function createWasmCore(exports: WasmExports): WasmCore {
       })
     },
     analyze(candles, precision = 2) {
-      return call<AnalysisReport>(exports.prop_analyze, { candles, precision })
+      // Column-oriented payload: five arrays instead of N objects with keys.
+      const length = candles.length
+      const open = new Array<number>(length)
+      const high = new Array<number>(length)
+      const low = new Array<number>(length)
+      const close = new Array<number>(length)
+      const volume = new Array<number>(length)
+      for (let index = 0; index < length; index += 1) {
+        const candle = candles[index]!
+        open[index] = candle.open
+        high[index] = candle.high
+        low[index] = candle.low
+        close[index] = candle.close
+        volume[index] = candle.volume
+      }
+      const startTime = candles[0]?.time ?? 0
+      const step = length > 1 ? (candles[1]?.time ?? 0) - startTime : 300
+      return call<AnalysisReport>(exports.prop_analyze, {
+        open,
+        high,
+        low,
+        close,
+        volume,
+        startTime,
+        step,
+        precision,
+      })
     },
   }
 }

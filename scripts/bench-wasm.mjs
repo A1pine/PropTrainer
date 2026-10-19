@@ -72,9 +72,19 @@ const candles = JSON.parse(generated.output).candles
 for (let index = 0; index < 9; index += 1) {
   timings.generate.push(call('prop_generate', generateRequest).elapsed)
 }
-const analyzed = call('prop_analyze', { candles })
+const columns = {
+  open: candles.map((candle) => candle.open),
+  high: candles.map((candle) => candle.high),
+  low: candles.map((candle) => candle.low),
+  close: candles.map((candle) => candle.close),
+  volume: candles.map((candle) => candle.volume),
+  startTime: candles[0].time,
+  step: candles[1].time - candles[0].time,
+  precision: 2,
+}
+const analyzed = call('prop_analyze', columns)
 for (let index = 0; index < 9; index += 1) {
-  timings.analyze.push(call('prop_analyze', { candles }).elapsed)
+  timings.analyze.push(call('prop_analyze', columns).elapsed)
 }
 
 const last = candles[candles.length - 1]
@@ -119,7 +129,7 @@ const report = {
   boundary: {
     generateResponseBytes: generated.bytes,
     analyzeResponseBytes: analyzed.bytes,
-    analyzeRequestBytes: encoder.encode(JSON.stringify({ candles })).length,
+    analyzeRequestBytes: encoder.encode(JSON.stringify(columns)).length,
   },
   candleCount: candles.length,
 }

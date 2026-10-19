@@ -21,7 +21,8 @@
     "smoke": "bun scripts/smoke.mjs",
     "wasm:build": "bun scripts/build-wasm.mjs",
     "bench:wasm": "bun scripts/bench-wasm.mjs",
-    "check:wasm": "bun scripts/check-wasm-load.mjs"
+    "check:wasm": "bun scripts/check-wasm-load.mjs",
+    "measure:wasm": "bun scripts/measure-wasm-load.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",
