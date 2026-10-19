@@ -2,6 +2,8 @@ import { randomInt, createRng } from '~/domain/shared/rng'
 import { instruments } from '~/domain/instruments/catalog'
 import type { InstrumentSpec } from '~/domain/instruments/types'
 import { generateMarketData } from './generator'
+import { createDatasetScenario } from './dataset'
+import type { LocalDataset } from '~/lib/market/types'
 import type { Regime, Scenario, ScenarioFactory, ScenarioRequest } from './types'
 
 const REGIME_WEIGHTS: { regime: Regime; weight: number }[] = [
@@ -62,9 +64,29 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
   const revealBars = options.revealBars ?? 300
   const defaultTimeframe = options.timeframeMinutes ?? 5
 
-  function build(seed: string, symbol: string, regime: Regime, timeframeMinutes: number, now: Date): Scenario {
-    const instrument = universe.find((item) => item.symbol === symbol)
-    if (!instrument) throw new Error(`Instrument ${symbol} is not enabled for this session`)
+  function build(
+    seed: string,
+    symbol: string,
+    regime: Regime,
+    timeframeMinutes: number,
+    now: Date,
+    dataset?: LocalDataset,
+  ): Scenario {
+    const resolvedSymbol = dataset?.symbol ?? symbol
+    const instrument = universe.find((item) => item.symbol === resolvedSymbol)
+    if (!instrument) throw new Error(`Instrument ${resolvedSymbol} is not enabled for this session`)
+    if (dataset) {
+      return createDatasetScenario({
+        seed,
+        instrument,
+        dataset,
+        timeframeMinutes,
+        warmupBars,
+        futureBars,
+        revealBars,
+        now,
+      })
+    }
     const rng = createRng(`${seed}:calendar`)
     const sessionDate = pickSessionDate(rng, now)
     const totalBars = warmupBars + futureBars + revealBars
@@ -93,6 +115,8 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
       metrics,
       sessionDate: sessionDate.toISOString(),
       createdAt: now.getTime(),
+      source: 'synthetic',
+      dataset: null,
     }
   }
 
@@ -102,21 +126,29 @@ export function createScenarioFactory(options: ScenarioFactoryOptions = {}): Sce
     const rng = createRng(`${seed}:choice`)
     const symbol = request.symbol ?? universe[Math.floor(rng() * universe.length)]!.symbol
     const regime = request.regime ?? pickRegime(rng())
-    return build(seed, symbol, regime, request.timeframeMinutes ?? defaultTimeframe, now)
+    return build(
+      seed,
+      request.dataset?.symbol ?? symbol,
+      regime,
+      request.timeframeMinutes ?? defaultTimeframe,
+      now,
+      request.dataset,
+    )
   }
 
   return {
     create,
-    createFromSeed(seed, symbol, regime) {
+    createFromSeed(seed, symbol, regime, dataset) {
       const rng = createRng(`${seed}:derive`)
       const fallbackSymbol = universe[Math.floor(rng() * universe.length)]!.symbol
       const fallbackRegime = pickRegime(rng())
       return build(
         seed,
-        symbol ?? fallbackSymbol,
+        symbol ?? dataset?.symbol ?? fallbackSymbol,
         regime ?? fallbackRegime,
         defaultTimeframe,
         options.now ?? new Date(),
+        dataset,
       )
     },
     universe: () => [...universe],
@@ -137,5 +169,7 @@ export function describeScenario(scenario: Scenario) {
     regime: scenario.regime,
     timeframe: `${scenario.timeframeMinutes}m`,
     bars: scenario.candles.length - scenario.replayStart,
+    source: scenario.source,
+    dataset: scenario.dataset,
   }
 }

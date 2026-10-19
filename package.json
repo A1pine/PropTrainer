@@ -23,7 +23,8 @@
     "bench:wasm": "bun scripts/bench-wasm.mjs",
     "check:wasm": "bun scripts/check-wasm-load.mjs",
     "measure:wasm": "bun scripts/measure-wasm-load.mjs",
-    "audit:theme": "bun scripts/audit-theme.mjs"
+    "audit:theme": "bun scripts/audit-theme.mjs",
+    "data:fetch": "node scripts/fetch-yahoo.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",

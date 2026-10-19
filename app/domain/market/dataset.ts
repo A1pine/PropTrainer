@@ -1,0 +1,139 @@
+import type { InstrumentSpec } from '~/domain/instruments/types'
+import type { LocalDataset } from '~/lib/market/types'
+import { roundTo, roundToTick } from '~/domain/shared/math'
+import { createRng, randomInt } from '~/domain/shared/rng'
+import { computeAtr, computeMetrics } from './generator'
+import type { Candle, Regime, Scenario, ScenarioDatasetMeta, ScenarioMetrics } from './types'
+
+/**
+ * How many bars a real-data round consumes: 150 warm-up, 260 hidden future
+ * bars, then 300 bars of reveal context. A 60-day 5m pack holds ~17k bars, so
+ * there are thousands of non-trivial windows to draw from.
+ */
+export const DATASET_WINDOW = { warmup: 150, future: 260, reveal: 300 } as const
+
+export function datasetWindowBars(): number {
+  return DATASET_WINDOW.warmup + DATASET_WINDOW.future + DATASET_WINDOW.reveal
+}
+
+export function canUseDataset(dataset: LocalDataset, bars = datasetWindowBars()): boolean {
+  return dataset.bars >= bars + 1
+}
+
+/**
+ * Real tape has no injected regime label, so classify the hidden window from
+ * its own behaviour. The buckets mirror the synthetic generator's vocabulary;
+ * they are a description of the sample, not a promise about the future.
+ */
+export function classifyRegime(metrics: ScenarioMetrics): Regime {
+  if (metrics.efficiency >= 0.4) return metrics.changePct >= 0 ? 'uptrend' : 'downtrend'
+  if (metrics.efficiency <= 0.18) return 'range'
+  return 'expansion'
+}
+
+function sliceCandles(dataset: LocalDataset, start: number, count: number): Candle[] {
+  const candles: Candle[] = []
+  for (let index = start; index < start + count; index += 1) {
+    const time = dataset.t[index]
+    const open = dataset.o[index]
+    const high = dataset.h[index]
+    const low = dataset.l[index]
+    const close = dataset.c[index]
+    const volume = dataset.v[index]
+    if (time == null || open == null || high == null || low == null || close == null || volume == null) {
+      throw new Error(`Dataset ${dataset.symbol} has a hole at bar ${index}`)
+    }
+    candles.push({ time, open, high, low, close, volume })
+  }
+  return candles
+}
+
+/**
+ * Blind replay must not leak the era or the contract through absolute price.
+ * Shift every price by one tick-aligned constant, which preserves returns,
+ * ranges, ATR and tick geometry while moving the tape near the instrument's
+ * anchor level.
+ */
+function rebaseCandles(candles: Candle[], instrument: InstrumentSpec, targetFirstClose: number): Candle[] {
+  const tick = instrument.tickSize
+  const first = candles[0]!
+  let offset = roundToTick(targetFirstClose - first.close, tick)
+  const lowest = Math.min(...candles.map((candle) => candle.low))
+  if (lowest + offset <= tick) offset += tick * Math.ceil((tick - (lowest + offset)) / tick)
+  return candles.map((candle) => ({
+    time: candle.time,
+    open: roundToTick(candle.open + offset, tick),
+    high: roundToTick(candle.high + offset, tick),
+    low: roundToTick(candle.low + offset, tick),
+    close: roundToTick(candle.close + offset, tick),
+    volume: candle.volume,
+  }))
+}
+
+export interface DatasetScenarioOptions {
+  seed: string
+  instrument: InstrumentSpec
+  dataset: LocalDataset
+  timeframeMinutes?: number
+  warmupBars?: number
+  futureBars?: number
+  revealBars?: number
+  now?: Date
+}
+
+/**
+ * Builds a scenario from a local pack. Deterministic in `seed`: the same seed,
+ * pack and window policy always produce the same slice.
+ */
+export function createDatasetScenario(options: DatasetScenarioOptions): Scenario {
+  const { seed, instrument, dataset } = options
+  const warmupBars = options.warmupBars ?? DATASET_WINDOW.warmup
+  const futureBars = options.futureBars ?? DATASET_WINDOW.future
+  const revealBars = options.revealBars ?? DATASET_WINDOW.reveal
+  const totalBars = warmupBars + futureBars + revealBars
+  if (!canUseDataset(dataset, totalBars)) {
+    throw new Error(`Dataset ${dataset.symbol} needs ${totalBars + 1} bars, has ${dataset.bars}`)
+  }
+
+  const rng = createRng(`${seed}:${dataset.symbol}:local-window`)
+  const maxStart = dataset.bars - totalBars
+  // Bias away from the edges so a reveal always has context on both sides.
+  const windowStart = randomInt(rng, 0, maxStart)
+  const raw = sliceCandles(dataset, windowStart, totalBars)
+
+  const targetFirstClose = instrument.anchorPrice * (0.96 + rng() * 0.08)
+  const candles = rebaseCandles(raw, instrument, targetFirstClose)
+  const replayStart = warmupBars
+  const metrics = computeMetrics(candles, replayStart, instrument)
+  metrics.atr = roundTo(computeAtr(candles, 14, replayStart), instrument.pricePrecision)
+  const regime = classifyRegime(metrics)
+
+  const first = candles[0]!
+  const last = candles[candles.length - 1]!
+  const revealAt = candles[replayStart]!
+  const meta: ScenarioDatasetMeta = {
+    source: dataset.source,
+    sourceSymbol: dataset.sourceSymbol,
+    fetchedAt: dataset.fetchedAt,
+    license: dataset.license,
+    windowStart: first.time,
+    windowEnd: last.time,
+    bars: candles.length,
+  }
+
+  return {
+    id: `${dataset.symbol.toLowerCase()}-local-${windowStart}-${seed.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8)}`,
+    seed,
+    instrument,
+    regime,
+    timeframeMinutes: options.timeframeMinutes ?? 5,
+    candles,
+    replayStart,
+    revealBars,
+    metrics,
+    sessionDate: new Date(revealAt.time * 1000).toISOString(),
+    createdAt: (options.now ?? new Date()).getTime(),
+    source: 'local',
+    dataset: meta,
+  }
+}
