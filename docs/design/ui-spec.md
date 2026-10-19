@@ -411,6 +411,9 @@ scroll snap row with edge fade; the ticket becomes a sticky bottom sheet with a 
   candle grow-in, crosshair, drawings and draggable plan overlays.
 - Heavy O(n) math runs in Rust/WebAssembly on both SSR and the client: scenario generation, fractal swing detection,
   plan simulation and the analysis stack (indicators, market structure, ICT zones, volume profile, delta proxy). A TypeScript reference remains as a fallback and parity is enforced by tests.
+- Theme correctness: `color-scheme: light dark` (plus meta) opts out of browser auto-dark, which had inverted the
+  light theme into a muddy dark page on macOS; muted text and accent labels were raised to WCAG AA in both modes;
+  the rail toggle shows the action (sun = go light) with CSS-driven icons.
 - i18n ships 706 keys in `en`, `zh-CN` and `ja`; the locale and settings are cookie-hydrated so SSR and hydration
   agree on language and theme.
 - Verification: `bun run test` (98 tests), `bun run typecheck`, `bun run build`, `bun run smoke`, plus Playwright

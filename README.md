@@ -172,6 +172,21 @@ TypeScript — moving them across the boundary would add latency and lose reacti
 Parity is enforced by tests that generate candles, find swings and simulate plans through both paths and require
 deep equality.
 
+### Theming
+
+- **Both schemes are declared, never light-only.** `color-scheme: light dark` plus a matching meta tag stops
+  Chrome/Safari auto-dark from force-inverting the light theme into the muddy dark page that used to appear on
+  macOS. The resolved scheme is applied to `<html data-mode>`/`.dark` and mirrored in an inline `color-scheme`
+  style, so native scrollbars and controls follow the app.
+- **One palette, two modes.** Surfaces, ink, clay and market colours are CSS custom properties; every component
+  reads them, so nothing is hard-coded to a mode. The canvas chart reads the same tokens through
+  `readChartTheme()` and repaints on theme change.
+- **The toggle advertises the action, not the state.** A sun on a dark page means “switch to light”. Icons are
+  CSS-driven, so server and client markup agree even when `theme: system` resolves after hydration.
+- **Contrast is tested.** `tests/unit/theme-contrast.spec.ts` asserts WCAG AA (4.5:1) for body text, muted text,
+  rails and every filled accent (`--on-clay`, `--on-bull`, `--on-bear`, `--on-danger`) in both modes.
+  `bun run audit:theme` walks the real DOM in a browser and fails on any text node below AA.
+
 ### Performance notes
 
 - **Wasm is an accelerator, not a dependency.** The client plugin starts the load on idle and never awaits it;
