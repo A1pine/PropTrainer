@@ -10,7 +10,10 @@
    ========================================================================== */
 
 :root {
-  color-scheme: light;
+  /* Declares that both schemes are supported, which stops Chrome/Safari
+     auto-dark from force-inverting the light theme into a muddy dark page.
+     JS sets the exact resolved scheme inline once preferences hydrate. */
+  color-scheme: light dark;
 
   /* Surfaces */
   --surface-0: #f9f9f7;

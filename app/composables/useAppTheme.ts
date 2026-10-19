@@ -19,8 +19,14 @@ export function useAppTheme() {
     if (import.meta.server) return
     const root = document.documentElement
     root.classList.toggle('dark', isDark.value)
-    root.style.colorScheme = resolved.value
+    // Never declare light-only: Chrome's auto-dark treats `color-scheme: light`
+    // as "this page cannot do dark" and force-inverts it, which is what made
+    // the light theme render as muddy dark on macOS. Declaring both (or dark)
+    // opts out of the inversion. Our own tokens control the actual colours.
+    root.style.colorScheme = isDark.value ? 'dark' : 'light dark'
     root.dataset.motion = settings.settings.reduceMotion ? 'reduced' : 'full'
+    // Keep the browser chrome in step with the page. useHead owns the meta tag
+    // on route changes; this covers preference flips between navigations.
     const meta = document.querySelector('meta[name="theme-color"]')
     meta?.setAttribute('content', isDark.value ? '#0b0b0b' : '#f9f9f7')
   }

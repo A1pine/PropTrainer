@@ -42,14 +42,14 @@ export default defineNuxtConfig({
           content:
             'Train prop-firm futures execution on hidden historical-style replays. Read structure, size by risk, grade the plan.',
         },
-        { name: 'theme-color', content: '#f9f9f7' },
+        { name: 'color-scheme', content: 'light dark' },
       ],
       link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
       script: [
         {
           tagPosition: 'head',
           innerHTML:
-            "(function(){try{var s=JSON.parse(localStorage.getItem('propdesk.v1:settings')||'{}');var t=s.theme||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.classList.add('dark');if(s.reduceMotion)document.documentElement.dataset.motion='reduced'}catch(e){}})()",
+            "(function(){try{var s=JSON.parse(localStorage.getItem('propdesk.v1:settings')||'{}');var t=s.theme||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;if(d)r.classList.add('dark');r.style.colorScheme=d?'dark':'light dark';var m=document.querySelector('meta[name=\"theme-color\"]');if(m)m.setAttribute('content',d?'#0b0b0b':'#f9f9f7');if(s.reduceMotion)r.dataset.motion='reduced'}catch(e){}})()",
         },
       ],
     },
