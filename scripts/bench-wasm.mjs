@@ -33,9 +33,7 @@ function call(name, payload) {
   const started = performance.now()
   const status = api[name](pointer, request.length)
   const elapsed = performance.now() - started
-  const output = decoder.decode(
-    new Uint8Array(api.memory.buffer, api.prop_result_ptr(), api.prop_result_len()),
-  )
+  const output = decoder.decode(new Uint8Array(api.memory.buffer, api.prop_result_ptr(), api.prop_result_len()))
   api.prop_dealloc(pointer, request.length)
   if (!status) throw new Error(`${name} failed: ${output}`)
   return { output, elapsed, bytes: output.length }
@@ -137,7 +135,9 @@ if (json) {
   )
   console.log(`compile    ${ms.compile.toFixed(2)} ms (median of 7)`)
   console.log(`instantiate ${ms.instantiate.toFixed(2)} ms`)
-  console.log(`generate   ${ms.generate.toFixed(2)} ms · ${(boundary.generateResponseBytes / 1024).toFixed(1)} KiB JSON`)
+  console.log(
+    `generate   ${ms.generate.toFixed(2)} ms · ${(boundary.generateResponseBytes / 1024).toFixed(1)} KiB JSON`,
+  )
   console.log(`analyze    ${ms.analyze.toFixed(2)} ms · ${(boundary.analyzeResponseBytes / 1024).toFixed(1)} KiB JSON`)
   console.log(`simulate   ${ms.simulate.toFixed(2)} ms`)
   console.log(`candles    ${report.candleCount}`)

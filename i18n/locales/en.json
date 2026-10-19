@@ -407,7 +407,8 @@
       "typescript": "TypeScript fallback",
       "fallback": "The wasm core did not load; using the TypeScript reference implementation.",
       "reload": "Reload core",
-      "hintDetail": "If you just rebuilt the core, restart the dev server and reload this page."
+      "hintDetail": "If you just rebuilt the core, restart the dev server and reload this page.",
+      "loading": "Loading core…"
     }
   },
   "error": {

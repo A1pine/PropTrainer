@@ -4,6 +4,7 @@ import { instruments } from '~/domain/instruments/catalog'
 import { analyzeMarket } from '~/domain/analysis/analyze'
 import type { AnalysisReport } from '~/domain/analysis/types'
 import type { ChartAnalysis, ChartTone } from '~/lib/chart/types'
+import { ensureWasmCore } from '~/domain/wasm/loader'
 
 export type AnalysisTab = 'overview' | 'pa' | 'ict' | 'flow' | 'indicators'
 
@@ -26,15 +27,19 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const revealed = ref(false)
   const seed = ref('')
   const tab = ref<AnalysisTab>('overview')
+  const coreReady = ref(false)
+  const coreError = ref(false)
   const toggles = ref({ ...defaultToggles })
   let timer: ReturnType<typeof setInterval> | null = null
 
   const candles = computed(() => scenario.value?.candles ?? [])
   const visible = computed(() => candles.value.slice(0, visibleCount.value))
   const instrument = computed(() => scenario.value?.instrument ?? null)
-  const report = computed<AnalysisReport | null>(() =>
-    visible.value.length >= 30 ? analyzeMarket(visible.value) : null,
-  )
+  const report = computed<AnalysisReport | null>(() => {
+    // Depend on coreReady so the report recomputes once the wasm core lands.
+    if (!coreReady.value || visible.value.length < 30) return null
+    return analyzeMarket(visible.value)
+  })
   const maxVisible = computed(() => {
     if (!scenario.value) return 0
     return Math.max(0, scenario.value.candles.length - scenario.value.revealBars)
@@ -154,6 +159,14 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
   const sampleDate = computed(() => (scenario.value ? new Date(scenario.value.sessionDate) : null))
 
+  async function ensureCore(): Promise<boolean> {
+    if (coreReady.value) return true
+    const core = await ensureWasmCore(useRuntimeConfig().app.baseURL || '/')
+    coreReady.value = core != null
+    coreError.value = core == null
+    return coreReady.value
+  }
+
   function stopPlayback() {
     if (timer) clearInterval(timer)
     timer = null
@@ -225,6 +238,8 @@ export const useAnalysisStore = defineStore('analysis', () => {
     seed,
     tab,
     toggles,
+    coreReady,
+    coreError,
     candles,
     visible,
     instrument,
@@ -234,6 +249,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
     maskedSymbol,
     sampleDate,
     start,
+    ensureCore,
     newSample,
     step,
     play,

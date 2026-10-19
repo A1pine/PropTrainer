@@ -153,8 +153,10 @@ function newSample() {
   nextTick(() => chart.value?.fit())
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (!store.scenario) store.start()
+  await store.ensureCore()
+  nextTick(() => chart.value?.fit())
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -345,8 +347,10 @@ function onKeydown(event: KeyboardEvent) {
             <SegmentedControl v-model="store.tab" :options="tabs" size="sm" :aria-label="t('analysis.tabs.label')" />
           </div>
 
-          <div v-if="!report && !store.scenario" class="px-4 py-10 text-center text-[11px] text-ink-3">
-            {{ t('analysis.loading') }}
+          <div v-if="!report && !store.coreError" class="px-4 py-10 text-center">
+            <Skeleton width="w-2/3" height="h-3" class="mx-auto" />
+            <Skeleton width="w-1/2" height="h-3" class="mx-auto mt-2" />
+            <p class="mt-3 text-[11px] text-ink-3">{{ t('analysis.loading') }}</p>
           </div>
           <div v-else-if="!report" class="px-4 py-10 text-center">
             <TriangleAlert class="mx-auto size-5 text-warn" aria-hidden="true" />

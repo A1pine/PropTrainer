@@ -20,7 +20,8 @@
     "screenshot": "bun scripts/screenshot.mjs",
     "smoke": "bun scripts/smoke.mjs",
     "wasm:build": "bun scripts/build-wasm.mjs",
-    "bench:wasm": "bun scripts/bench-wasm.mjs"
+    "bench:wasm": "bun scripts/bench-wasm.mjs",
+    "check:wasm": "bun scripts/check-wasm-load.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",

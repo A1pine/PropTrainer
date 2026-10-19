@@ -328,7 +328,7 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <Badge :variant="computeStatus === 'rust' ? 'bull' : 'warn'" dot>
+            <Badge :variant="computeStatus === 'rust' ? 'bull' : computeStatus === 'loading' ? 'neutral' : 'warn'" dot>
               {{ t(`settings.compute.${computeStatus}`) }}
             </Badge>
             <Button v-if="computeStatus === 'typescript'" variant="ghost" size="sm" @click="reloadCore">
