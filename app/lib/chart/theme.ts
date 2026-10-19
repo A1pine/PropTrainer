@@ -18,6 +18,7 @@ export function readChartTheme(element: HTMLElement): ChartTheme {
     bearSoft: read('--bear-soft', 'rgba(181,83,61,.12)'),
     crosshair: read('--chart-crosshair', 'rgba(20,20,20,.34)'),
     clay: read('--clay', '#c6613f'),
+    onClay: read('--on-clay', '#ffffff'),
     volume: read('--chart-volume', 'rgba(20,20,20,.16)'),
     priceLine: read('--chart-price-line', 'rgba(198,97,63,.65)'),
     fontSans: sans,

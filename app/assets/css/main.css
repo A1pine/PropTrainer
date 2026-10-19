@@ -26,7 +26,7 @@
   /* Ink */
   --ink: #151515;
   --ink-2: #525252;
-  --ink-3: #8a8a8a;
+  --ink-3: #6b6b6b;
   --ink-inverse: #fcfcfb;
 
   /* Lines */
@@ -36,18 +36,18 @@
   --hairline: 1px;
 
   /* Brand */
-  --clay: #c6613f;
-  --clay-hover: #b4532f;
+  --clay: #b4532f;
+  --clay-hover: #a34a29;
   --clay-soft: #fbf3ef;
   --clay-ink: #8a3d22;
-  --clay-glow: rgba(198, 97, 63, 0.28);
+  --clay-glow: rgba(180, 83, 47, 0.28);
   --on-clay: #ffffff;
   --on-bull: #ffffff;
   --on-bear: #ffffff;
   --on-danger: #ffffff;
 
   /* Market semantics */
-  --bull: #5b7f6b;
+  --bull: #55735f;
   --bull-strong: #3f7057;
   --bull-soft: rgba(91, 127, 107, 0.12);
   --bear: #b5533d;
@@ -60,7 +60,7 @@
 
   /* Chart */
   --chart-grid: rgba(20, 20, 20, 0.055);
-  --chart-axis: #8a8a8a;
+  --chart-axis: #6b6b6b;
   --chart-crosshair: rgba(20, 20, 20, 0.34);
   --chart-volume: rgba(20, 20, 20, 0.16);
   --chart-price-line: rgba(198, 97, 63, 0.65);
@@ -138,7 +138,7 @@
 
   --ink: #f5f5f5;
   --ink-2: #a3a3a3;
-  --ink-3: #6f6f6f;
+  --ink-3: #8f8f8f;
   --ink-inverse: #151515;
 
   --line: rgba(255, 255, 255, 0.1);
@@ -150,10 +150,11 @@
   --clay-soft: rgba(224, 130, 100, 0.14);
   --clay-ink: #f3b79f;
   --clay-glow: rgba(224, 130, 100, 0.24);
-  --on-clay: #1c0f0a;
-  --on-bull: #08130d;
-  --on-bear: #1b0c08;
-  --on-danger: #1b0c08;
+  /* Filled accents are light in dark mode, so the label must be dark. */
+  --on-clay: #1a120e;
+  --on-bull: #10231a;
+  --on-bear: #240f0a;
+  --on-danger: #240d09;
 
   --bull: #83bfa0;
   --bull-strong: #9dd4b6;
@@ -167,7 +168,7 @@
   --danger-soft: rgba(240, 139, 124, 0.14);
 
   --chart-grid: rgba(255, 255, 255, 0.06);
-  --chart-axis: #6f6f6f;
+  --chart-axis: #8f8f8f;
   --chart-crosshair: rgba(255, 255, 255, 0.4);
   --chart-volume: rgba(255, 255, 255, 0.16);
   --chart-price-line: rgba(224, 130, 100, 0.7);
@@ -475,7 +476,8 @@
   }
 
   .veil {
-    color: transparent;
+    color: var(--ink-3);
+    -webkit-text-fill-color: transparent;
     background: linear-gradient(100deg, var(--ink-3) 20%, var(--ink) 40%, var(--ink-3) 60%);
     background-size: 240% 100%;
     -webkit-background-clip: text;

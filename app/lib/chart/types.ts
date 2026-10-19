@@ -34,6 +34,7 @@ export interface ChartTheme {
   bearSoft: string
   crosshair: string
   clay: string
+  onClay: string
   volume: string
   priceLine: string
   fontSans: string

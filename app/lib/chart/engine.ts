@@ -617,7 +617,7 @@ export class ChartEngine {
     ctx.fillStyle = this.theme.clay
     this.roundRect(area.right + 2, y - 9, Math.min(AXIS_WIDTH - 4, width), 18, 3)
     ctx.fill()
-    ctx.fillStyle = '#fff'
+    ctx.fillStyle = this.theme.onClay
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(label, area.right + 2 + Math.min(AXIS_WIDTH - 4, width) / 2, y + 0.5)
