@@ -32,6 +32,23 @@ Two problems were visible immediately:
 2. Indicator series were serialized at full float precision (`20416.795217751063`), roughly 3× larger than the
    precision the chart can actually draw.
 
+## After: `opt-level = "z"`, fat LTO, `wasm-opt -Oz`
+
+| Metric                | Baseline  | Now       | Change   |
+| --------------------- | --------- | --------- | -------- |
+| Raw artifact          | 246.0 KiB | 144.8 KiB | −41%     |
+| gzip -9               | 89.8 KiB  | 64.4 KiB  | −28%     |
+| brotli -11            | 73.1 KiB  | 55.0 KiB  | −25%     |
+| `WebAssembly.compile` | 0.46 ms   | 0.36 ms   | −22%     |
+| `prop_generate`       | 0.56 ms   | 0.72 ms   | +0.16 ms |
+| `prop_analyze`        | 0.62 ms   | 0.92 ms   | +0.3 ms  |
+| `prop_simulate_plan`  | 0.15 ms   | 0.18 ms   | +0.03 ms |
+
+Size-optimized code is slightly slower per call, but every operation is still **under 1 ms** while the download
+dropped by 18 KiB brotli. Network dominates: 1 ms of compute is not worth 41% more bytes on a mobile connection.
+If a future workload becomes compute-bound, switch the profile back to `opt-level = 3`; the benchmark makes that
+trade-off measurable instead of guessed.
+
 ## Targets
 
 | Target                          | Budget                                   |
