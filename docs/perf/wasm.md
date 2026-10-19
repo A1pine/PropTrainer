@@ -56,6 +56,17 @@ VWAP) plus the Bollinger pair; RSI/MACD/ATR/ADX were duplicated in `latest` and 
 series and rounding the drawn ones to the instrument's price precision cut the response from **90.9 KiB to 50.6 KiB**
 (−44%) with no visual change. `flow.delta` is rounded to whole contracts.
 
+## Column-oriented input
+
+`prop_analyze` used to accept `{ candles: [{ time, open, high, low, close, volume }, …] }`, repeating six keys per bar.
+It now accepts five numeric columns plus `startTime`, `step` and `precision`. For 710 bars the request drops from
+**67.2 KiB to 22.4 KiB** (−67%); the module grows 3.6 KiB because it reconstructs the candle structs itself.
+
+| Request shape | Bytes (710 bars) |
+| ------------- | ---------------- |
+| Keyed objects | 67,175           |
+| Columns       | 22,437           |
+
 ## Transport
 
 `nitro.compressPublicAssets` emits `.br` and `.gz` next to the artifact at build time, and `/wasm/**` is served with
