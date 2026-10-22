@@ -108,10 +108,13 @@ export function gradeDrill(input: GradeInput): DrillGrade {
 
   let processPoints = 0
   const thesisLength = plan.thesis.trim().length
+  // The thesis is optional. A detailed one earns process points; leaving it
+  // blank is not a mistake and must not produce a "too thin" warning. A short
+  // attempt still gets the nudge because the field was used.
   if (thesisLength >= 40) processPoints += 5
   else if (thesisLength >= 20) processPoints += 3
   else if (plan.direction === 'none') processPoints += 5
-  else notes.push({ code: 'grade.thesis.thin', tone: 'warning' })
+  else if (thesisLength > 0) notes.push({ code: 'grade.thesis.thin', tone: 'warning' })
 
   if (plan.waitedBars >= 3) processPoints += 5
   else if (plan.waitedBars >= 1) processPoints += 3

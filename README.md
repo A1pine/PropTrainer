@@ -4,8 +4,8 @@ A blind-replay trading trainer for prop-firm instruments. Prices, symbol and dat
 one at a time. You size like a futures trader, place bracketed orders, and manage risk against real evaluation
 guardrails: profit target, trailing drawdown, daily loss limit.
 
-The decision drill then grades the part most traders skip — state, thesis, and a plan whose stop belongs beyond
-structure rather than at your comfort level.
+The decision drill then grades the part most traders skip — state, an optional thesis, and a plan whose stop
+belongs beyond structure rather than at your comfort level.
 
 > **Simulated by default.** Every series is generated deterministically from a seeded regime model. Optionally,
 > you can drop in a local pack of real 5-minute futures bars (`bun run data:fetch`) and practice on that instead.
@@ -21,8 +21,8 @@ structure rather than at your comfort level.
 
 - **Blind replay trainer** — hidden instrument, date and price axis; candle-by-candle playback, market/limit
   orders, brackets, futures P&L in ticks, commissions, and prop-firm guardrails.
-- **Decision drill** — read the state, commit a thesis, drag entry/stop/target on the chart, size by risk, then
-  receive a process grade split into state (40), direction (20), plan structure (25) and discipline (15).
+- **Decision drill** — read the state, add an optional thesis, drag entry/stop/target on the chart, size by risk,
+  then receive a process grade split into state (40), direction (20), plan structure (25) and discipline (15).
 - **Daily challenge** — one sample seeded by the UTC date, with deterministic _reference plans_ as a benchmark
   board. First submission is locked; replays cannot overwrite it.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins

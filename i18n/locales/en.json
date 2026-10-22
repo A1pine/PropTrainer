@@ -121,7 +121,7 @@
     "waited": "waited {bars} bars",
     "thesis": "Entry thesis",
     "thesisPlaceholder": "If I showed this to another trader, could they reproduce my entry?",
-    "thesisHint": "Name the level, the trigger, and why the invalidation belongs where it does.",
+    "thesisHint": "Optional. Name the level, the trigger, and why the invalidation belongs where it does.",
     "commit": "Commit read",
     "wait": "Advance one bar",
     "counterTrendLock": "Counter-trend direction is locked while you call a {state}."

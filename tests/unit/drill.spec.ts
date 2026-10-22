@@ -116,6 +116,14 @@ describe('drill grade', () => {
     expect(['A', 'B']).toContain(grade.letter)
   })
 
+  it('treats the thesis as optional', () => {
+    const omitted = gradeDrill({ plan: plan({ thesis: '   ' }), scenario, validation, outcome })
+    expect(omitted.notes.some((note) => note.code === 'grade.thesis.thin')).toBe(false)
+
+    const short = gradeDrill({ plan: plan({ thesis: 'Retest.' }), scenario, validation, outcome })
+    expect(short.notes.some((note) => note.code === 'grade.thesis.thin')).toBe(true)
+  })
+
   it('penalises a counter-trend read', () => {
     const wrong = plan({
       state: 'downtrend',

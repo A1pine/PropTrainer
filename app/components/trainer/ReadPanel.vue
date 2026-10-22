@@ -47,7 +47,6 @@ const directionModel = computed({
   },
 })
 const thesisLength = computed(() => props.thesis.trim().length)
-const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
 </script>
 
 <template>
@@ -111,13 +110,7 @@ const atLimit = computed(() => thesisLength.value >= (props.maxThesis ?? 160))
     </div>
 
     <div class="flex items-center gap-2 border-t-[length:var(--hairline)] border-line pt-3">
-      <Button
-        variant="primary"
-        size="md"
-        block
-        :disabled="disabled || thesisLength < 12 || atLimit"
-        @click="emit('commit')"
-      >
+      <Button variant="primary" size="md" block :disabled="disabled" @click="emit('commit')">
         {{ t('read.commit') }}
         <Kbd :keys="['↵']" class="ml-1 !border-black/15 !bg-black/10 !text-current" />
       </Button>

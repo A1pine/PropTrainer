@@ -121,7 +121,7 @@
     "waited": "已等待 {bars} 根",
     "thesis": "交易依据",
     "thesisPlaceholder": "如果我把这张图给另一位交易者，他能复现我的入场吗？",
-    "thesisHint": "写清关键价位、触发条件，以及失效点为何必须在那里。",
+    "thesisHint": "选填。写清关键价位、触发条件，以及失效点为何必须在那里。",
     "commit": "确认研判",
     "wait": "前进一根",
     "counterTrendLock": "当你判定为{state}时，逆势方向已锁定。"

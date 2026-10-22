@@ -19,9 +19,6 @@ function check(condition, label) {
   console.log(`ok   ${label}`)
 }
 
-const thesis =
-  'Higher lows above the opening range; I want the retest of the broken shelf with the trend, invalidation under the last swing low.'
-
 async function playTrainerRound() {
   await page.goto(`${base}/trainer`, { waitUntil: 'networkidle' })
   await page.waitForTimeout(1200)
@@ -31,7 +28,7 @@ async function playTrainerRound() {
   check(!/COMEX|NYMEX|CBOT/.test(readBody), 'trainer: exchange is hidden')
   await page.getByRole('radio', { name: /Uptrend/ }).click()
   await page.getByRole('tab', { name: /^Long/ }).click()
-  await page.locator('#thesis').fill(thesis)
+  check(await page.getByRole('button', { name: /Commit read/ }).isEnabled(), 'trainer: thesis is optional')
   await page.getByRole('button', { name: /Commit read/ }).click()
   await page.waitForTimeout(400)
   check(await page.getByText('Place the invalidation before the entry.').isVisible(), 'trainer: plan step')
@@ -86,7 +83,6 @@ async function dailyFlow() {
   await page.waitForTimeout(900)
   await page.getByRole('radio', { name: /Uptrend/ }).click()
   await page.getByRole('tab', { name: /^Long/ }).click()
-  await page.locator('#thesis').fill(thesis)
   await page.getByRole('button', { name: /Commit read/ }).click()
   await page.waitForTimeout(300)
   await page.getByRole('button', { name: /Place bracket/ }).click()
