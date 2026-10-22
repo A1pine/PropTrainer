@@ -1,8 +1,9 @@
 import type { InstrumentSpec } from '~/domain/instruments/types'
+import { parseTimeframeMinutes } from '~/lib/market/types'
 import type { LocalDataset } from '~/lib/market/types'
-import { roundTo, roundToTick } from '~/domain/shared/math'
+import { roundToTick } from '~/domain/shared/math'
 import { createRng, randomInt } from '~/domain/shared/rng'
-import { computeAtr, computeMetrics } from './generator'
+import { computeMetrics } from './generator'
 import type { Candle, Regime, Scenario, ScenarioDatasetMeta, ScenarioMetrics } from './types'
 
 /**
@@ -16,8 +17,12 @@ export function datasetWindowBars(): number {
   return DATASET_WINDOW.warmup + DATASET_WINDOW.future + DATASET_WINDOW.reveal
 }
 
+/**
+ * A window of `bars` bars can be cut from a dataset of exactly `bars` bars
+ * (the only valid start is 0), so no extra bar is required.
+ */
 export function canUseDataset(dataset: LocalDataset, bars = datasetWindowBars()): boolean {
-  return dataset.bars >= bars + 1
+  return Number.isInteger(bars) && bars > 0 && dataset.bars >= bars
 }
 
 /**
@@ -50,16 +55,36 @@ function sliceCandles(dataset: LocalDataset, start: number, count: number): Cand
 
 /**
  * Blind replay must not leak the era or the contract through absolute price.
- * Shift every price by one tick-aligned constant, which preserves returns,
+ * Shift every price by one tick-aligned constant, which preserves point deltas,
  * ranges, ATR and tick geometry while moving the tape near the instrument's
- * anchor level.
+ * anchor level. Percentage returns are not invariant under an additive shift;
+ * metrics are therefore computed after rebasing.
+ *
+ * The offset depends only on the first candle and the visible warm-up. Hidden
+ * bars are never inspected, so the normalisation cannot leak the future. The
+ * visible warm-up is kept at or above one tick. Hidden prices can translate
+ * below zero; clipping would distort their moves, while choosing an offset
+ * from their minimum would reintroduce look-ahead.
  */
-function rebaseCandles(candles: Candle[], instrument: InstrumentSpec, targetFirstClose: number): Candle[] {
+function rebaseCandles(
+  candles: Candle[],
+  instrument: InstrumentSpec,
+  targetFirstClose: number,
+  visibleBars: number,
+): Candle[] {
   const tick = instrument.tickSize
   const first = candles[0]!
   let offset = roundToTick(targetFirstClose - first.close, tick)
-  const lowest = Math.min(...candles.map((candle) => candle.low))
-  if (lowest + offset <= tick) offset += tick * Math.ceil((tick - (lowest + offset)) / tick)
+
+  const visibleCount = Math.max(1, Math.min(visibleBars, candles.length))
+  let visibleLow = Number.POSITIVE_INFINITY
+  for (let index = 0; index < visibleCount; index += 1) {
+    visibleLow = Math.min(visibleLow, candles[index]!.low)
+  }
+  if (visibleLow + offset <= tick) {
+    offset += tick * Math.ceil((tick - (visibleLow + offset)) / tick)
+  }
+
   return candles.map((candle) => ({
     time: candle.time,
     open: roundToTick(candle.open + offset, tick),
@@ -74,6 +99,11 @@ export interface DatasetScenarioOptions {
   seed: string
   instrument: InstrumentSpec
   dataset: LocalDataset
+  /**
+   * Round spacing in minutes. When omitted, the dataset's own timeframe is
+   * used. A mismatch is rejected rather than silently labelling a 1h pack as
+   * a 5m round.
+   */
   timeframeMinutes?: number
   warmupBars?: number
   futureBars?: number
@@ -87,25 +117,34 @@ export interface DatasetScenarioOptions {
  */
 export function createDatasetScenario(options: DatasetScenarioOptions): Scenario {
   const { seed, instrument, dataset } = options
+  const datasetTimeframe = parseTimeframeMinutes(dataset.timeframe)
+  if (datasetTimeframe == null) {
+    throw new Error(`Dataset ${dataset.symbol} has an unsupported timeframe: ${dataset.timeframe}`)
+  }
+  const timeframeMinutes = options.timeframeMinutes ?? datasetTimeframe
+  if (timeframeMinutes !== datasetTimeframe) {
+    throw new Error(
+      `Dataset ${dataset.symbol} is ${dataset.timeframe}; cannot build a ${timeframeMinutes}m scenario from it`,
+    )
+  }
   const warmupBars = options.warmupBars ?? DATASET_WINDOW.warmup
   const futureBars = options.futureBars ?? DATASET_WINDOW.future
   const revealBars = options.revealBars ?? DATASET_WINDOW.reveal
   const totalBars = warmupBars + futureBars + revealBars
   if (!canUseDataset(dataset, totalBars)) {
-    throw new Error(`Dataset ${dataset.symbol} needs ${totalBars + 1} bars, has ${dataset.bars}`)
+    throw new Error(`Dataset ${dataset.symbol} needs ${totalBars} bars, has ${dataset.bars}`)
   }
 
   const rng = createRng(`${seed}:${dataset.symbol}:local-window`)
   const maxStart = dataset.bars - totalBars
-  // Bias away from the edges so a reveal always has context on both sides.
-  const windowStart = randomInt(rng, 0, maxStart)
+  const windowStart = maxStart === 0 ? 0 : randomInt(rng, 0, maxStart)
   const raw = sliceCandles(dataset, windowStart, totalBars)
 
-  const targetFirstClose = instrument.anchorPrice * (0.96 + rng() * 0.08)
-  const candles = rebaseCandles(raw, instrument, targetFirstClose)
+  // Only the visible warm-up participates in normalisation (see rebaseCandles).
   const replayStart = warmupBars
+  const targetFirstClose = instrument.anchorPrice * (0.96 + rng() * 0.08)
+  const candles = rebaseCandles(raw, instrument, targetFirstClose, replayStart)
   const metrics = computeMetrics(candles, replayStart, instrument)
-  metrics.atr = roundTo(computeAtr(candles, 14, replayStart), instrument.pricePrecision)
   const regime = classifyRegime(metrics)
 
   const first = candles[0]!
@@ -126,7 +165,7 @@ export function createDatasetScenario(options: DatasetScenarioOptions): Scenario
     seed,
     instrument,
     regime,
-    timeframeMinutes: options.timeframeMinutes ?? 5,
+    timeframeMinutes,
     candles,
     replayStart,
     revealBars,

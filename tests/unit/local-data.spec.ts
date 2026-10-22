@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { instruments } from '@/domain/instruments/catalog'
 import { DATASET_WINDOW, canUseDataset, classifyRegime, createDatasetScenario } from '@/domain/market/dataset'
+import { roundToTick } from '@/domain/shared/math'
 import { clearLocalMarketCache, parseDataset, parseManifest, prepareLocalScenarioInput } from '@/lib/market/local-data'
+import { parseTimeframeMinutes } from '@/lib/market/types'
 import type { LocalDataset, LocalManifest } from '@/lib/market/types'
 
-function tick(value: number): number {
-  return Math.round(value * 4) / 4
-}
-
-function makeDataset(bars = 2000, drift = 0.02): LocalDataset {
+function makeDataset(bars = 2000, drift = 0.02, tickSize = 0.25): LocalDataset {
   const t: number[] = []
   const o: number[] = []
   const h: number[] = []
@@ -17,10 +15,10 @@ function makeDataset(bars = 2000, drift = 0.02): LocalDataset {
   const v: number[] = []
   let price = 100
   for (let index = 0; index < bars; index += 1) {
-    const open = tick(price)
-    const close = tick(price + drift + Math.sin(index / 9) * 0.35)
-    const high = tick(Math.max(open, close) + 0.5)
-    const low = tick(Math.min(open, close) - 0.5)
+    const open = roundToTick(price, tickSize)
+    const close = roundToTick(price + drift + Math.sin(index / 9) * 0.35, tickSize)
+    const high = roundToTick(Math.max(open, close) + tickSize * 2, tickSize)
+    const low = roundToTick(Math.min(open, close) - tickSize * 2, tickSize)
     t.push(1_760_000_000 + index * 300)
     o.push(open)
     h.push(high)
@@ -44,6 +42,18 @@ function makeDataset(bars = 2000, drift = 0.02): LocalDataset {
     l,
     c,
     v,
+  }
+}
+
+function cloneDataset(dataset: LocalDataset): LocalDataset {
+  return {
+    ...dataset,
+    t: [...dataset.t],
+    o: [...dataset.o],
+    h: [...dataset.h],
+    l: [...dataset.l],
+    c: [...dataset.c],
+    v: [...dataset.v],
   }
 }
 
@@ -94,10 +104,89 @@ describe('dataset scenarios', () => {
     }
   })
 
+  it('uses a pack that is exactly one window long', () => {
+    const exact = makeDataset(DATASET_WINDOW.warmup + DATASET_WINDOW.future + DATASET_WINDOW.reveal)
+    expect(canUseDataset(exact)).toBe(true)
+    const scenario = createDatasetScenario({ seed: 'exact-window', instrument, dataset: exact })
+    expect(scenario.candles).toHaveLength(DATASET_WINDOW.warmup + DATASET_WINDOW.future + DATASET_WINDOW.reveal)
+    expect(scenario.dataset?.windowStart).toBe(exact.t[0])
+    expect(scenario.dataset?.windowEnd).toBe(exact.t[exact.bars - 1])
+    expect(canUseDataset(makeDataset(exact.bars - 1))).toBe(false)
+  })
+
   it('refuses a pack that cannot fill a round', () => {
     const short = makeDataset(200)
     expect(canUseDataset(short)).toBe(false)
     expect(() => createDatasetScenario({ seed: 'short', instrument, dataset: short })).toThrow()
+  })
+
+  it('propagates the dataset timeframe and rejects a mismatched round', () => {
+    const hourly = { ...makeDataset(), timeframe: '1h' }
+    hourly.t = hourly.t.map((_, index) => hourly.t[0]! + index * 3600)
+    expect(parseTimeframeMinutes('5m')).toBe(5)
+    expect(parseTimeframeMinutes('1h')).toBe(60)
+    expect(parseTimeframeMinutes('banana')).toBeNull()
+    expect(createDatasetScenario({ seed: 'hourly', instrument, dataset: hourly }).timeframeMinutes).toBe(60)
+    expect(
+      createDatasetScenario({ seed: 'hourly', instrument, dataset: hourly, timeframeMinutes: 60 }).timeframeMinutes,
+    ).toBe(60)
+    expect(() => createDatasetScenario({ seed: 'hourly', instrument, dataset: hourly, timeframeMinutes: 5 })).toThrow(
+      /timeframe|1h|5m/,
+    )
+  })
+
+  it('keeps the rebase offset independent of the hidden future', () => {
+    // A low anchor makes the additive offset negative, so a hidden low near
+    // zero would have forced the old whole-sample floor adjustment to shift
+    // the visible tape after peeking at the future.
+    const lowAnchor = { ...instrument, anchorPrice: instrument.anchorPrice * 0.001 }
+    const base = makeDataset()
+    const scenario = createDatasetScenario({ seed: 'future-blind', instrument: lowAnchor, dataset: base })
+    const start = base.t.indexOf(scenario.dataset!.windowStart)
+    const offset = scenario.candles[0]!.close - base.c[start]!
+    expect(offset).toBeLessThan(0)
+
+    const mutated = cloneDataset(base)
+    const hiddenStart = start + DATASET_WINDOW.warmup
+    mutated.l[hiddenStart] = instrument.tickSize
+    const changed = createDatasetScenario({ seed: 'future-blind', instrument: lowAnchor, dataset: mutated })
+    const changedOffset = changed.candles[0]!.close - mutated.c[start]!
+    expect(changedOffset).toBeCloseTo(offset, 9)
+    expect(changed.dataset?.windowStart).toBe(scenario.dataset?.windowStart)
+    expect(changed.metrics.atr).toBe(scenario.metrics.atr)
+    expect(changed.candles.slice(0, DATASET_WINDOW.warmup)).toEqual(scenario.candles.slice(0, DATASET_WINDOW.warmup))
+
+    // No clipping: the hidden low keeps the same additive shift even though it
+    // translates below zero. Only the visible warm-up is protected by the
+    // offset floor.
+    expect(changed.candles[DATASET_WINDOW.warmup]!.low).toBe(instrument.tickSize + offset)
+    expect(changed.candles[DATASET_WINDOW.warmup]!.low).toBeLessThan(0)
+  })
+
+  it('keeps every rebased price on a clean tick grid', () => {
+    const m2k = instruments.require('M2K')
+    const datasetTick = { ...makeDataset(2000, 0.02, m2k.tickSize), symbol: m2k.symbol, sourceSymbol: 'M2K=F' }
+    const cleanScenario = createDatasetScenario({ seed: 'tick-grid', instrument: m2k, dataset: datasetTick })
+    for (const column of [datasetTick.o, datasetTick.h, datasetTick.l, datasetTick.c]) {
+      for (let index = 0; index < column.length; index += 1) {
+        column[index] = column[index]! + (index % 2 === 0 ? 1e-12 : -1e-12)
+      }
+    }
+    expect(parseDataset(datasetTick)).not.toBeNull()
+    const scenario = createDatasetScenario({ seed: 'tick-grid', instrument: m2k, dataset: datasetTick })
+    expect(scenario.candles).toEqual(cleanScenario.candles)
+    const start = datasetTick.t.indexOf(scenario.dataset!.windowStart)
+    const offset = scenario.candles[0]!.close - datasetTick.c[start]!
+    for (let index = 0; index < scenario.candles.length; index += 1) {
+      const candle = scenario.candles[index]!
+      for (const price of [candle.open, candle.high, candle.low, candle.close]) {
+        const ticks = price / m2k.tickSize
+        expect(Math.abs(ticks - Math.round(ticks))).toBeLessThan(1e-9)
+      }
+      expect(Math.abs(candle.close - datasetTick.c[start + index]! - offset)).toBeLessThan(1e-9)
+      expect(candle.high).toBeGreaterThanOrEqual(Math.max(candle.open, candle.close))
+      expect(candle.low).toBeLessThanOrEqual(Math.min(candle.open, candle.close))
+    }
   })
 
   it('classifies the hidden window from its own behaviour', () => {
@@ -149,6 +238,28 @@ describe('local pack parsing', () => {
     expect(parseDataset(hole)).toBeNull()
 
     expect(parseDataset(makeDataset(50), 'MES')).toBeNull()
+  })
+
+  it('rejects fractional timestamps instead of rounding them into duplicates', () => {
+    const fractional = makeDataset(50)
+    fractional.t[10] = fractional.t[10]! + 0.1
+    expect(parseDataset(fractional)).toBeNull()
+
+    // Rounding this pair would have produced two bars at the same second.
+    const pair = makeDataset(2)
+    pair.t = [1000.1, 1000.2]
+    expect(parseDataset(pair)).toBeNull()
+  })
+
+  it('rejects unsupported pack timeframes', () => {
+    expect(parseDataset({ ...makeDataset(50), timeframe: 'banana' })).toBeNull()
+    expect(parseDataset({ ...makeDataset(50), timeframe: '' })).toBeNull()
+    expect(
+      parseManifest({
+        ...manifest,
+        datasets: [{ ...manifest.datasets[0]!, timeframe: 'banana' }],
+      }),
+    ).toBeNull()
   })
 
   it('skips unusable manifest entries', () => {

@@ -27,7 +27,7 @@ export interface LocalDatasetMeta {
 }
 
 export interface LocalDataset extends LocalDatasetMeta {
-  /** Bar open time, Unix seconds, strictly increasing. */
+  /** Bar open time, integer Unix seconds, strictly increasing. */
   t: number[]
   o: number[]
   h: number[]
@@ -48,4 +48,27 @@ export interface LocalManifest {
 export interface LocalScenarioInput {
   symbol: string
   dataset: LocalDataset
+}
+
+const TIMEFRAME_UNIT_MINUTES: Record<string, number> = {
+  s: 1 / 60,
+  m: 1,
+  h: 60,
+  d: 1_440,
+  w: 10_080,
+}
+
+/**
+ * Parses the pack timeframe (`5m`, `1h`, `1d`) into minutes. Returns null for
+ * anything that cannot be mapped onto scenario spacing instead of guessing a
+ * default, so a mismatched pack can be rejected before a round starts.
+ */
+export function parseTimeframeMinutes(timeframe: string): number | null {
+  const match = /^([1-9]\d*)([smhdw])$/.exec(timeframe.trim())
+  if (!match) return null
+  const amount = Number(match[1])
+  const unit = TIMEFRAME_UNIT_MINUTES[match[2]!]
+  if (!unit) return null
+  const minutes = amount * unit
+  return Number.isFinite(minutes) && minutes > 0 ? minutes : null
 }
