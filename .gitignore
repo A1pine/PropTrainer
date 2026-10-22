@@ -30,6 +30,7 @@ public/data/market/*
 playwright-report
 test-results
 screenshots/
+profile_output/
 
 # Rust build artifacts
 wasm/target
