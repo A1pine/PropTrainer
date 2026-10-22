@@ -58,7 +58,9 @@ export class ChartEngine {
   private frame = 0
   private lastPaintAt = 0
   private animateFrom = -1
-  private opts: Required<ChartOptions> & { pricePrecision: number; tickSize: number }
+  private crosshairDirty = false
+  private opts: Required<ChartOptions>
+  private priceFormatter: Intl.NumberFormat
   private resizeObserver: ResizeObserver | null = null
   private width = 0
   private height = 0
@@ -84,22 +86,29 @@ export class ChartEngine {
       showVolume: options.showVolume ?? true,
       showWatermark: options.showWatermark ?? true,
       overlayDraggable: options.overlayDraggable ?? false,
-      pricePrecision: 2,
-      tickSize: 0.25,
+      reducedMotion: options.reducedMotion ?? false,
+      pricePrecision: options.pricePrecision ?? 2,
+      tickSize: options.tickSize ?? 0.25,
     }
+    this.priceFormatter = this.createPriceFormatter()
     this.attach()
     this.measure()
   }
 
   setCandles(candles: Candle[], visibleCount: number) {
     const isNewSeries = candles !== this.candles
+    const previousCount = this.visibleCount
     this.candles = candles
     this.visibleCount = Math.max(0, Math.min(visibleCount, candles.length))
     if (isNewSeries || this.viewport.end === 0) {
       this.follow = true
       this.viewport = { end: Math.max(0, this.visibleCount - 1), span: 72 }
+    } else if (this.visibleCount < previousCount) {
+      this.viewport = clampViewport(this.viewport, Math.max(2, this.visibleCount))
     }
     this.viewport.end = Math.min(this.viewport.end, Math.max(0, this.visibleCount - 1))
+    this.animateFrom = -1
+    this.invalidateLayout()
     this.requestRender()
   }
 
@@ -108,11 +117,15 @@ export class ChartEngine {
     if (next === this.visibleCount) return
     const grew = next > this.visibleCount
     this.visibleCount = next
-    if (this.follow) this.viewport.end = Math.max(0, next - 1)
-    if (grew) {
+    if (!grew) this.viewport = clampViewport(this.viewport, Math.max(2, next))
+    this.viewport.end = this.follow ? Math.max(0, next - 1) : Math.min(this.viewport.end, Math.max(0, next - 1))
+    if (grew && !this.opts.reducedMotion) {
       this.lastPaintAt = performance.now()
       this.animateFrom = next - 1
+    } else {
+      this.animateFrom = -1
     }
+    this.invalidateLayout()
     this.requestRender()
   }
 
@@ -122,18 +135,30 @@ export class ChartEngine {
   }
 
   setPrecision(pricePrecision: number, tickSize: number) {
-    this.opts.pricePrecision = pricePrecision
+    if (pricePrecision === this.opts.pricePrecision && tickSize === this.opts.tickSize) return
+    if (pricePrecision !== this.opts.pricePrecision) {
+      this.opts.pricePrecision = pricePrecision
+      this.priceFormatter = this.createPriceFormatter()
+    }
     this.opts.tickSize = tickSize
     this.requestRender()
   }
 
   setOverlays(overlays: ChartOverlayLevels) {
+    if (
+      overlays.entry === this.overlays.entry &&
+      overlays.stop === this.overlays.stop &&
+      overlays.target === this.overlays.target
+    )
+      return
     this.overlays = { ...overlays }
+    this.invalidateLayout()
     this.requestRender()
   }
 
   setDrawings(drawings: ChartDrawing[]) {
     this.drawings = drawings
+    this.invalidateLayout()
     this.requestRender()
   }
 
@@ -151,7 +176,14 @@ export class ChartEngine {
   }
 
   setOptions(options: Partial<ChartOptions>) {
+    this.setPrecision(options.pricePrecision ?? this.opts.pricePrecision, options.tickSize ?? this.opts.tickSize)
+    if (options.showVolume !== undefined && options.showVolume !== this.opts.showVolume) this.invalidateLayout()
+    if (options.timeframeMinutes !== undefined && options.timeframeMinutes !== this.opts.timeframeMinutes) {
+      this.crosshairDirty = true
+    }
     this.opts = { ...this.opts, ...options }
+    if (this.opts.reducedMotion) this.animateFrom = -1
+    if (!this.opts.overlayDraggable && this.drag.kind === 'overlay') this.drag = { kind: 'none' }
     this.requestRender()
   }
 
@@ -189,10 +221,8 @@ export class ChartEngine {
   focusOn(index: number, span = 72) {
     this.follow = false
     const nextSpan = Math.max(28, Math.min(this.visibleCount || span, span))
-    this.viewport = {
-      end: Math.max(nextSpan - 1, Math.min(this.visibleCount - 1, index + nextSpan * 0.3)),
-      span: nextSpan,
-    }
+    this.viewport = clampViewport({ end: index + nextSpan * 0.3, span: nextSpan }, Math.max(2, this.visibleCount))
+    this.viewport.end = Math.min(this.viewport.end, Math.max(0, this.visibleCount - 1))
     this.emitViewport()
     this.requestRender()
   }
@@ -234,7 +264,13 @@ export class ChartEngine {
     this.canvas.width = Math.round(bounds.width * dpr)
     this.canvas.height = Math.round(bounds.height * dpr)
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    this.invalidateLayout()
     this.requestRender()
+  }
+
+  private invalidateLayout() {
+    this.frameLayout = null
+    this.crosshairDirty = true
   }
 
   private requestRender() {
@@ -259,12 +295,13 @@ export class ChartEngine {
     const volume = rect(PAD_LEFT, price.bottom + 8, plotWidth, volumeHeight)
     const plot = rect(PAD_LEFT, PAD_TOP, plotWidth, price.bottom - PAD_TOP + (volumeHeight ? 8 + volumeHeight : 0))
     const geo = createIndexGeometry(this.viewport, price)
-    const end = Math.max(0, Math.min(this.visibleCount - 1, Math.floor(this.viewport.end)))
+    const end = Math.min(this.visibleCount - 1, Math.floor(this.viewport.end))
     const start = Math.max(0, Math.floor(geo.start) - 1)
-    const window = this.candles.slice(start, end + 1)
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
-    for (const candle of window) {
+    for (let index = start; index <= end; index += 1) {
+      const candle = this.candles[index]
+      if (!candle) continue
       if (candle.low < min) min = candle.low
       if (candle.high > max) max = candle.high
     }
@@ -297,8 +334,9 @@ export class ChartEngine {
     const layout = this.layout()
     this.frameLayout = layout
     const { price, volume, plot, geo, scale } = layout
-    const end = Math.max(0, Math.min(this.visibleCount - 1, Math.floor(this.viewport.end)))
+    const end = Math.min(this.visibleCount - 1, Math.floor(this.viewport.end))
     const start = Math.max(0, Math.floor(geo.start) - 1)
+    if (this.crosshairDirty) this.emitCrosshair(this.hover)
 
     ctx.clearRect(0, 0, this.width, this.height)
     this.drawGrid(price, geo, scale)
@@ -328,7 +366,11 @@ export class ChartEngine {
     this.drawCrosshair(plot, geo, scale)
     if (this.draft) this.drawDraft(plot, geo, scale)
 
-    const animating = this.animateFrom >= 0 && performance.now() - this.lastPaintAt < 200 && this.animateFrom <= end
+    const animating =
+      !this.opts.reducedMotion &&
+      this.animateFrom >= start &&
+      this.animateFrom <= end &&
+      performance.now() - this.lastPaintAt < 200
     if (animating) this.requestRender()
     else this.animateFrom = -1
   }
@@ -375,7 +417,7 @@ export class ChartEngine {
     const slot = geo.slot
     const width = Math.max(1, Math.min(14, slot * 0.62))
     const now = performance.now()
-    const animate = this.animateFrom >= 0 && now - this.lastPaintAt < 190
+    const animate = !this.opts.reducedMotion && this.animateFrom >= 0 && now - this.lastPaintAt < 190
     const progress = animate ? Math.min(1, (now - this.lastPaintAt) / 190) : 1
     const eased = 1 - Math.pow(1 - progress, 3)
 
@@ -392,7 +434,7 @@ export class ChartEngine {
       let highY = scale.y(candle.high)
       let lowY = scale.y(candle.low)
 
-      if (isLast && animate && eased < 1) {
+      if (index === this.animateFrom && animate && eased < 1) {
         const openPixel = openY
         closeY = openPixel + (closeY - openPixel) * eased
         highY = openPixel + (highY - openPixel) * eased
@@ -432,8 +474,11 @@ export class ChartEngine {
     end: number,
   ) {
     const ctx = this.ctx
-    const window = this.candles.slice(start, end + 1)
-    const maxVolume = Math.max(1, ...window.map((candle) => candle.volume))
+    let maxVolume = 1
+    for (let index = start; index <= end; index += 1) {
+      const candle = this.candles[index]
+      if (candle) maxVolume = Math.max(maxVolume, candle.volume)
+    }
     const width = Math.max(1, Math.min(14, geo.slot * 0.62))
     for (let index = start; index <= end; index += 1) {
       const candle = this.candles[index]
@@ -677,7 +722,7 @@ export class ChartEngine {
     geo: ReturnType<typeof createIndexGeometry>,
     scale: ReturnType<typeof createPriceScale>,
   ) {
-    if (!this.hover) return
+    if (!this.hover || this.visibleCount === 0) return
     const { x, y } = this.hover
     if (x < plot.left || x > plot.right || y < plot.top || y > plot.bottom) return
     const ctx = this.ctx
@@ -776,11 +821,15 @@ export class ChartEngine {
     ctx.closePath()
   }
 
-  private formatPrice(price: number): string {
-    return price.toLocaleString('en-US', {
+  private createPriceFormatter() {
+    return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: this.opts.pricePrecision,
       maximumFractionDigits: this.opts.pricePrecision,
     })
+  }
+
+  private formatPrice(price: number): string {
+    return this.priceFormatter.format(price)
   }
 
   private formatTime(unixSeconds: number): string {
@@ -811,8 +860,10 @@ export class ChartEngine {
   }
 
   private emitCrosshair(point: { x: number; y: number } | null) {
+    this.crosshairDirty = false
     if (!this.callbacks.onCrosshair) return
-    if (!point) {
+    const plot = this.plotRect()
+    if (!point || point.x < plot.left || point.x > plot.right || point.y < plot.top || point.y > plot.bottom) {
       this.callbacks.onCrosshair(null)
       return
     }
@@ -957,6 +1008,7 @@ export class ChartEngine {
   }
 
   private emitViewport() {
+    this.invalidateLayout()
     this.callbacks.onViewportChange?.(this.viewport.end, this.viewport.span)
   }
 
@@ -980,7 +1032,8 @@ export class ChartEngine {
   private drawAnalysisProfile(plot: Rect, scale: ReturnType<typeof createPriceScale>) {
     const bars = this.analysis?.profile ?? []
     if (!bars.length) return
-    const max = Math.max(...bars.map((bar) => bar.volume), 1)
+    let max = 1
+    for (const bar of bars) max = Math.max(max, bar.volume)
     const widthLimit = Math.min(110, plot.width * 0.16)
     const ctx = this.ctx
     ctx.save()

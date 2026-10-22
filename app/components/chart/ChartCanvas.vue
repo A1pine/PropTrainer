@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePreferredReducedMotion } from '@vueuse/core'
 import type { Candle } from '~/domain/market/types'
 import { ChartEngine } from '~/lib/chart/engine'
 import { readChartTheme } from '~/lib/chart/theme'
@@ -46,6 +47,9 @@ const engine = shallowRef<ChartEngine | null>(null)
 const hover = ref<CrosshairPayload | null>(null)
 const size = ref({ width: 0, height: 0 })
 const { resolved } = useAppTheme()
+const settings = useSettingsStore()
+const preferredMotion = usePreferredReducedMotion()
+const reducedMotion = computed(() => settings.settings.reduceMotion || preferredMotion.value === 'reduce')
 
 const tooltipStyle = computed(() => {
   if (!hover.value) return {}
@@ -79,6 +83,7 @@ function init() {
       pricePrecision: props.pricePrecision,
       tickSize: props.tickSize,
       overlayDraggable: props.overlayDraggable,
+      reducedMotion: reducedMotion.value,
     },
   )
   chart.setCandles(props.candles, props.visibleCount)
@@ -153,6 +158,12 @@ watch(
 watch(
   () => [props.pricePrecision, props.tickSize] as const,
   ([precision, tick]) => engine.value?.setPrecision(precision, tick),
+)
+
+watch(
+  () => [props.overlayDraggable, props.timeframeMinutes, reducedMotion.value] as const,
+  ([overlayDraggable, timeframeMinutes, reducedMotion]) =>
+    engine.value?.setOptions({ overlayDraggable, timeframeMinutes, reducedMotion }),
 )
 
 watch(

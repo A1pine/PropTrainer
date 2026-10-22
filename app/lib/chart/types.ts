@@ -62,6 +62,7 @@ export interface ChartOptions {
   showVolume?: boolean
   showWatermark?: boolean
   overlayDraggable?: boolean
+  reducedMotion?: boolean
   pricePrecision?: number
   tickSize?: number
 }
