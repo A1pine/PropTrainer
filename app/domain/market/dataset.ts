@@ -64,7 +64,8 @@ function sliceCandles(dataset: LocalDataset, start: number, count: number): Cand
  * bars are never inspected, so the normalisation cannot leak the future. The
  * visible warm-up is kept at or above one tick. Hidden prices can translate
  * below zero; clipping would distort their moves, while choosing an offset
- * from their minimum would reintroduce look-ahead.
+ * from their minimum would reintroduce look-ahead. The metric and broker paths
+ * therefore accept nonpositive prices (as real crude futures did in 2020).
  */
 function rebaseCandles(
   candles: Candle[],

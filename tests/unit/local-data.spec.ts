@@ -163,6 +163,29 @@ describe('dataset scenarios', () => {
     expect(changed.candles[DATASET_WINDOW.warmup]!.low).toBeLessThan(0)
   })
 
+  it('keeps direction and metrics honest when the rebased window trades below zero', () => {
+    // Warm-up near 200 with an anchor near 1 forces a large negative offset.
+    // The hidden tape then starts at 150 and falls monotonically, so every
+    // hidden price is negative after rebasing. This is the crude-2020 shape:
+    // the grader must still call it a downtrend, not flip the sign of the move.
+    const lowAnchor = { ...instrument, anchorPrice: 1 }
+    const bars = 710
+    const dataset = makeDataset(bars, 0, instrument.tickSize)
+    for (let index = 0; index < bars; index += 1) {
+      const close = index < 150 ? 200 : 150 - (index - 150) * 0.25
+      dataset.o[index] = close
+      dataset.h[index] = close + instrument.tickSize
+      dataset.l[index] = close - instrument.tickSize
+      dataset.c[index] = close
+    }
+
+    const scenario = createDatasetScenario({ seed: 'below-zero', instrument: lowAnchor, dataset })
+    expect(scenario.candles[150]!.close).toBeLessThan(0)
+    expect(scenario.candles[bars - 1]!.close).toBeLessThan(0)
+    expect(scenario.metrics.changePct).toBeLessThan(0)
+    expect(scenario.regime).toBe('downtrend')
+  })
+
   it('keeps every rebased price on a clean tick grid', () => {
     const m2k = instruments.require('M2K')
     const datasetTick = { ...makeDataset(2000, 0.02, m2k.tickSize), symbol: m2k.symbol, sourceSymbol: 'M2K=F' }

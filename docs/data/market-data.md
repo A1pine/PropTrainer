@@ -92,7 +92,9 @@ Blind presentation uses two boundaries; it is not an anti-cheat security boundar
    computed after rebasing. If the hidden tape falls further than the visible warm-up,
    translated prices can go below zero. Those bars are not clipped, because clipping
    would distort the moves; choosing an offset from their minimum would reintroduce
-   look-ahead. Reveal shows the rebased chart, not restored absolute prices.
+   look-ahead. Reveal shows the rebased chart, not restored absolute prices. The
+   grader and broker treat a finite nonpositive price as a real quote (front-month
+   crude settled below zero in 2020); they do not clamp it or reject the order.
 2. **Visible-prefix rendering and analysis.** The full scenario is already in browser
    memory and passed to the chart with a `visibleCount` limit, initially the warm-up
    length. Rendering and plan validation use the visible prefix; the analysis lab sends

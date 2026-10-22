@@ -123,6 +123,24 @@ describe('broker', () => {
     expect(snapshot.equity).toBe(49_998)
   })
 
+  it('trades a tape that has crossed below zero', () => {
+    // The no-look-ahead rebase can translate a real crude window below zero.
+    // A finite negative mark is a valid market, not a missing quote.
+    const broker = newBroker()
+    broker.prime(-100, 0)
+    const result = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: -110, takeProfit: -90 }, -100, 0)
+    expect(result.ok).toBe(true)
+    expect(broker.snapshot().position?.entryPrice).toBe(-100)
+
+    const limitBroker = newBroker()
+    const limit = limitBroker.placeOrder(
+      { side: 'short', type: 'limit', qty: 1, limitPrice: -95, stopLoss: -90, takeProfit: -105 },
+      -100,
+      0,
+    )
+    expect(limit.ok).toBe(true)
+  })
+
   it('requires a stop and valid bracket geometry', () => {
     const broker = newBroker()
     const noStop = broker.placeOrder({ side: 'long', type: 'market', qty: 1, stopLoss: null, takeProfit: null }, 100, 0)

@@ -73,7 +73,9 @@ export function computePositionSize(input: RiskSizingInput): RiskSizingResult {
     stopDistance: roundTo(stopDistance, instrument.pricePrecision),
     stopTicks: Math.round(stopTicks),
     fees: roundTo(contracts * fee, 2),
-    notional: roundTo(input.entry * instrument.pointValue * contracts, 2),
+    // Notional is a magnitude; a negative front-month price (crude in 2020)
+    // must not turn the exposure figure into a negative number.
+    notional: roundTo(Math.abs(input.entry) * instrument.pointValue * contracts, 2),
     margin: roundTo(instrument.intradayMargin * contracts, 2),
   }
 }

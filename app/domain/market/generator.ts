@@ -219,14 +219,19 @@ export function computeMetrics(
   const lows = Math.min(...window.map((candle) => candle.low))
   const last = window[window.length - 1]!.close
   const net = Math.abs(last - start)
+  // A real tape can trade through zero (front-month crude did in 2020), and
+  // the no-look-ahead rebase can therefore translate a window below zero.
+  // Dividing by |start| keeps the sign of the move correct; a plain division
+  // would invert an advance that starts from a negative price.
+  const scale = Math.abs(start) || 1
   const path = window.reduce((total, candle, index) => {
     const previous = index === 0 ? start : window[index - 1]!.close
     return total + Math.abs(candle.close - previous)
   }, 0)
   return {
-    changePct: roundTo(((last - start) / start) * 100, 3),
-    maxUpPct: roundTo(((highs - start) / start) * 100, 3),
-    maxDownPct: roundTo(((lows - start) / start) * 100, 3),
+    changePct: roundTo(((last - start) / scale) * 100, 3),
+    maxUpPct: roundTo(((highs - start) / scale) * 100, 3),
+    maxDownPct: roundTo(((lows - start) / scale) * 100, 3),
     efficiency: path === 0 ? 0 : roundTo(net / path, 3),
     atr: roundTo(computeAtr(candles, 14, replayStart), instrument.pricePrecision),
   }

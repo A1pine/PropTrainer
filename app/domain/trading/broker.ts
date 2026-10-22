@@ -279,7 +279,7 @@ export function createBroker(options: BrokerOptions): Broker {
   function placeOrder(input: PlaceOrderInput, mark: number, barIndex: number): PlaceOrderResult {
     if (status !== 'active') return { ok: false, error: 'Trading is locked for this account.' }
     if (position) return { ok: false, error: 'Close the open position before placing another order.' }
-    if (mark <= 0) return { ok: false, error: 'No market price yet.' }
+    if (!Number.isFinite(mark)) return { ok: false, error: 'No market price yet.' }
     if (!Number.isFinite(input.qty) || input.qty < 1 || !Number.isInteger(input.qty)) {
       return { ok: false, error: 'Quantity must be a whole number of contracts.' }
     }
@@ -298,7 +298,7 @@ export function createBroker(options: BrokerOptions): Broker {
     const bracketError = validateBrackets(input, reference)
     if (bracketError) return { ok: false, error: bracketError }
 
-    if (input.type === 'limit' && (input.limitPrice == null || input.limitPrice <= 0)) {
+    if (input.type === 'limit' && (input.limitPrice == null || !Number.isFinite(input.limitPrice))) {
       return { ok: false, error: 'A limit price is required.' }
     }
 
