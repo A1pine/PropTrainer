@@ -15,6 +15,8 @@ const props = withDefaults(
 )
 
 const prefersReduced = usePreferredReducedMotion()
+const settings = useSettingsStore()
+const reduced = computed(() => settings.settings.reduceMotion || prefersReduced.value === 'reduce')
 const display = ref(props.value)
 const flashClass = ref('')
 let frame = 0
@@ -41,7 +43,7 @@ function stop() {
 function animateTo(target: number) {
   stop()
   const from = display.value
-  if (!Number.isFinite(target) || prefersReduced.value === 'reduce') {
+  if (!Number.isFinite(target) || reduced.value || target === from || props.duration <= 0) {
     display.value = target
     return
   }
@@ -68,6 +70,13 @@ watch(
     }
   },
 )
+
+watch(reduced, (value) => {
+  if (value) {
+    stop()
+    display.value = props.value
+  }
+})
 
 onBeforeUnmount(() => {
   stop()
