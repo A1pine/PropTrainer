@@ -16,7 +16,7 @@ import {
   Undo2,
 } from '@lucide/vue'
 import type { LogRow } from '~/domain/stats/types'
-import type { ChartTool } from '~/lib/chart/types'
+import type { ChartOverlayLevels, ChartTool } from '~/lib/chart/types'
 import type { PlaceOrderInput } from '~/domain/trading/types'
 import { REGIME_LABELS } from '~/domain/market/types'
 
@@ -56,16 +56,36 @@ const phaseTone = computed(() => {
   }
 })
 
-const overlays = computed(() => {
+const overlays = computed<ChartOverlayLevels>((previous) => {
   const position = account.value?.position
-  if (position) {
-    return { entry: position.entryPrice, stop: position.stopLoss, target: position.takeProfit }
-  }
-  return { entry: trainer.plan.entry, stop: trainer.plan.stop, target: trainer.plan.target }
+  const entry = position ? position.entryPrice : trainer.plan.entry
+  const stop = position ? position.stopLoss : trainer.plan.stop
+  const target = position ? position.takeProfit : trainer.plan.target
+  if (previous && previous.entry === entry && previous.stop === stop && previous.target === target) return previous
+  return { entry, stop, target }
 })
 
-const logRows = computed<LogRow[]>(() => {
+const logRows = computed<LogRow[]>((previous) => {
   const trades = account.value?.trades ?? []
+  if (
+    previous &&
+    previous.length === trades.length &&
+    trades.every((trade, index) => {
+      const row = previous[index]!
+      return (
+        row.id === trade.id &&
+        row.bar === trade.exitBar + 1 &&
+        row.side === trade.side &&
+        row.qty === trade.qty &&
+        row.entryPrice === trade.entryPrice &&
+        row.exitPrice === trade.exitPrice &&
+        row.pnl === trade.pnl &&
+        row.rMultiple === trade.rMultiple &&
+        row.exitReason === trade.exitReason
+      )
+    })
+  )
+    return previous
   return trades.map((trade) => ({
     id: trade.id,
     bar: trade.exitBar + 1,
@@ -79,11 +99,7 @@ const logRows = computed<LogRow[]>(() => {
   }))
 })
 
-const sessionNet = computed(
-  () =>
-    trainer.rounds.reduce((total, round) => total + round.netPnl, 0) +
-    (trainer.phase === 'review' ? 0 : (account.value?.netPnl ?? 0)),
-)
+const sessionNet = computed(() => trainer.sessionNet)
 
 const revealedDate = computed(() => {
   if (!trainer.scenario) return ''

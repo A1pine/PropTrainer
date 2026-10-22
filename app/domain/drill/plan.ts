@@ -201,6 +201,9 @@ export function simulatePlan(
   instrument: InstrumentSpec,
   horizonBars = 260,
 ): PlanOutcome {
+  if (plan.direction === 'none' || plan.entry == null || plan.stop == null || plan.target == null) {
+    return simulatePlanTs(plan, candles, instrument, horizonBars)
+  }
   const core = getWasmCore()
   if (core) {
     try {

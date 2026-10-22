@@ -16,7 +16,7 @@ const DRILL_KEY = 'propdesk:last-drill-start'
 
 function startKey() {
   const seed = typeof route.query.seed === 'string' ? route.query.seed : 'random'
-  return `${seed}:${route.query.mode ?? 'drill'}:${route.query.player ?? ''}`
+  return `${seed}:${route.query.mode ?? 'drill'}:${route.query.pk ?? ''}:${route.query.player ?? ''}`
 }
 const settings = useSettingsStore()
 const chart = ref<{ fit: () => void; zoom: (f: number) => void; focusOn: (i: number, s?: number) => void } | null>(null)
@@ -48,11 +48,14 @@ watch(
   },
 )
 
-function startDrill() {
+async function startDrill() {
   const seed = typeof route.query.seed === 'string' ? route.query.seed : undefined
-  const mode = route.query.mode === 'daily' ? 'daily' : 'drill'
-  drill.start({ seed, mode })
-  if (import.meta.client) sessionStorage.setItem(DRILL_KEY, startKey())
+  const mode = route.query.mode === 'daily' ? 'daily' : route.query.pk ? 'pk' : 'drill'
+  const key = startKey()
+  if (!(await drill.start({ seed, mode }))) return
+  if (import.meta.client) sessionStorage.setItem(DRILL_KEY, key)
+  await nextTick()
+  chart.value?.fit()
 }
 
 function onKeydown(event: KeyboardEvent) {

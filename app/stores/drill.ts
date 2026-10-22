@@ -42,7 +42,7 @@ export const useDrillStore = defineStore('drill', () => {
   const config = useRuntimeConfig()
 
   const phase = ref<DrillPhase>('idle')
-  const scenario = ref<Scenario | null>(null)
+  const scenario = shallowRef<Scenario | null>(null)
   const seed = ref('')
   const visibleCount = ref(0)
   const plan = ref<DrillPlan>(blankPlan())
@@ -53,8 +53,9 @@ export const useDrillStore = defineStore('drill', () => {
   const tool = ref<ChartTool>('cursor')
   const revealed = ref(false)
   const submittedAt = ref('')
-  const mode = ref<'drill' | 'daily'>('drill')
+  const mode = ref<'drill' | 'daily' | 'pk'>('drill')
   const scenarioSource = ref<ScenarioSource>('synthetic')
+  let loadToken = 0
 
   const instrument = computed(() => scenario.value?.instrument ?? null)
   const candles = computed(() => scenario.value?.candles ?? [])
@@ -78,33 +79,39 @@ export const useDrillStore = defineStore('drill', () => {
       maxContracts: rules.value.maxContracts,
     })
   })
-  const universe = computed(() => {
-    if (mode.value === 'daily') return instruments.list()
-    const resolved = instruments.resolve(settings.settings.instruments)
-    return resolved.length ? resolved : instruments.list()
-  })
-
-  async function start(options: { seed?: string; mode?: 'drill' | 'daily' } = {}) {
-    seed.value = options.seed ?? createSeed()
-    mode.value = options.mode ?? 'drill'
+  async function start(options: { seed?: string; mode?: 'drill' | 'daily' | 'pk' } = {}) {
+    const token = ++loadToken
+    const nextSeed = options.seed ?? createSeed()
+    const nextMode = options.mode ?? 'drill'
+    const selected = nextMode === 'drill' ? instruments.resolve(settings.settings.instruments) : instruments.list()
+    const enabled = selected.length ? selected : instruments.list()
     const factory = createScenarioFactory({
-      universe: universe.value,
-      now: mode.value === 'daily' ? dailyScenarioNow(seed.value) : new Date(),
+      universe: enabled,
+      now:
+        nextMode === 'daily'
+          ? dailyScenarioNow(nextSeed)
+          : nextMode === 'pk'
+            ? new Date('2024-01-01T12:00:00Z')
+            : new Date(),
     })
     let dataset: LocalDataset | undefined
-    if (mode.value === 'drill' && settings.settings.dataSource === 'local') {
+    if (nextMode === 'drill' && settings.settings.dataSource === 'local') {
       const prepared = await prepareLocalScenarioInput({
         baseURL: config.app.baseURL,
-        symbols: universe.value.map((item) => item.symbol),
-        seed: seed.value,
+        symbols: enabled.map((item) => item.symbol),
+        seed: nextSeed,
       })
       dataset = prepared?.dataset
     }
-    scenario.value = options.seed
-      ? factory.createFromSeed(seed.value, undefined, undefined, dataset)
-      : factory.create({ seed: seed.value, dataset })
-    scenarioSource.value = scenario.value.source
-    visibleCount.value = scenario.value.replayStart
+    if (token !== loadToken) return false
+    const next = options.seed
+      ? factory.createFromSeed(nextSeed, undefined, undefined, dataset)
+      : factory.create({ seed: nextSeed, dataset })
+    seed.value = nextSeed
+    mode.value = nextMode
+    scenario.value = markRaw(next)
+    scenarioSource.value = next.source
+    visibleCount.value = next.replayStart
     plan.value = blankPlan()
     plan.value.submittedAtBar = visibleCount.value - 1
     validation.value = null
@@ -115,6 +122,7 @@ export const useDrillStore = defineStore('drill', () => {
     revealed.value = false
     submittedAt.value = ''
     phase.value = 'reading'
+    return true
   }
 
   function wait() {
@@ -124,14 +132,23 @@ export const useDrillStore = defineStore('drill', () => {
     visibleCount.value += 1
     plan.value.waitedBars += 1
     plan.value.submittedAtBar = visibleCount.value - 1
+    if (validation.value) updateValidation()
   }
+
+  const visibleSwings = computed(() => findSwings(candles.value.slice(0, Math.max(1, visibleCount.value)), 3))
 
   function context() {
     if (!scenario.value) return null
     return {
       instrument: scenario.value.instrument,
       atr: scenario.value.metrics.atr,
-      swings: findSwings(candles.value.slice(0, Math.max(1, visibleCount.value)), 3),
+      swings:
+        plan.value.direction !== 'none' &&
+        plan.value.entry != null &&
+        plan.value.stop != null &&
+        plan.value.target != null
+          ? visibleSwings.value
+          : [],
       endIndex: visibleCount.value - 1,
       riskBudget: riskBudget.value,
       maxContracts: rules.value.maxContracts,
@@ -159,13 +176,15 @@ export const useDrillStore = defineStore('drill', () => {
   }
 
   function setDirection(direction: TradeDirection) {
-    plan.value = { ...plan.value, direction }
-    updateValidation()
+    updatePlan({ direction })
   }
 
   function updatePlan(patch: Partial<DrillPlan>) {
-    plan.value = { ...plan.value, ...patch }
-    updateValidation()
+    const changed = (['direction', 'entry', 'stop', 'target'] as const).some(
+      (key) => key in patch && patch[key] !== plan.value[key],
+    )
+    Object.assign(plan.value, patch)
+    if (changed) updateValidation()
   }
 
   function updateLevel(kind: 'entry' | 'stop' | 'target', price: number) {
@@ -254,7 +273,7 @@ export const useDrillStore = defineStore('drill', () => {
   }
 
   function next() {
-    start()
+    return start()
   }
 
   return {

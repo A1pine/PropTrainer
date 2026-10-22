@@ -158,19 +158,23 @@ function toggle(key: keyof typeof store.toggles) {
   store.toggles[key] = !store.toggles[key]
 }
 
-function newSample() {
-  store.newSample()
-  nextTick(() => chart.value?.fit())
+async function newSample() {
+  if (!(await store.newSample())) return
+  await nextTick()
+  chart.value?.fit()
 }
 
+let disposed = false
 onMounted(async () => {
-  if (!store.scenario) store.start()
-  await store.ensureCore()
-  nextTick(() => chart.value?.fit())
+  await Promise.all([store.scenario ? Promise.resolve() : store.start(), store.ensureCore()])
+  if (disposed) return
+  await nextTick()
+  chart.value?.fit()
   window.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   store.stopPlayback()
   window.removeEventListener('keydown', onKeydown)
 })

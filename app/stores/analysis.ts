@@ -24,7 +24,7 @@ const defaultToggles = {
 export const useAnalysisStore = defineStore('analysis', () => {
   const settings = useSettingsStore()
   const config = useRuntimeConfig()
-  const scenario = ref<Scenario | null>(null)
+  const scenario = shallowRef<Scenario | null>(null)
   const visibleCount = ref(0)
   const playing = ref(false)
   const speed = ref(2)
@@ -36,6 +36,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const toggles = ref({ ...defaultToggles })
   const scenarioSource = ref<ScenarioSource>('synthetic')
   let timer: ReturnType<typeof setInterval> | null = null
+  let loadToken = 0
 
   const candles = computed(() => scenario.value?.candles ?? [])
   const visible = computed(() => candles.value.slice(0, visibleCount.value))
@@ -166,7 +167,7 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
   async function ensureCore(): Promise<boolean> {
     if (coreReady.value) return true
-    const core = await ensureWasmCore(useRuntimeConfig().app.baseURL || '/')
+    const core = await ensureWasmCore(config.app.baseURL || '/')
     coreReady.value = core != null
     coreError.value = core == null
     return coreReady.value
@@ -180,30 +181,34 @@ export const useAnalysisStore = defineStore('analysis', () => {
 
   async function start(options: { seed?: string } = {}) {
     stopPlayback()
+    const token = ++loadToken
     settings.hydrate()
     const universe = instruments.resolve(settings.settings.instruments)
     const factory = createScenarioFactory({ universe: universe.length ? universe : instruments.list() })
-    seed.value = options.seed ?? createSeed()
+    const nextSeed = options.seed ?? createSeed()
     let dataset: LocalDataset | undefined
     if (settings.settings.dataSource === 'local') {
       const prepared = await prepareLocalScenarioInput({
         baseURL: config.app.baseURL,
         symbols: (universe.length ? universe : instruments.list()).map((item) => item.symbol),
-        seed: seed.value,
+        seed: nextSeed,
       })
       dataset = prepared?.dataset
     }
-    const next = factory.create({ seed: seed.value, dataset })
+    if (token !== loadToken) return false
+    const next = factory.create({ seed: nextSeed, dataset })
+    seed.value = nextSeed
     scenarioSource.value = next.source
-    scenario.value = next
+    scenario.value = markRaw(next)
     visibleCount.value = Math.min(next.candles.length, next.replayStart + 80)
     revealed.value = false
     tab.value = 'overview'
     toggles.value = { ...defaultToggles }
+    return true
   }
 
   function newSample() {
-    start()
+    return start()
   }
 
   function step(count = 1) {

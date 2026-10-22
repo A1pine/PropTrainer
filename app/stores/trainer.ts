@@ -30,17 +30,14 @@ function blankPlan(): DrillPlan {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
 export const useTrainerStore = defineStore('trainer', () => {
   const settings = useSettingsStore()
   const history = useHistoryStore()
   const toasts = useToastStore()
   const config = useRuntimeConfig()
 
-  const scenario = ref<Scenario | null>(null)
+  // Each round replaces an immutable tape; UI state stays reactive separately.
+  const scenario = shallowRef<Scenario | null>(null)
   const phase = ref<TrainerPhase>('idle')
   const roundIndex = ref(0)
   const totalRounds = ref(20)
@@ -130,6 +127,11 @@ export const useTrainerStore = defineStore('trainer', () => {
       breaches: closed.filter((round) => round.status === 'breached').length,
     }
   })
+  const sessionNet = computed(
+    () =>
+      roundStats.value.netPnl +
+      (phase.value === 'review' || phase.value === 'summary' ? 0 : (account.value?.netPnl ?? 0)),
+  )
   const progress = computed(() =>
     totalRounds.value ? Math.min(100, (rounds.value.length / totalRounds.value) * 100) : 0,
   )
@@ -140,12 +142,20 @@ export const useTrainerStore = defineStore('trainer', () => {
     playing.value = false
   }
 
+  const visibleSwings = computed(() => findSwings(candles.value.slice(0, Math.max(1, visibleCount.value)), 3))
+
   function updateValidation() {
     if (!scenario.value) return
     validation.value = validatePlan(plan.value, {
       instrument: scenario.value.instrument,
       atr: scenario.value.metrics.atr,
-      swings: findSwings(candles.value.slice(0, Math.max(1, visibleCount.value)), 3),
+      swings:
+        plan.value.direction !== 'none' &&
+        plan.value.entry != null &&
+        plan.value.stop != null &&
+        plan.value.target != null
+          ? visibleSwings.value
+          : [],
       endIndex: visibleCount.value - 1,
       riskBudget: riskBudget.value,
       maxContracts: rules.value.maxContracts,
@@ -205,9 +215,6 @@ export const useTrainerStore = defineStore('trainer', () => {
     broker.value = null
     roundIndex.value += 1
 
-    await sleep(600)
-    if (token !== loadToken) return
-
     const seed = createSeed()
     let dataset: LocalDataset | undefined
     if (settings.settings.dataSource === 'local') {
@@ -230,7 +237,7 @@ export const useTrainerStore = defineStore('trainer', () => {
 
     const next = factory.value.create({ seed, dataset })
     scenarioSource.value = next.source
-    scenario.value = next
+    scenario.value = markRaw(next)
     visibleCount.value = next.replayStart
     syncPlanBar()
 
@@ -254,6 +261,10 @@ export const useTrainerStore = defineStore('trainer', () => {
     visibleCount.value += 1
     plan.value.waitedBars += 1
     syncPlanBar()
+    lastPrice.value = lastCandle.value?.close ?? lastPrice.value
+    broker.value?.prime(lastPrice.value, visibleCount.value - 1)
+    if (broker.value) account.value = broker.value.snapshot()
+    if (validation.value) updateValidation()
   }
 
   function commitRead() {
@@ -271,8 +282,11 @@ export const useTrainerStore = defineStore('trainer', () => {
   }
 
   function updatePlan(patch: Partial<DrillPlan>) {
-    plan.value = { ...plan.value, ...patch }
-    updateValidation()
+    const changed = (['direction', 'entry', 'stop', 'target'] as const).some(
+      (key) => key in patch && patch[key] !== plan.value[key],
+    )
+    Object.assign(plan.value, patch)
+    if (changed) updateValidation()
   }
 
   function setDirection(direction: DrillPlan['direction']) {
@@ -427,7 +441,7 @@ export const useTrainerStore = defineStore('trainer', () => {
     }
   }
 
-  function finishRound() {
+  function finishRound(persist = true) {
     if (phase.value === 'review' || phase.value === 'summary') return
     stopPlayback()
     if (!scenario.value || !broker.value) return
@@ -441,7 +455,6 @@ export const useTrainerStore = defineStore('trainer', () => {
       ...plan.value,
       submittedAtBar: Math.min(plan.value.submittedAtBar, scenario.value.replayStart - 1 + plan.value.waitedBars),
     }
-    const simulated = simulatePlan(planAtDecision, scenario.value.candles, scenario.value.instrument, 260)
     const firstTrade = snapshot.trades[0]
     const planOutcome: PlanOutcome = firstTrade
       ? {
@@ -458,15 +471,15 @@ export const useTrainerStore = defineStore('trainer', () => {
           barsToEntry: Math.max(0, firstTrade.entryBar - planAtDecision.submittedAtBar),
           barsHeld: firstTrade.exitBar - firstTrade.entryBar + 1,
         }
-      : simulated
+      : simulatePlan(planAtDecision, scenario.value.candles, scenario.value.instrument, 260)
     outcome.value = planOutcome
 
     if (planAtDecision.direction !== 'none') {
       const planValidation = validatePlan(planAtDecision, {
         instrument: scenario.value.instrument,
         atr: scenario.value.metrics.atr,
-        swings: findSwings(scenario.value.candles.slice(0, scenario.value.replayStart), 3),
-        endIndex: scenario.value.replayStart - 1,
+        swings: findSwings(scenario.value.candles.slice(0, planAtDecision.submittedAtBar + 1), 3),
+        endIndex: planAtDecision.submittedAtBar,
         riskBudget: riskBudget.value,
         maxContracts: rules.value.maxContracts,
       })
@@ -486,7 +499,7 @@ export const useTrainerStore = defineStore('trainer', () => {
     visibleCount.value = scenario.value.candles.length
     phase.value = 'review'
     playCue('reveal', settings.settings.sound)
-    persistSession()
+    if (persist) persistSession()
   }
 
   function buildRoundRecord(snapshot: AccountSnapshot): RoundRecord {
@@ -576,8 +589,9 @@ export const useTrainerStore = defineStore('trainer', () => {
   function endSession() {
     stopPlayback()
     sessionEnded.value = true
+    loadToken += 1
     if (phase.value !== 'summary') {
-      if (phase.value === 'live') finishRound()
+      if (phase.value === 'live') finishRound(false)
       phase.value = 'summary'
     }
     persistSession()
@@ -652,6 +666,7 @@ export const useTrainerStore = defineStore('trainer', () => {
     riskBudget,
     sizing,
     roundStats,
+    sessionNet,
     progress,
     // actions
     startSession,
