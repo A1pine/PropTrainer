@@ -1,7 +1,14 @@
 # WASM performance log
 
-All numbers come from `bun run bench:wasm` on an Apple silicon laptop (Node/Bun JIT, single thread).
+This log preserves the earlier artifact-size and loading experiments. Their historical timings are from
+`bun run bench:wasm` on an Apple silicon laptop and are not the current end-to-end response acceptance results.
+For public-wrapper P50/P95, production UI response, raw samples and budgets, see [response.md](response.md).
 Re-run after any change to `wasm/` or to the load path.
+
+Current snapshot after the timestamp-gap fix: **150.3 KiB raw / 66.3 KiB gzip / 56.7 KiB brotli**;
+artifact version `2898da228aa29802`. Direct SSR analysis entry has a preload; SPA navigation does not add one.
+`bun run check:wasm` now holds the actual download, verifies trainer stepping without it, then verifies a real
+analysis report and one core request for both SPA navigation and direct entry.
 
 ## Baseline — 246 KiB artifact
 
