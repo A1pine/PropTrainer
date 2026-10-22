@@ -148,8 +148,10 @@ claims of universal improvement or a Worker/binary-ABI rewrite.
 
 ## Verification and remaining limits
 
-- **238 tests across 21 files** passed, including local-cache races, timestamp parity, store response invariants,
-  chart behavior and artifact budgets; **3 Rust tests** passed.
+- **240 tests across 21 files** passed, including local-cache races, timestamp parity, store response invariants,
+  chart behavior and artifact budgets; **3 Rust tests** passed. A late audit found that the no-look-ahead rebase
+  can translate crude futures below zero; `f16c6c1` makes the grader and broker accept finite nonpositive prices
+  and adds below-zero scenario/order-entry regressions.
 - Typecheck, production build, production smoke, and theme audit passed. Theme auditing samples `/`, `/trainer`,
   `/analysis` and `/settings` in both modes; it is not an exhaustive accessibility certification.
 - Timing checks passed with both synthetic and the installed local pack. The local timing fixture uses **MNQ**,
