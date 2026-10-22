@@ -33,7 +33,7 @@ structure rather than at your comfort level.
 - **Optional real data** — fetch a local 5-minute pack from Yahoo Finance, switch sources in Settings, and train
   on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (706 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (726 keys each, parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -48,7 +48,7 @@ structure rather than at your comfort level.
 | i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
 | Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
 | Compute    | Rust → WebAssembly core for O(n) market, drill and analysis math, with a TypeScript fallback          |
-| Tests      | Vitest, 98 tests including Rust/TypeScript parity and analysis invariants                             |
+| Tests      | Vitest unit/component tests including Rust/TypeScript parity, data races and chart invariants         |
 | QA         | Playwright screenshot script                                                                          |
 
 ## Getting started
@@ -88,9 +88,15 @@ bun run measure:wasm   # real browser timings against a running server
 bun run check:wasm     # proves the core never blocks first paint and loads once
 ```
 
-Current artifact: **145 KiB raw / 55 KiB brotli**, compiled in ~0.4 ms; the analysis report renders in ~154 ms from
-a cold page load. The wasm never gates hydration — it warms on idle and the analysis route preloads it. See
-[`docs/perf/wasm.md`](docs/perf/wasm.md) for the full log.
+Current artifact: **150.3 KiB raw / 56.7 KiB brotli**. WASM never gates hydration: it warms on idle;
+only a direct, server-rendered analysis visit adds a preload. SPA navigation shares the loader's pending request.
+See [`docs/perf/wasm.md`](docs/perf/wasm.md) for the artifact history and
+[`docs/perf/response.md`](docs/perf/response.md) for production response budgets, raw before/after samples and limits.
+
+```bash
+bun run bench:compute --check  # 710-bar public wrappers, validation and cached windows
+bun run bench:ui --check       # production localhost:4173, synthetic + installed local pack
+```
 
 ## Routes
 
@@ -156,20 +162,21 @@ tests/unit/               domain and adapter tests
 
 ### Rust / WebAssembly compute core
 
-The expensive O(n) batch work runs in Rust, compiled to a 162 KiB wasm module:
+The batch work runs in Rust, compiled to a 150.3 KiB WASM module:
 
 | Work                                                                 | Why it is in Rust                                                |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Regime scenario generation (710 OHLCV bars + ATR/efficiency metrics) | Runs for every round, daily sample, PK rematch and lobby preview |
-| Fractal swing detection                                              | Re-runs on every plan keystroke and chart drag                   |
+| Fractal swing detection                                              | Cached for the visible prefix; reused across plan edits          |
 | Plan simulation (bracket fill, gaps, stop-first, MAE/MFE, R)         | 300-bar conservative walk for trainer reviews and drill grading  |
 | Chart analysis (indicators, structure, ICT, flow)                    | Recomputed on every visible-bar step in the analysis lab         |
 
 Both the Nuxt server and the browser load the **same** module: the server reads
-`public/wasm/prop_core.wasm` at boot, the client fetches it in a blocking plugin before hydration, so SSR and
-client scenarios are byte-identical. A typed JSON ABI (`app/domain/wasm/core.ts`) keeps the call surface small; a
-TypeScript reference implementation remains and is used automatically if the module cannot load. The active core
-is shown under Settings → Compute core.
+`public/wasm/prop_core.wasm` at boot, while the client warms it without blocking hydration. A typed JSON ABI
+(`app/domain/wasm/core.ts`) keeps the call surface small; irregular market tapes include explicit timestamps so
+session/weekend gaps survive analysis. Generation, swings and plan simulation have tested TypeScript fallbacks.
+The analysis lab requires WASM and shows an unavailable state if it cannot load. The active core is shown under
+Settings → Compute core.
 
 Stateful O(1) work (per-bar broker state, risk sizing, formatting), rendering and Vue orchestration stay in
 TypeScript — moving them across the boundary would add latency and lose reactivity without reducing real CPU work.
@@ -178,10 +185,10 @@ deep equality.
 
 ### Theming
 
-- **Both schemes are declared, never light-only.** `color-scheme: light dark` plus a matching meta tag stops
-  Chrome/Safari auto-dark from force-inverting the light theme into the muddy dark page that used to appear on
-  macOS. The resolved scheme is applied to `<html data-mode>`/`.dark` and mirrored in an inline `color-scheme`
-  style, so native scrollbars and controls follow the app.
+- **Both schemes are declared in light mode.** `color-scheme: light dark` plus a matching meta tag prevented
+  Chrome's forced-dark inversion in the tested browser. The app's palette follows `html.dark`; the inline
+  `color-scheme` is `dark` or `light dark`. In light mode, native controls can therefore follow the OS preference.
+  This is not a guarantee against arbitrary dark-mode extensions.
 - **One palette, two modes.** Surfaces, ink, clay and market colours are CSS custom properties; every component
   reads them, so nothing is hard-coded to a mode. The canvas chart reads the same tokens through
   `readChartTheme()` and repaints on theme change.
@@ -189,7 +196,8 @@ deep equality.
   CSS-driven, so server and client markup agree even when `theme: system` resolves after hydration.
 - **Contrast is tested.** `tests/unit/theme-contrast.spec.ts` asserts WCAG AA (4.5:1) for body text, muted text,
   rails and every filled accent (`--on-clay`, `--on-bull`, `--on-bear`, `--on-danger`) in both modes.
-  `bun run audit:theme` walks the real DOM in a browser and fails on any text node below AA.
+  `bun run audit:theme` samples visible DOM text on four routes in both modes and flags contrast failures;
+  it is not an exhaustive accessibility audit.
 
 ### Market data packs
 
@@ -200,15 +208,17 @@ trainer, drill and analysis; daily and PK remain generated for reproducibility.
 - The loader validates every column, rejects out-of-order or inconsistent OHLC bars, and falls back to simulated
   tape instead of plotting corruption.
 - A round draws a seeded `150 warm-up + 260 hidden + 300 reveal` window and shifts prices by a tick-aligned
-  constant so the absolute level cannot leak the era or contract.
-- Packs are local-only: nothing is uploaded, no runtime third-party request is made, and the repo never carries
-  vendor data. See [docs/data/market-data.md](docs/data/market-data.md) for the schema, provenance and limits.
+  constant to obscure absolute levels. Seed reproducibility requires the same pack and instrument universe.
+- Packs are gitignored and served from the app's origin, not fetched from Yahoo at runtime. A production build
+  copies installed packs from `public/` into its output, so remove them before any unauthorized deployment.
+  Blind mode hides information in the UI; the full tape is accessible in browser memory, not secured against inspection.
+  See [docs/data/market-data.md](docs/data/market-data.md) for the schema, provenance and limits.
 
 ### Performance notes
 
-- **Wasm is an accelerator, not a dependency.** The client plugin starts the load on idle and never awaits it;
-  the trainer and lobby run on the TypeScript fallback until the core lands. The analysis route awaits it and
-  shows a skeleton.
+- **Nonblocking WASM with scoped fallbacks.** The client plugin starts the load on idle without blocking hydration;
+  the trainer and lobby can run on TypeScript until the core lands. The analysis lab requires WASM, shows a
+  skeleton while loading, and reports an unavailable state if loading fails.
 - **One download, one compile.** `WebAssembly.compileStreaming` plus a module cache and an instance cache means a
   session fetches and compiles the artifact once, even across client-side navigation. SSR reuses one instance per
   process.
@@ -238,13 +248,13 @@ bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 706 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror the same 726 keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 
 ### Visual system
 
-Tokens are ported from the Claude Design System via `open-claude-ui`: clay `#c6613f`, surface steps, hairline
+Tokens are adapted from the Claude Design System via `open-claude-ui`: AA-adjusted clay, surface steps, hairline
 rings, dual-ring overlays, 7-stop non-linear scroll fades, and a spring easing set. The full design rationale and
 acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
@@ -261,7 +271,7 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Testing
 
-98 unit and component tests cover:
+The unit and component suites cover:
 
 - instrument economics and registry validation,
 - PRNG determinism and OHLC/tick invariants across all eight contracts,
@@ -271,16 +281,19 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 - daily seed determinism, reference plans and key parity-ready i18n bundles,
 - trade analytics, history repository round-trips, and settings schema fallbacks,
 - analysis report shape, profile/POC bounds, FVG/OB geometry and event ordering,
-- exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes.
+- exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes,
+- local pack cache generations, refresh races, negative-cache recovery and future-independent rebasing,
+- shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
+- pre-paint chart geometry, no-op redraws, reveal animation targets, option updates and reduced motion.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
 
 ## Limitations
 
 - No server, accounts, or cross-device sync. History and PK rooms are local.
-- The wasm core is optional at runtime: if it is blocked, the app falls back to TypeScript and shows the fallback
-  status in Settings.
-- Scenarios are synthetic; they are useful for process training, not for calibrating a real edge.
+- If WASM is blocked, generation and trading simulation fall back to TypeScript; the analysis lab is unavailable.
+  Settings shows the active compute status.
+- Scenarios are synthetic by default, or sampled from an optional local pack; neither proves a real trading edge.
 - One open position and one working order per account, intentionally, to keep the decision surface honest.
 - Reference plans are fixed strategy baselines; they are not a ranking of real traders.
 

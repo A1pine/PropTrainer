@@ -73,32 +73,36 @@ Column-oriented JSON, one file per instrument:
 - `300` reveal bars → context after the decision.
 
 That is `710` bars per sample, and a pack with exactly `710` bars is usable (the only
-valid window starts at 0). A 60-day 5m pack holds ~13.5k bars per instrument, so there
-are thousands of windows. Selection is seeded: `seed × dataset.symbol` picks the window,
-which is why replay links and seeded drills reproduce exactly. Manifest candidates are
-filtered for length and timeframe, then each loaded dataset is checked again. A short,
-corrupt, or mismatched candidate is skipped for the next seeded candidate; if none is
-usable, the round falls back to simulated tape instead of failing.
+valid window starts at 0). The fetched 60-day 5m pack holds ~13.5k bars per instrument,
+so there are thousands of windows. Selection is seeded: the same seed, instrument
+universe, pack contents and window policy produce the same slice. Refreshing a pack can
+change what a replay link selects; the seed alone does not identify the downloaded data.
+Manifest candidates are filtered for length and timeframe, then each loaded dataset is
+checked again. A short, corrupt, or mismatched candidate is skipped for the next seeded
+candidate; if none is usable, the round falls back to simulated tape instead of failing.
 
-Two safeguards keep the blind contract intact:
+Blind presentation uses two boundaries; it is not an anti-cheat security boundary:
 
 1. **Price rebasing.** The whole window is shifted by one tick-aligned constant so the
    first close sits near the instrument’s anchor level (for example ~19,450 for MNQ).
    The offset is chosen from the first candle and the visible warm-up only; it never
-   scans the hidden future. Point deltas, ranges, ATR and tick geometry are preserved.
+   scans the hidden future. For already tick-aligned prices, point deltas, ranges and
+   ATR are preserved; all input prices are rounded to the instrument’s tick grid.
    Percentage returns are **not** invariant under an additive shift, so metrics are
    computed after rebasing. If the hidden tape falls further than the visible warm-up,
    translated prices can go below zero. Those bars are not clipped, because clipping
    would distort the moves; choosing an offset from their minimum would reintroduce
-   look-ahead.
-2. **No look-ahead into the chart before the decision.** Only the warm-up slice is handed
-   to the chart while the round is open. When a round ends, `simulatePlan` walks the hidden
-   future to score what the submitted plan would have done; the chart and the grade are
-   revealed only afterwards. The analysis lab applies the same prefix rule: it analyzes
-   the visible slice, and the hidden future is never included before reveal.
+   look-ahead. Reveal shows the rebased chart, not restored absolute prices.
+2. **Visible-prefix rendering and analysis.** The full scenario is already in browser
+   memory and passed to the chart with a `visibleCount` limit, initially the warm-up
+   length. Rendering and plan validation use the visible prefix; the analysis lab sends
+   only its visible slice to WASM. At submission/review, simulation walks future bars to
+   score the plan. A user inspecting JavaScript state or downloaded JSON can see future
+   bars and provenance; this is a local practice tool, not a secure competition server.
 
-The regime label (`uptrend`, `downtrend`, `range`, `disorder`) is **derived** from the
-window’s efficiency ratio and net change. It describes what happened, not what will happen.
+The local regime label (`uptrend`, `downtrend`, `range`, `expansion`) is **derived** from
+the full window’s efficiency ratio and net change. It is a retrospective description,
+not a prediction; full-window metrics must not be used as pre-decision signals.
 
 ## Settings
 
@@ -130,15 +134,21 @@ origin are separate caches). Successful loads stay cached until an explicit refr
 
 ## Limitations
 
-- Yahoo returns a **continuous front-month** series. Roll days can contain a price gap
-  that is not tradable structure; treat those samples as noise.
-- 5-minute history is capped at roughly 60 days (1-minute at 7 days). There is no tick or
+- Yahoo's root futures symbols do not identify an immutable expiry-specific tape or a
+  documented roll-adjustment policy. Roll/session gaps are retained, not filtered.
+- The downloader requests 60 days of 5-minute history by default. Availability and
+  intraday retention limits are provider-controlled and can change. There is no tick or
   bid/ask data, so the order-flow panel remains an OHLCV proxy.
-- Timestamps are normalized to UTC; sessions are displayed in `America/New_York`.
+- Timestamps are integer Unix seconds. The chart axis and analysis sample date use UTC;
+  some history/review dates use the browser’s local timezone. There is no universal
+  `America/New_York` display policy.
 - Futures volume from Yahoo is indicative, not exchange-certified.
+- A fetched pack is served by the app. There is no service worker promising offline
+  availability after a reload, and successful in-memory caches have no size-based eviction.
 
-For longer history or certified CME data, use Dukascopy (index/commodity proxies) or
-Databento (GLB.3) and convert to this schema. Keep those files out of git as well.
+For longer history, Dukascopy offers index/commodity proxies, **not native CME futures**.
+An exchange-data vendor such as Databento requires its own access and licensing checks.
+Convert permitted data to this schema and keep vendor files out of git.
 
 ## Checks
 
