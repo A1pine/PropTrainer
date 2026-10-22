@@ -59,8 +59,15 @@ series and rounding the drawn ones to the instrument's price precision cut the r
 ## Column-oriented input
 
 `prop_analyze` used to accept `{ candles: [{ time, open, high, low, close, volume }, …] }`, repeating six keys per bar.
-It now accepts five numeric columns plus `startTime`, `step` and `precision`. For 710 bars the request drops from
+It now accepts five numeric columns plus `startTime`, `step` and `precision`. For 710 regular bars the request drops from
 **67.2 KiB to 22.4 KiB** (−67%); the module grows 3.6 KiB because it reconstructs the candle structs itself.
+
+The bridge verifies **every** timestamp against `startTime + index * step` before using this compact path.
+Irregular input (including session and weekend gaps) additionally sends a `time` column of actual Unix seconds,
+which takes precedence in Rust and must match the OHLCV column lengths. Events and session labels therefore use
+actual candle times, and analyzing a visible prefix serializes only that prefix. The JSON ABI remains unchanged
+apart from this optional column; no worker or binary transport is needed for sub-millisecond compute.
+The artifact budget test also recomputes the version key from the actual wasm bytes (SHA-256, first 16 hex digits).
 
 | Request shape | Bytes (710 bars) |
 | ------------- | ---------------- |

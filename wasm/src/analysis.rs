@@ -5,8 +5,8 @@
 use crate::{find_swings, round_to, Candle, SwingPoint};
 use serde::{Deserialize, Serialize};
 
-/// Column-oriented request: five numeric arrays instead of 710 objects with
-/// repeated keys. Roughly 60% fewer bytes on the wire for the same data.
+/// Column-oriented request: OHLCV arrays with compact regular timestamps or
+/// an explicit timestamp column for session/weekend gaps.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnalyzeRequest {
@@ -15,9 +15,11 @@ struct AnalyzeRequest {
     low: Vec<f64>,
     close: Vec<f64>,
     volume: Vec<f64>,
-    /// Timestamp of the first bar, in Unix seconds.
+    /// Actual Unix seconds for irregular input; takes precedence over start/step.
+    time: Option<Vec<i64>>,
+    /// Timestamp of the first regular bar, in Unix seconds.
     start_time: i64,
-    /// Seconds between bars.
+    /// Seconds between regular bars.
     step: i64,
     /// Price decimals for the instrument; keeps series JSON compact.
     #[serde(default = "default_precision")]
@@ -250,13 +252,20 @@ pub fn analyze_json(input: &[u8]) -> Result<Vec<u8>, String> {
         || request.high.len() != length
         || request.low.len() != length
         || request.volume.len() != length
+        || request
+            .time
+            .as_ref()
+            .is_some_and(|time| time.len() != length)
     {
         return Err("analysis columns must all have the same length".into());
     }
     let step = if request.step > 0 { request.step } else { 300 };
     let candles: Vec<Candle> = (0..length)
         .map(|index| Candle {
-            time: request.start_time + index as i64 * step,
+            time: request.time.as_ref().map_or_else(
+                || request.start_time + index as i64 * step,
+                |time| time[index],
+            ),
             open: request.open[index],
             high: request.high[index],
             low: request.low[index],
@@ -1295,5 +1304,96 @@ fn build_bias(
         score: round_to(score, 1),
         confidence: round_to(score.abs(), 1),
         reasons,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    fn candles(length: usize) -> Vec<Candle> {
+        (0..length)
+            .map(|index| Candle {
+                time: 18_000 + index as i64 * 300,
+                open: 100.0 + index as f64,
+                high: 101.0 + index as f64,
+                low: 99.0 + index as f64,
+                close: 100.0 + index as f64,
+                volume: 1000.0,
+            })
+            .collect()
+    }
+
+    fn request(candles: &[Candle]) -> Value {
+        json!({
+            "open": candles.iter().map(|c| c.open).collect::<Vec<_>>(),
+            "high": candles.iter().map(|c| c.high).collect::<Vec<_>>(),
+            "low": candles.iter().map(|c| c.low).collect::<Vec<_>>(),
+            "close": candles.iter().map(|c| c.close).collect::<Vec<_>>(),
+            "volume": candles.iter().map(|c| c.volume).collect::<Vec<_>>(),
+            "startTime": candles[0].time,
+            "step": 300,
+            "precision": 2,
+        })
+    }
+
+    fn report(request: &Value) -> Value {
+        let output = analyze_json(&serde_json::to_vec(request).unwrap()).unwrap();
+        serde_json::from_slice(&output).unwrap()
+    }
+
+    fn assert_event_times(report: &Value, candles: &[Candle]) {
+        let events = report["events"].as_array().unwrap();
+        assert!(!events.is_empty());
+        assert!(events.iter().any(|event| event["index"] == candles.len() - 1));
+        for event in events {
+            let index = event["index"].as_u64().unwrap() as usize;
+            assert!(index < candles.len());
+            assert_eq!(event["time"], candles[index].time);
+        }
+    }
+
+    #[test]
+    fn regular_timestamps_match_explicit_timestamps_and_direct_analysis() {
+        let candles = candles(48);
+        let mut request = request(&candles);
+        let compact = report(&request);
+        request["time"] = json!(candles.iter().map(|c| c.time).collect::<Vec<_>>());
+        assert_eq!(compact, report(&request));
+        assert_eq!(compact, serde_json::to_value(analyze(&candles, 2)).unwrap());
+        assert_event_times(&compact, &candles);
+        assert_eq!(compact["ict"]["session"], "london");
+        assert_eq!(compact["ict"]["killzone"], true);
+    }
+
+    #[test]
+    fn actual_timestamps_override_uniform_reconstruction_across_gaps() {
+        for (resume, session, killzone) in [(61_200, "late", false), (302_400, "newYork", true)] {
+            let mut candles = candles(48);
+            for (index, candle) in candles.iter_mut().enumerate().skip(40) {
+                candle.time = resume + (index - 40) as i64 * 300;
+            }
+            let mut request = request(&candles);
+            request["time"] = json!(candles.iter().map(|c| c.time).collect::<Vec<_>>());
+            let report = report(&request);
+            assert_eq!(report, serde_json::to_value(analyze(&candles, 2)).unwrap());
+            assert_event_times(&report, &candles);
+            assert_eq!(report["ict"]["session"], session);
+            assert_eq!(report["ict"]["killzone"], killzone);
+        }
+    }
+
+    #[test]
+    fn timestamp_column_must_match_ohlcv_length() {
+        let candles = candles(48);
+        for length in [0, 47, 49] {
+            let mut request = request(&candles);
+            request["time"] = json!(vec![18_000; length]);
+            assert_eq!(
+                analyze_json(&serde_json::to_vec(&request).unwrap()).unwrap_err(),
+                "analysis columns must all have the same length",
+            );
+        }
     }
 }

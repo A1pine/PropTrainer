@@ -111,8 +111,11 @@ export function createWasmCore(exports: WasmExports): WasmCore {
       })
     },
     analyze(candles, precision = 2) {
-      // Column-oriented payload: five arrays instead of N objects with keys.
+      // Keep regular timestamps compact, but preserve session/weekend gaps.
       const length = candles.length
+      const startTime = candles[0]?.time ?? 0
+      const step = length > 1 ? candles[1]!.time - startTime : 300
+      let regular = Number.isSafeInteger(startTime) && Number.isSafeInteger(step) && step > 0
       const open = new Array<number>(length)
       const high = new Array<number>(length)
       const low = new Array<number>(length)
@@ -125,9 +128,8 @@ export function createWasmCore(exports: WasmExports): WasmCore {
         low[index] = candle.low
         close[index] = candle.close
         volume[index] = candle.volume
+        regular &&= candle.time === startTime + index * step
       }
-      const startTime = candles[0]?.time ?? 0
-      const step = length > 1 ? (candles[1]?.time ?? 0) - startTime : 300
       return call<AnalysisReport>(exports.prop_analyze, {
         open,
         high,
@@ -136,6 +138,7 @@ export function createWasmCore(exports: WasmExports): WasmCore {
         volume,
         startTime,
         step,
+        time: regular ? undefined : candles.map((candle) => candle.time),
         precision,
       })
     },

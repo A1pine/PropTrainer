@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
@@ -7,7 +8,6 @@ import { createWasmCoreFromInstance } from '@/domain/wasm/core'
 
 const root = resolve(process.cwd())
 const artifact = readFileSync(resolve(root, 'public/wasm/prop_core.wasm'))
-const generated = readFileSync(resolve(root, 'app/wasm/artifact.ts'), 'utf8')
 
 const KIB = 1024
 /** Transfer budgets. Raise deliberately, never silently. */
@@ -51,8 +51,7 @@ describe('wasm artifact budget', () => {
   it('keeps the committed version hash in sync with the artifact', () => {
     // The hash is a cache-busting key, so a stale value would serve an old
     // module after a rebuild. It is a short content hash, not the full digest.
-    expect(generated).toContain(`wasmArtifactVersion = '${wasmArtifactVersion}'`)
-    expect(wasmArtifactVersion).toMatch(/^[0-9a-f]{16}$/)
-    expect(generated).not.toMatch(/wasmArtifactVersion = ''/)
+    const contentHash = createHash('sha256').update(artifact).digest('hex').slice(0, 16)
+    expect(wasmArtifactVersion).toBe(contentHash)
   })
 })

@@ -81,8 +81,9 @@ describe('analysis core', () => {
     // The bridge serializes columns; the report must still carry a full series.
     expect(report.indicators.ema20).toHaveLength(candles.length)
     expect(report.indicators.ema20.filter((value) => value != null).length).toBeGreaterThan(candles.length / 2)
-    // Timestamps are reconstructed from startTime + step.
-    expect(report.events[0]!.time).toBeGreaterThan(candles[0]!.time)
+    for (const event of report.events) {
+      expect(event.time).toBe(candles[event.index]!.time)
+    }
   })
 
   it('returns null when there is not enough history', () => {
