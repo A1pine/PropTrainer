@@ -28,6 +28,21 @@ const chart = ref<{
 } | null>(null)
 
 const instrument = computed(() => drill.instrument)
+const {
+  enabled: analysisEnabled,
+  frameworks: analysisFrameworks,
+  layers: analysisLayers,
+  report: analysisReport,
+  overlay: analysisOverlay,
+  status: analysisStatus,
+  count: analysisCount,
+  retry: retryAnalysis,
+} = useExamAnalysis({
+  candles: () => drill.candles,
+  visibleCount: () => drill.visibleCount,
+  precision: () => instrument.value?.pricePrecision ?? 2,
+  active: () => drill.scenario != null,
+})
 const overlays = computed(() => ({
   entry: drill.plan.entry,
   stop: drill.plan.stop,
@@ -242,6 +257,15 @@ onBeforeUnmount(() => {
             {{ t('chart.fit') }}
           </button>
           <div class="ml-auto flex items-center gap-2">
+            <ExamAnalysisControls
+              v-model:enabled="analysisEnabled"
+              v-model:frameworks="analysisFrameworks"
+              v-model:layers="analysisLayers"
+              :report="analysisReport"
+              :status="analysisStatus"
+              :count="analysisCount"
+              @retry="retryAnalysis"
+            />
             <Badge :variant="isRevealed ? 'bull' : 'clay'" size="sm" dot>{{
               isRevealed ? t('chart.revealed') : t('chart.blind')
             }}</Badge>
@@ -250,6 +274,7 @@ onBeforeUnmount(() => {
 
         <ChartCanvas
           ref="chart"
+          :analysis="analysisOverlay"
           :candles="drill.candles"
           :visible-count="drill.visibleCount"
           :drawings="drill.drawings"

@@ -776,6 +776,16 @@
         "b3": "Waiting at least three bars before acting earns discipline points.",
         "note": "process 100\noutcome R\nA good process with a bad outcome\nis still a good rep.",
         "b4": "After submission, actual entry and exit fills are marked on the chart. Times are candle timestamps, shown in UTC."
+      },
+      "examTA": {
+        "title": "Chart helpers, if you want them.",
+        "body": "The exam chart can overlay technical analysis while you read. Open the TA control in the chart toolbar; helpers are off until you turn them on.",
+        "body2": "Every helper is computed from the candles already visible. The replay never feeds future bars into the analysis, so the overlay cannot see the answer.",
+        "b1": "PA marks market structure, BOS/CHoCH, and support/resistance.",
+        "b2": "ICT adds fair value gaps, order blocks, liquidity levels, and sweeps.",
+        "b3": "Flow and indicators add volume profile, EMA, VWAP, and Bollinger bands.",
+        "b4": "Defaults are off. If WASM is unavailable, reading and scoring still work; scores never depend on the overlay.",
+        "note": "Study aids, not an answer key. ICT rules are heuristic and flow is an OHLCV proxy; there is no bid/ask or footprint data."
       }
     },
     "keys": {
@@ -810,7 +820,35 @@
   "analysis": {
     "kicker": "Analysis lab",
     "title": "Read the tape with structure.",
-    "subtitle": "Price action, ICT concepts and an OHLCV order-flow proxy on one chart. Computed in Rust, labelled honestly, and kept separate from the blind trainer.",
+    "subtitle": "Price action, ICT concepts and an OHLCV order-flow proxy on one chart. Computed in Rust; optional visible-bar helpers are also available on exam charts.",
+    "exam": {
+      "title": "Technical analysis",
+      "settings": "Analysis settings",
+      "toggle": "Enable technical analysis",
+      "on": "On",
+      "off": "Off",
+      "visibleOnly": "Current visible candles only",
+      "frameworks": "Analysis frameworks",
+      "layers": "Chart layers",
+      "levels": "Levels & liquidity",
+      "groups": {
+        "pa": "Price action",
+        "ict": "ICT",
+        "flow": "Flow proxy",
+        "indicators": "Indicators"
+      },
+      "ready": "{count} visible bars",
+      "loading": "Loading the analysis core… You can keep answering.",
+      "empty": "Select a framework to show its analysis.",
+      "insufficient": "At least 30 visible candles are needed.",
+      "unavailable": "Analysis is unavailable. You can still answer normally.",
+      "retry": "Retry",
+      "disclaimer": "Study aids, not an answer key. ICT is heuristic; flow is an OHLCV proxy, not bid/ask data. Scores are unchanged.",
+      "loadingShort": "Loading…",
+      "emptyShort": "No framework on",
+      "insufficientShort": "Need 30+ bars",
+      "unavailableShort": "Unavailable"
+    },
     "sampleHidden": "Sample hidden",
     "reveal": "Reveal",
     "newSample": "New sample",

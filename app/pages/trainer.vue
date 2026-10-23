@@ -40,6 +40,21 @@ let celebrationTimer: ReturnType<typeof setTimeout> | null = null
 
 const instrument = computed(() => trainer.instrument)
 const account = computed(() => trainer.account)
+const {
+  enabled: analysisEnabled,
+  frameworks: analysisFrameworks,
+  layers: analysisLayers,
+  report: analysisReport,
+  overlay: analysisOverlay,
+  status: analysisStatus,
+  count: analysisCount,
+  retry: retryAnalysis,
+} = useExamAnalysis({
+  candles: () => trainer.candles,
+  visibleCount: () => trainer.visibleCount,
+  precision: () => instrument.value?.pricePrecision ?? 2,
+  active: () => trainer.scenario != null && trainer.phase !== 'loading',
+})
 const isLastRound = computed(() => trainer.roundIndex >= trainer.totalRounds)
 
 const phaseLabel = computed(() => t(`phase.${trainer.phase}`))
@@ -387,6 +402,15 @@ onBeforeUnmount(() => {
           </button>
 
           <div class="ml-auto flex items-center gap-1.5">
+            <ExamAnalysisControls
+              v-model:enabled="analysisEnabled"
+              v-model:frameworks="analysisFrameworks"
+              v-model:layers="analysisLayers"
+              :report="analysisReport"
+              :status="analysisStatus"
+              :count="analysisCount"
+              @retry="retryAnalysis"
+            />
             <Badge :variant="trainer.revealed ? 'bull' : 'clay'" size="sm" dot>
               {{ trainer.revealed ? t('chart.revealed') : t('chart.blind') }}
             </Badge>
@@ -398,6 +422,7 @@ onBeforeUnmount(() => {
 
         <ChartCanvas
           ref="chart"
+          :analysis="analysisOverlay"
           :candles="trainer.candles"
           :visible-count="trainer.visibleCount"
           :drawings="trainer.drawings"

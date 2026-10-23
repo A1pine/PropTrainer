@@ -65,6 +65,21 @@ const sections = computed(() => [
     note: t('guide.sections.grading.note'),
     noteLabel: t('guide.formula'),
   },
+  {
+    id: 'exam-analysis',
+    n: '06',
+    title: t('guide.sections.examTA.title'),
+    body: t('guide.sections.examTA.body'),
+    body2: t('guide.sections.examTA.body2'),
+    bullets: [
+      t('guide.sections.examTA.b1'),
+      t('guide.sections.examTA.b2'),
+      t('guide.sections.examTA.b3'),
+      t('guide.sections.examTA.b4'),
+    ],
+    note: t('guide.sections.examTA.note'),
+    noteLabel: t('guide.fieldNote'),
+  },
 ])
 
 const shortcuts = computed(() => [
