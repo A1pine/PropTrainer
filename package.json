@@ -27,7 +27,8 @@
     "audit:theme": "bun scripts/audit-theme.mjs",
     "data:fetch": "node scripts/fetch-yahoo.mjs",
     "bench:ui": "node scripts/bench-ui.mjs",
-    "bench:compute": "bun scripts/bench-compute.ts"
+    "bench:compute": "bun scripts/bench-compute.ts",
+    "check:analysis": "bun scripts/check-analysis.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",
