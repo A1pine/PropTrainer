@@ -3,7 +3,14 @@ import { usePreferredReducedMotion } from '@vueuse/core'
 import type { Candle } from '~/domain/market/types'
 import { ChartEngine } from '~/lib/chart/engine'
 import { readChartTheme } from '~/lib/chart/theme'
-import type { ChartAnalysis, ChartDrawing, ChartOverlayLevels, ChartTool, CrosshairPayload } from '~/lib/chart/types'
+import type {
+  ChartAnalysis,
+  ChartDrawing,
+  ChartExecution,
+  ChartOverlayLevels,
+  ChartTool,
+  CrosshairPayload,
+} from '~/lib/chart/types'
 
 const props = withDefaults(
   defineProps<{
@@ -11,6 +18,7 @@ const props = withDefaults(
     visibleCount: number
     overlays?: ChartOverlayLevels
     drawings?: ChartDrawing[]
+    executions?: readonly ChartExecution[]
     analysis?: ChartAnalysis | null
     tool?: ChartTool
     blind?: boolean
@@ -18,12 +26,14 @@ const props = withDefaults(
     pricePrecision?: number
     tickSize?: number
     overlayDraggable?: boolean
+    showOverlayLabels?: boolean
     symbolMask?: string
     label?: string
   }>(),
   {
     overlays: () => ({ entry: null, stop: null, target: null }),
     drawings: () => [],
+    executions: () => [],
     analysis: null,
     tool: 'cursor',
     blind: true,
@@ -31,6 +41,7 @@ const props = withDefaults(
     pricePrecision: 2,
     tickSize: 0.25,
     overlayDraggable: false,
+    showOverlayLabels: true,
     symbolMask: 'M???',
     label: 'Price chart',
   },
@@ -83,12 +94,14 @@ function init() {
       pricePrecision: props.pricePrecision,
       tickSize: props.tickSize,
       overlayDraggable: props.overlayDraggable,
+      showOverlayLabels: props.showOverlayLabels,
       reducedMotion: reducedMotion.value,
     },
   )
   chart.setCandles(props.candles, props.visibleCount)
   chart.setOverlays(props.overlays)
   chart.setDrawings(props.drawings)
+  chart.setExecutions(props.executions)
   chart.setAnalysis(props.analysis)
   chart.setTool(props.tool)
   chart.fit()
@@ -137,6 +150,13 @@ watch(
   { deep: true },
 )
 
+// Filled executions arrive as immutable arrays rebuilt after a reveal. A shallow
+// watch avoids walking every trade on each playback tick.
+watch(
+  () => props.executions,
+  (executions) => engine.value?.setExecutions(executions),
+)
+
 watch(
   () => props.tool,
   (tool) => engine.value?.setTool(tool),
@@ -161,9 +181,9 @@ watch(
 )
 
 watch(
-  () => [props.overlayDraggable, props.timeframeMinutes, reducedMotion.value] as const,
-  ([overlayDraggable, timeframeMinutes, reducedMotion]) =>
-    engine.value?.setOptions({ overlayDraggable, timeframeMinutes, reducedMotion }),
+  () => [props.overlayDraggable, props.timeframeMinutes, props.showOverlayLabels, reducedMotion.value] as const,
+  ([overlayDraggable, timeframeMinutes, showOverlayLabels, reducedMotion]) =>
+    engine.value?.setOptions({ overlayDraggable, timeframeMinutes, showOverlayLabels, reducedMotion }),
 )
 
 watch(
@@ -179,6 +199,7 @@ defineExpose({
   zoom: (factor: number) => engine.value?.zoom(factor),
   scrollToLatest: () => engine.value?.scrollToLatest(),
   focusOn: (index: number, span?: number) => engine.value?.focusOn(index, span),
+  focusRange: (from: number, to: number) => engine.value?.focusRange(from, to),
 })
 </script>
 

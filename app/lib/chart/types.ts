@@ -21,6 +21,18 @@ export interface ChartDrawing {
   points: DrawingPoint[]
 }
 
+/** A filled round trip revealed on the review chart. Bars are absolute candle indexes. */
+export interface ChartExecution {
+  id: string
+  side: 'long' | 'short'
+  entryBar: number
+  entryPrice: number
+  exitBar: number
+  exitPrice: number
+  entryLabel: string
+  exitLabel: string
+}
+
 export interface ChartTheme {
   surface: string
   grid: string
@@ -62,6 +74,8 @@ export interface ChartOptions {
   showVolume?: boolean
   showWatermark?: boolean
   overlayDraggable?: boolean
+  /** Hide the right-edge ENTRY/STOP/TARGET tags while keeping their lines. */
+  showOverlayLabels?: boolean
   reducedMotion?: boolean
   pricePrecision?: number
   tickSize?: number

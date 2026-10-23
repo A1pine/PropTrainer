@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowR
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ChartCanvas from '@/components/chart/ChartCanvas.vue'
 import type { Candle } from '@/domain/market/types'
+import type { ChartExecution } from '@/lib/chart/types'
 
 const { chart, construct } = vi.hoisted(() => ({
   chart: {
@@ -11,6 +12,7 @@ const { chart, construct } = vi.hoisted(() => ({
     setVisibleCount: vi.fn(),
     setOverlays: vi.fn(),
     setDrawings: vi.fn(),
+    setExecutions: vi.fn(),
     setAnalysis: vi.fn(),
     setTool: vi.fn(),
     setBlind: vi.fn(),
@@ -21,6 +23,7 @@ const { chart, construct } = vi.hoisted(() => ({
     zoom: vi.fn(),
     scrollToLatest: vi.fn(),
     focusOn: vi.fn(),
+    focusRange: vi.fn(),
     destroy: vi.fn(),
   },
   construct: vi.fn(),
@@ -96,6 +99,7 @@ describe('ChartCanvas option wiring', () => {
       pricePrecision: 3,
       tickSize: 0.01,
       overlayDraggable: false,
+      showOverlayLabels: true,
       timeframeMinutes: 5,
       reducedMotion: false,
     })
@@ -103,18 +107,28 @@ describe('ChartCanvas option wiring', () => {
     expect(chart.setOptions).toHaveBeenLastCalledWith({
       overlayDraggable: true,
       timeframeMinutes: 5,
+      showOverlayLabels: true,
       reducedMotion: false,
     })
     await wrapper.setProps({ timeframeMinutes: 15 })
     expect(chart.setOptions).toHaveBeenLastCalledWith({
       overlayDraggable: true,
       timeframeMinutes: 15,
+      showOverlayLabels: true,
       reducedMotion: false,
     })
     await wrapper.setProps({ overlayDraggable: false, pricePrecision: 1, tickSize: 0.1 })
     expect(chart.setOptions).toHaveBeenLastCalledWith({
       overlayDraggable: false,
       timeframeMinutes: 15,
+      showOverlayLabels: true,
+      reducedMotion: false,
+    })
+    await wrapper.setProps({ showOverlayLabels: false })
+    expect(chart.setOptions).toHaveBeenLastCalledWith({
+      overlayDraggable: false,
+      timeframeMinutes: 15,
+      showOverlayLabels: false,
       reducedMotion: false,
     })
     expect(chart.setPrecision).toHaveBeenLastCalledWith(1, 0.1)
@@ -156,5 +170,50 @@ describe('ChartCanvas option wiring', () => {
     settings.settings.reduceMotion = true
     await setSystemReducedMotion(true)
     expect(chart.setOptions).not.toHaveBeenCalled()
+  })
+})
+
+const execution = (overrides: Partial<ChartExecution> = {}): ChartExecution => ({
+  id: 'trade-1',
+  side: 'long',
+  entryBar: 10,
+  entryPrice: 100.25,
+  exitBar: 20,
+  exitPrice: 105.5,
+  entryLabel: 'Entry',
+  exitLabel: 'Exit',
+  ...overrides,
+})
+
+describe('ChartCanvas execution wiring', () => {
+  it('forwards mount, replacement and clear without deep-watching identical arrays', async () => {
+    const first = [execution()]
+    const wrapper = createChart({ executions: first })
+    expect(chart.setExecutions).toHaveBeenCalledTimes(1)
+    expect(chart.setExecutions).toHaveBeenCalledWith(first)
+
+    chart.setExecutions.mockClear()
+    await wrapper.setProps({ executions: first })
+    expect(chart.setExecutions).not.toHaveBeenCalled()
+
+    const second = [execution({ id: 'trade-2' })]
+    await wrapper.setProps({ executions: second })
+    expect(chart.setExecutions).toHaveBeenCalledTimes(1)
+    expect(chart.setExecutions).toHaveBeenCalledWith(second)
+
+    await wrapper.setProps({ executions: [] })
+    expect(chart.setExecutions).toHaveBeenCalledTimes(2)
+    expect(chart.setExecutions).toHaveBeenLastCalledWith([])
+  })
+
+  it('supplies an empty execution array by default', () => {
+    createChart()
+    expect(chart.setExecutions).toHaveBeenCalledWith([])
+  })
+
+  it('exposes focusRange to the page', () => {
+    const wrapper = createChart()
+    ;(wrapper.vm as unknown as { focusRange: (from: number, to: number) => void }).focusRange(12, 48)
+    expect(chart.focusRange).toHaveBeenCalledWith(12, 48)
   })
 })

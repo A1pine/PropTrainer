@@ -22,6 +22,7 @@ import type {
   DrawingType,
   CrosshairPayload,
   ChartAnalysis,
+  ChartExecution,
   ChartTone,
   AnalysisSeries,
 } from './types'
@@ -30,12 +31,27 @@ const AXIS_WIDTH = 64
 const TIME_AXIS = 22
 const PAD_TOP = 12
 const PAD_LEFT = 8
+const EXECUTION_LABEL_GAP = 12
+const EXECUTION_LABEL_HEIGHT = 15
+const EXECUTION_MARKER_RADIUS = 5.5
 
 type DragState =
   | { kind: 'none' }
   | { kind: 'pan'; startX: number; startEnd: number }
   | { kind: 'overlay'; level: keyof ChartOverlayLevels }
   | { kind: 'draw'; anchor: DrawingPoint }
+
+function isValidExecution(execution: ChartExecution): boolean {
+  return (
+    (execution.side === 'long' || execution.side === 'short') &&
+    Number.isInteger(execution.entryBar) &&
+    execution.entryBar >= 0 &&
+    Number.isInteger(execution.exitBar) &&
+    execution.exitBar >= 0 &&
+    Number.isFinite(execution.entryPrice) &&
+    Number.isFinite(execution.exitPrice)
+  )
+}
 
 export class ChartEngine {
   private canvas: HTMLCanvasElement
@@ -47,6 +63,8 @@ export class ChartEngine {
   private viewport: Viewport = { end: 0, span: 72 }
   private follow = true
   private overlays: ChartOverlayLevels = { entry: null, stop: null, target: null }
+  private executions: readonly ChartExecution[] = []
+  private validExecutions: readonly ChartExecution[] = []
   private drawings: ChartDrawing[] = []
   private draft: ChartDrawing | null = null
   private draftPoint: DrawingPoint | null = null
@@ -86,6 +104,7 @@ export class ChartEngine {
       showVolume: options.showVolume ?? true,
       showWatermark: options.showWatermark ?? true,
       overlayDraggable: options.overlayDraggable ?? false,
+      showOverlayLabels: options.showOverlayLabels ?? true,
       reducedMotion: options.reducedMotion ?? false,
       pricePrecision: options.pricePrecision ?? 2,
       tickSize: options.tickSize ?? 0.25,
@@ -130,7 +149,9 @@ export class ChartEngine {
   }
 
   setBlind(blind: boolean) {
+    if (blind === this.opts.blind) return
     this.opts.blind = blind
+    this.invalidateLayout()
     this.requestRender()
   }
 
@@ -158,6 +179,14 @@ export class ChartEngine {
 
   setDrawings(drawings: ChartDrawing[]) {
     this.drawings = drawings
+    this.invalidateLayout()
+    this.requestRender()
+  }
+
+  setExecutions(executions: readonly ChartExecution[]) {
+    if (executions === this.executions) return
+    this.executions = executions
+    this.validExecutions = executions.filter(isValidExecution)
     this.invalidateLayout()
     this.requestRender()
   }
@@ -223,6 +252,25 @@ export class ChartEngine {
     const nextSpan = Math.max(28, Math.min(this.visibleCount || span, span))
     this.viewport = clampViewport({ end: index + nextSpan * 0.3, span: nextSpan }, Math.max(2, this.visibleCount))
     this.viewport.end = Math.min(this.viewport.end, Math.max(0, this.visibleCount - 1))
+    this.emitViewport()
+    this.requestRender()
+  }
+
+  /** Frame a revealed bar range (e.g. entry to exit) with padding. */
+  focusRange(from: number, to: number) {
+    if (this.visibleCount <= 0) return
+    const last = this.visibleCount - 1
+    const clampBar = (value: number, fallback: number) =>
+      Number.isFinite(value) ? Math.max(0, Math.min(last, Math.round(value))) : fallback
+    let first = clampBar(from, 0)
+    let final = clampBar(to, last)
+    if (final < first) [first, final] = [final, first]
+    const bars = final - first + 1
+    const padding = Math.max(6, Math.ceil(bars * 0.15))
+    const span = Math.min(Math.max(72, bars + padding * 2), this.visibleCount)
+    const center = (first + final) / 2
+    this.follow = false
+    this.viewport = clampViewport({ end: center + span / 2 - 0.5, span }, Math.max(2, this.visibleCount))
     this.emitViewport()
     this.requestRender()
   }
@@ -317,6 +365,19 @@ export class ChartEngine {
         max = Math.max(max, point.price)
       }
     }
+    if (!this.opts.blind) {
+      for (const execution of this.validExecutions) {
+        if (execution.entryBar >= this.candles.length || execution.exitBar >= this.candles.length) continue
+        if (this.markerOnScreen(execution.entryBar, geo, price)) {
+          min = Math.min(min, execution.entryPrice)
+          max = Math.max(max, execution.entryPrice)
+        }
+        if (this.markerOnScreen(execution.exitBar, geo, price)) {
+          min = Math.min(min, execution.exitPrice)
+          max = Math.max(max, execution.exitPrice)
+        }
+      }
+    }
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
       min = 0
       max = 1
@@ -326,6 +387,12 @@ export class ChartEngine {
       max += 1
     }
     return { price, volume, plot, geo, scale: createPriceScale(min, max, price) }
+  }
+
+  private markerOnScreen(bar: number, geo: ReturnType<typeof createIndexGeometry>, area: Rect): boolean {
+    if (bar < 0 || bar >= this.visibleCount) return false
+    const x = geo.x(bar)
+    return x >= area.left && x <= area.right
   }
 
   render() {
@@ -354,6 +421,7 @@ export class ChartEngine {
     this.drawOverlays(plot, scale)
     this.drawDrawings(plot, geo, scale)
     if (this.analysis) this.drawAnalysisSeries(plot, geo, scale)
+    this.drawExecutions(price, geo, scale)
     if (this.opts.blind && this.opts.showWatermark) this.drawWatermark(price)
     ctx.restore()
 
@@ -528,18 +596,22 @@ export class ChartEngine {
       ctx.stroke()
       ctx.restore()
 
-      const label = this.opts.blind ? `${row.label} · ${'•••'}` : `${row.label} ${this.formatPrice(row.price)}`
-      ctx.font = `10px ${this.theme.fontMono}`
-      const width = ctx.measureText(label).width + 10
-      const tagX = plot.right - width - 2
-      ctx.fillStyle = row.color
-      ctx.globalAlpha = 0.12
-      ctx.fillRect(tagX, y - 8, width, 16)
-      ctx.globalAlpha = 1
-      ctx.fillStyle = row.color
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(label, tagX + 5, y)
+      // On the review chart the fill labels take priority; the plan lines stay
+      // but their tags would sit underneath the fill callouts on narrow widths.
+      if (this.opts.showOverlayLabels) {
+        const label = this.opts.blind ? `${row.label} · ${'•••'}` : `${row.label} ${this.formatPrice(row.price)}`
+        ctx.font = `10px ${this.theme.fontMono}`
+        const width = ctx.measureText(label).width + 10
+        const tagX = plot.right - width - 2
+        ctx.fillStyle = row.color
+        ctx.globalAlpha = 0.12
+        ctx.fillRect(tagX, y - 8, width, 16)
+        ctx.globalAlpha = 1
+        ctx.fillStyle = row.color
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(label, tagX + 5, y)
+      }
 
       if (this.opts.overlayDraggable) {
         ctx.beginPath()
@@ -633,6 +705,138 @@ export class ChartEngine {
     ctx.beginPath()
     ctx.arc(x, y, 2.6, 0, Math.PI * 2)
     ctx.fill()
+    ctx.restore()
+  }
+
+  private drawExecutions(
+    area: Rect,
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+  ) {
+    if (this.opts.blind || !this.validExecutions.length) return
+    const ctx = this.ctx
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(area.left, area.top, area.width, area.height)
+    ctx.clip()
+    for (const execution of this.validExecutions) {
+      if (execution.entryBar >= this.candles.length || execution.exitBar >= this.candles.length) continue
+      const entryVisible = this.markerOnScreen(execution.entryBar, geo, area)
+      const exitVisible = this.markerOnScreen(execution.exitBar, geo, area)
+      if (!entryVisible && !exitVisible) continue
+      const entryX = geo.x(execution.entryBar)
+      const entryY = scale.y(execution.entryPrice)
+      const exitX = geo.x(execution.exitBar)
+      const exitY = scale.y(execution.exitPrice)
+      if (entryVisible && exitVisible) this.drawExecutionConnector(entryX, entryY, exitX, exitY)
+      if (entryVisible) {
+        const color = execution.side === 'long' ? this.theme.bull : this.theme.bear
+        this.drawExecutionLabel(area, entryX, entryY, execution.entryLabel, execution.entryPrice, color, false)
+        this.drawExecutionEntry(entryX, entryY, execution.side)
+      }
+      if (exitVisible) {
+        this.drawExecutionLabel(area, exitX, exitY, execution.exitLabel, execution.exitPrice, this.theme.clay, true)
+        this.drawExecutionExit(exitX, exitY)
+      }
+    }
+    ctx.restore()
+  }
+
+  private drawExecutionConnector(x1: number, y1: number, x2: number, y2: number) {
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = this.theme.clay
+    ctx.globalAlpha = 0.55
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+  }
+
+  private drawExecutionEntry(x: number, y: number, side: 'long' | 'short') {
+    const ctx = this.ctx
+    const radius = EXECUTION_MARKER_RADIUS
+    const halfBase = radius * Math.cos(Math.PI / 6)
+    const baseOffset = radius * Math.sin(Math.PI / 6)
+    const long = side === 'long'
+    ctx.save()
+    ctx.fillStyle = long ? this.theme.bull : this.theme.bear
+    ctx.beginPath()
+    ctx.moveTo(x, long ? y - radius : y + radius)
+    ctx.lineTo(x - halfBase, long ? y + baseOffset : y - baseOffset)
+    ctx.lineTo(x + halfBase, long ? y + baseOffset : y - baseOffset)
+    ctx.closePath()
+    ctx.fill()
+    // Keyline against the surface keeps the fill marker visible on a dense tape.
+    ctx.strokeStyle = this.theme.surface
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  private drawExecutionExit(x: number, y: number) {
+    const ctx = this.ctx
+    const radius = EXECUTION_MARKER_RADIUS - 1.5
+    ctx.save()
+    ctx.fillStyle = this.theme.clay
+    ctx.beginPath()
+    ctx.moveTo(x, y - radius)
+    ctx.lineTo(x + radius, y)
+    ctx.lineTo(x, y + radius)
+    ctx.lineTo(x - radius, y)
+    ctx.closePath()
+    ctx.fill()
+    ctx.strokeStyle = this.theme.surface
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  private drawExecutionLabel(
+    area: Rect,
+    x: number,
+    y: number,
+    label: string,
+    price: number,
+    color: string,
+    above: boolean,
+  ) {
+    const ctx = this.ctx
+    const text = label ? `${label} ${this.formatPrice(price)}` : this.formatPrice(price)
+    ctx.font = `10px ${this.theme.fontMono}`
+    const width = Math.ceil(ctx.measureText(text).width) + 10
+    if (width > area.width - 2) return
+    const boxY = above ? y - EXECUTION_LABEL_GAP - EXECUTION_LABEL_HEIGHT : y + EXECUTION_LABEL_GAP
+    if (boxY < area.top || boxY + EXECUTION_LABEL_HEIGHT > area.bottom) return
+    const boxX = Math.max(area.left, Math.min(area.right - width, x - width / 2))
+    const leaderX = Math.max(boxX + 3, Math.min(boxX + width - 3, x))
+    const leaderY = above ? boxY + EXECUTION_LABEL_HEIGHT : boxY
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(leaderX, leaderY)
+    ctx.stroke()
+    // Near-opaque plate: candles and zone shading otherwise bleed through and
+    // make the 10px fill label unreadable over a busy tape.
+    ctx.globalAlpha = 0.98
+    ctx.fillStyle = this.theme.surface
+    ctx.fillRect(boxX, boxY, width, EXECUTION_LABEL_HEIGHT)
+    ctx.globalAlpha = 0.45
+    ctx.strokeStyle = color
+    ctx.strokeRect(Math.round(boxX) + 0.5, Math.round(boxY) + 0.5, width - 1, EXECUTION_LABEL_HEIGHT - 1)
+    ctx.globalAlpha = 1
+    ctx.fillStyle = color
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(text, boxX + 5, boxY + EXECUTION_LABEL_HEIGHT / 2)
     ctx.restore()
   }
 

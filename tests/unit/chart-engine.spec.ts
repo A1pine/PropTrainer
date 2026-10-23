@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Candle } from '@/domain/market/types'
 import { ChartEngine } from '@/lib/chart/engine'
 import { clampPriceToTick, clampViewport, createIndexGeometry, createPriceScale, rect } from '@/lib/chart/geometry'
-import type { ChartCallbacks, ChartOptions, ChartTheme } from '@/lib/chart/types'
+import type { ChartCallbacks, ChartExecution, ChartOptions, ChartTheme } from '@/lib/chart/types'
 
 const theme: ChartTheme = {
   surface: 'surface',
@@ -36,6 +36,19 @@ const candles = (count = 200): Candle[] =>
   }))
 
 type Fill = { x: number; y: number; width: number; height: number; color: string; alpha: number }
+type Shape = { points: { x: number; y: number }[]; color: string; alpha: number }
+type Stroke = Shape & { dash: number[] }
+const execution = (overrides: Partial<ChartExecution> = {}): ChartExecution => ({
+  id: 'trade-1',
+  side: 'long',
+  entryBar: 40,
+  entryPrice: 100.25,
+  exitBar: 60,
+  exitPrice: 105.5,
+  entryLabel: 'Entry',
+  exitLabel: 'Exit',
+  ...overrides,
+})
 let now = 0
 let nextFrame = 0
 let frames: Map<number, FrameRequestCallback>
@@ -76,26 +89,45 @@ function paint(time = now) {
 
 function setup(options: ChartOptions = {}, callbacks: ChartCallbacks = {}) {
   const fills: Fill[] = []
+  const shapes: Shape[] = []
+  const strokes: Stroke[] = []
+  let path: { x: number; y: number }[] = []
+  let dash: number[] = []
   const ctx = {
     fillStyle: '',
+    strokeStyle: '',
     globalAlpha: 1,
     setTransform: vi.fn(),
     clearRect: vi.fn(() => {
       fills.length = 0
+      shapes.length = 0
+      strokes.length = 0
     }),
     save: vi.fn(),
     restore: vi.fn(),
-    beginPath: vi.fn(),
+    beginPath: vi.fn(() => {
+      path = []
+    }),
     closePath: vi.fn(),
     rect: vi.fn(),
     clip: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    setLineDash: vi.fn(),
+    moveTo: vi.fn((x: number, y: number) => {
+      path.push({ x, y })
+    }),
+    lineTo: vi.fn((x: number, y: number) => {
+      path.push({ x, y })
+    }),
+    stroke: vi.fn(() => {
+      strokes.push({ points: [...path], color: ctx.strokeStyle, alpha: ctx.globalAlpha, dash: [...dash] })
+    }),
+    setLineDash: vi.fn((segments: number[]) => {
+      dash = [...segments]
+    }),
     arc: vi.fn(),
     arcTo: vi.fn(),
-    fill: vi.fn(),
+    fill: vi.fn(() => {
+      shapes.push({ points: [...path], color: ctx.fillStyle, alpha: ctx.globalAlpha })
+    }),
     strokeRect: vi.fn(),
     fillText: vi.fn(),
     measureText: vi.fn((text: string) => ({ width: text.length * 6 })),
@@ -126,7 +158,7 @@ function setup(options: ChartOptions = {}, callbacks: ChartCallbacks = {}) {
     return event
   }
   const bodies = () => fills.filter((fill) => fill.alpha === 0.92)
-  return { engine, canvas, ctx, bounds, fills, bodies, pointer, wheel }
+  return { engine, canvas, ctx, bounds, fills, shapes, strokes, bodies, pointer, wheel }
 }
 
 describe('chart engine rendering', () => {
@@ -194,6 +226,18 @@ describe('chart engine rendering', () => {
     expect(frames.size).toBe(1)
     paint()
     expect(ctx.clearRect).toHaveBeenCalledTimes(3)
+  })
+
+  it('keeps plan lines but hides their tags when overlay labels are off', () => {
+    const { engine, ctx, strokes } = setup({ showOverlayLabels: false })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOverlays({ entry: 100, stop: 95, target: 110 })
+    paint()
+
+    const texts = ctx.fillText.mock.calls.map(([text]) => text as string)
+    expect(texts.some((text) => /^(ENTRY|STOP|TARGET)\b/.test(text))).toBe(false)
+    expect(strokes.some((stroke) => stroke.dash.length === 2 && stroke.points.length === 2)).toBe(true)
   })
 
   it('normalizes volume using only visible bars without slicing the candle array', () => {
@@ -430,5 +474,246 @@ describe('chart engine input and layout invalidation', () => {
     expect(onCrosshair).toHaveBeenLastCalledWith(null)
     expect(bodies()).toEqual([])
     expect(frames.size).toBe(0)
+  })
+})
+
+const entryTriangles = (shapes: Shape[]) => shapes.filter((shape) => shape.points.length === 3)
+const exitDiamonds = (shapes: Shape[]) => shapes.filter((shape) => shape.points.length === 4)
+const connectors = (strokes: Stroke[]) =>
+  strokes.filter((stroke) => stroke.color === 'clay' && stroke.points.length === 2 && stroke.dash.length === 2)
+const centroid = (points: { x: number; y: number }[]) => ({
+  x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+  y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+})
+
+describe('chart execution annotations', () => {
+  it('anchors entry triangles, exit diamonds and the dashed connector to exact fills', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setExecutions([execution()])
+    paint()
+
+    const geo = createIndexGeometry({ end: 99, span: 100 }, priceArea)
+    const scale = createPriceScale(90, 110, priceArea)
+    const entry = { x: geo.x(40), y: scale.y(100.25) }
+    const exit = { x: geo.x(60), y: scale.y(105.5) }
+
+    const triangles = entryTriangles(shapes)
+    expect(triangles).toHaveLength(1)
+    expect(centroid(triangles[0]!.points).x).toBeCloseTo(entry.x)
+    expect(centroid(triangles[0]!.points).y).toBeCloseTo(entry.y)
+    expect(triangles[0]!.color).toBe('bull')
+
+    const diamonds = exitDiamonds(shapes)
+    expect(diamonds).toHaveLength(1)
+    expect(centroid(diamonds[0]!.points).x).toBeCloseTo(exit.x)
+    expect(centroid(diamonds[0]!.points).y).toBeCloseTo(exit.y)
+    expect(diamonds[0]!.color).toBe('clay')
+
+    expect(connectors(strokes)).toEqual([expect.objectContaining({ points: [entry, exit], color: 'clay' })])
+    const texts = ctx.fillText.mock.calls.map(([text]) => text)
+    expect(texts).toContain('Entry 100.25')
+    expect(texts).toContain('Exit 105.50')
+  })
+
+  it('draws nothing and ignores marker prices while blind, then reveals on demand', () => {
+    const onDrawingCommit = vi.fn()
+    const { engine, ctx, shapes, strokes, pointer } = setup({ tickSize: 1 }, { onDrawingCommit })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setBlind(true)
+    engine.setExecutions([execution({ entryPrice: 300, exitPrice: 400 })])
+    paint()
+
+    expect(entryTriangles(shapes)).toEqual([])
+    expect(exitDiamonds(shapes)).toEqual([])
+    expect(connectors(strokes)).toEqual([])
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'Entry 300.00')).toBe(false)
+
+    engine.setTool('horizontal')
+    pointer('pointerdown', 400)
+    pointer('pointermove', 450)
+    pointer('pointerup', 450)
+    expect(onDrawingCommit.mock.lastCall?.[0].points[0].price).toBe(
+      clampPriceToTick(createPriceScale(90, 110, priceArea).price(140), 1),
+    )
+
+    engine.setBlind(false)
+    paint()
+    const revealedScale = createPriceScale(90, 400, priceArea)
+    expect(centroid(entryTriangles(shapes)[0]!.points).y).toBeCloseTo(revealedScale.y(300))
+  })
+
+  it('renders a visible entry but never the hidden exit, connector or exit price', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 20)
+    engine.fit()
+    engine.setExecutions([execution({ entryBar: 5, entryPrice: 100, exitBar: 60, exitPrice: 300 })])
+    paint()
+
+    const geo = createIndexGeometry({ end: 19, span: 28 }, priceArea)
+    const scale = createPriceScale(90, 110, priceArea)
+    const triangles = entryTriangles(shapes)
+    expect(triangles).toHaveLength(1)
+    expect(centroid(triangles[0]!.points)).toEqual({ x: geo.x(5), y: scale.y(100) })
+    expect(exitDiamonds(shapes)).toEqual([])
+    expect(connectors(strokes)).toEqual([])
+    const texts = ctx.fillText.mock.calls.map(([text]) => text)
+    expect(texts).toContain('Entry 100.00')
+    expect(texts.some((text) => text.startsWith('Exit'))).toBe(false)
+  })
+
+  it('keeps scrolled-away endpoint prices out of the visible scale', () => {
+    const { engine, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.focusOn(10, 40)
+    engine.setExecutions([execution({ entryBar: 5, entryPrice: 100, exitBar: 90, exitPrice: 300 })])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    const triangles = entryTriangles(shapes)
+    expect(triangles).toHaveLength(1)
+    expect(centroid(triangles[0]!.points).y).toBeCloseTo(scale.y(100))
+    expect(exitDiamonds(shapes)).toEqual([])
+    expect(connectors(strokes)).toEqual([])
+  })
+
+  it('renders multiple and same-bar trades with labels split below and above the exact fill', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setExecutions([
+      execution({
+        id: 'shared',
+        entryBar: 50,
+        entryPrice: 100,
+        exitBar: 50,
+        exitPrice: 100,
+        entryLabel: 'Entry A',
+        exitLabel: 'Exit A',
+      }),
+      execution({
+        id: 'second',
+        side: 'short',
+        entryBar: 70,
+        entryPrice: 108,
+        exitBar: 80,
+        exitPrice: 96,
+        entryLabel: 'Entry B',
+        exitLabel: 'Exit B',
+      }),
+    ])
+    paint()
+
+    expect(entryTriangles(shapes)).toHaveLength(2)
+    expect(exitDiamonds(shapes)).toHaveLength(2)
+    expect(connectors(strokes)).toHaveLength(2)
+    expect(
+      entryTriangles(shapes)
+        .map((shape) => shape.color)
+        .sort(),
+    ).toEqual(['bear', 'bull'])
+
+    const geo = createIndexGeometry({ end: 99, span: 100 }, priceArea)
+    const scale = createPriceScale(90, 110, priceArea)
+    const fillY = scale.y(100)
+    const entryLabel = ctx.fillText.mock.calls.find(([text]) => text === 'Entry A 100.00')
+    const exitLabel = ctx.fillText.mock.calls.find(([text]) => text === 'Exit A 100.00')
+    expect(entryLabel?.[2]).toBeGreaterThan(fillY)
+    expect(exitLabel?.[2]).toBeLessThan(fillY)
+
+    const leaders = strokes.filter(
+      (stroke) =>
+        stroke.points.length === 2 &&
+        stroke.dash.length === 0 &&
+        stroke.points[0]!.x === geo.x(50) &&
+        stroke.points[0]!.y === fillY,
+    )
+    expect(leaders.map((stroke) => stroke.color).sort()).toEqual(['bull', 'clay'])
+  })
+
+  it('skips invalid executions but accepts zero and negative prices', () => {
+    const { engine, ctx, shapes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setDrawings([{ id: 'floor', type: 'horizontal', points: [{ index: 0, price: -20 }] }])
+    engine.setExecutions([
+      execution({ id: 'fractional', entryBar: 10.5 }),
+      execution({ id: 'negative-bar', exitBar: -2 }),
+      execution({ id: 'infinite', entryPrice: Number.POSITIVE_INFINITY }),
+      execution({ id: 'nan', exitPrice: Number.NaN }),
+      execution({ id: 'out-of-range', entryBar: 200, exitBar: 201 }),
+      execution({
+        id: 'negative-price',
+        entryBar: 20,
+        entryPrice: -5,
+        exitBar: 30,
+        exitPrice: 0,
+        entryLabel: 'Neg',
+        exitLabel: 'Zero',
+      }),
+    ])
+    paint()
+
+    const geo = createIndexGeometry({ end: 99, span: 100 }, priceArea)
+    const scale = createPriceScale(-20, 110, priceArea)
+    expect(entryTriangles(shapes)).toHaveLength(1)
+    expect(exitDiamonds(shapes)).toHaveLength(1)
+    expect(centroid(entryTriangles(shapes)[0]!.points)).toEqual({ x: geo.x(20), y: scale.y(-5) })
+    expect(centroid(exitDiamonds(shapes)[0]!.points)).toEqual({ x: geo.x(30), y: scale.y(0) })
+    const texts = ctx.fillText.mock.calls.map(([text]) => text)
+    expect(texts).toContain('Neg -5.00')
+    expect(texts).toContain('Zero 0.00')
+  })
+
+  it('clears annotations and skips identical execution array references', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    const executions = [execution()]
+    engine.setExecutions(executions)
+    expect(frames.size).toBe(1)
+    paint()
+    expect(entryTriangles(shapes)).toHaveLength(1)
+
+    engine.setExecutions(executions)
+    expect(frames.size).toBe(0)
+
+    engine.setExecutions([])
+    expect(frames.size).toBe(1)
+    ctx.fillText.mockClear()
+    paint()
+    expect(entryTriangles(shapes)).toEqual([])
+    expect(exitDiamonds(shapes)).toEqual([])
+    expect(connectors(strokes)).toEqual([])
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'Entry 100.25')).toBe(false)
+  })
+})
+
+describe('chart focus range', () => {
+  it('frames long holds with padding around both endpoints', () => {
+    const onViewportChange = vi.fn()
+    const { engine } = setup({}, { onViewportChange })
+    engine.setCandles(candles(300), 300)
+    engine.focusRange(20, 180)
+
+    expect(onViewportChange).toHaveBeenLastCalledWith(210, 211)
+    const geo = createIndexGeometry({ end: 210, span: 211 }, priceArea)
+    expect(geo.x(20)).toBeGreaterThan(priceArea.left + 20)
+    expect(geo.x(180)).toBeLessThan(priceArea.right - 20)
+  })
+
+  it('keeps a minimum span for short ranges and clamps to revealed bars', () => {
+    const onViewportChange = vi.fn()
+    const { engine } = setup({}, { onViewportChange })
+    engine.setCandles(candles(300), 300)
+    engine.focusRange(100, 110)
+    expect(onViewportChange).toHaveBeenLastCalledWith(140.5, 72)
+
+    engine.focusRange(-50, 999)
+    expect(onViewportChange).toHaveBeenLastCalledWith(299, 300)
   })
 })
