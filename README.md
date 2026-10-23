@@ -23,6 +23,8 @@ belongs beyond structure rather than at your comfort level.
   orders, brackets, futures P&L in ticks, commissions, and prop-firm guardrails.
 - **Decision drill** — read the state, add an optional thesis, drag entry/stop/target on the chart, size by risk,
   then receive a process grade split into state (40), direction (20), plan structure (25) and discipline (15).
+- **Fills on review** — after the reveal, the chart marks every actual fill (entry triangle, exit diamond) with
+  price and UTC candle time, and a Locate button frames the trade. Fills are never drawn while the tape is blind.
 - **Daily challenge** — one sample seeded by the UTC date, with deterministic _reference plans_ as a benchmark
   board. First submission is locked; replays cannot overwrite it.
 - **Friends PK** — local pass-and-play on the same seed, one committed attempt per player, process score wins
@@ -86,6 +88,7 @@ Performance work is measured, not guessed:
 bun run bench:wasm     # size, brotli/gzip, compile, generate/analyze/simulate
 bun run measure:wasm   # real browser timings against a running server
 bun run check:wasm     # proves the core never blocks first paint and loads once
+bun run check:executions # result-page fill markers, same-bar exits and blind masking
 ```
 
 Current artifact: **150.3 KiB raw / 56.7 KiB brotli**. WASM never gates hydration: it warms on idle;
@@ -242,9 +245,11 @@ footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG
 ### Chart engine
 
 `ChartEngine` is a small retained-mode renderer: it owns viewport math, price scales, candles, volume, overlay
-lines, drawings (trend/horizontal/Fibonacci), crosshair and pointer interaction. It renders axes outside the plot
-clip, animates the newest candle, and supports a blind mode that masks prices and replaces timestamps with relative
-bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
+lines, drawings (trend/horizontal/Fibonacci), crosshair and pointer interaction. Review charts can also draw filled
+entries and exits, with price/time labels, a dashed fill-to-fill connector and `focusRange()` framing. It renders
+axes outside the plot clip, animates the newest candle, and supports a blind mode that masks prices, hides fills and
+replaces timestamps with relative bars. Mobile layouts size the canvas absolutely to avoid a resize feedback loop.
+On review, plan-level tags are suppressed while their lines stay visible, so they do not collide with fill labels.
 
 ### i18n
 
@@ -284,6 +289,7 @@ The unit and component suites cover:
 - exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes,
 - local pack cache generations, refresh races, negative-cache recovery and future-independent rebasing,
 - shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
+- fill normalization across session gaps, same-bar round trips, no-fill plans and invalid bar coordinates,
 - pre-paint chart geometry, no-op redraws, reveal animation targets, option updates and reduced motion.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
