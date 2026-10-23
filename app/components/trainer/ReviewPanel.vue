@@ -3,18 +3,20 @@ import { ArrowRight, Check, Flag, RotateCcw, X } from '@lucide/vue'
 import type { DrillGrade, GradeNote } from '~/domain/drill/grade'
 import type { Scenario } from '~/domain/market/types'
 import type { AccountSnapshot } from '~/domain/trading/types'
+import type { TradeExecution } from '~/domain/trading/executions'
 import { describeScenario } from '~/domain/market/scenario'
 
 const props = defineProps<{
   grade: DrillGrade | null
   scenario: Scenario
   account: AccountSnapshot
+  executions: readonly TradeExecution[]
   roundIndex: number
   totalRounds: number
   isLast: boolean
 }>()
 
-const emit = defineEmits<{ next: []; end: []; replay: [] }>()
+const emit = defineEmits<{ next: []; end: []; replay: []; focus: [execution: TradeExecution] }>()
 
 const { t, locale } = useI18n()
 
@@ -115,6 +117,12 @@ function noteTone(note: GradeNote) {
         </p>
       </div>
     </div>
+
+    <ExecutionSummary
+      :executions="executions"
+      :precision="scenario.instrument.pricePrecision"
+      @focus="emit('focus', $event)"
+    />
 
     <div v-if="grade" class="space-y-2">
       <div v-for="part in grade.parts" :key="part.id" class="space-y-1">

@@ -18,6 +18,7 @@ import {
 import type { LogRow } from '~/domain/stats/types'
 import type { ChartOverlayLevels, ChartTool } from '~/lib/chart/types'
 import type { PlaceOrderInput } from '~/domain/trading/types'
+import { tradeExecutions, type TradeExecution } from '~/domain/trading/executions'
 import { REGIME_LABELS } from '~/domain/market/types'
 
 useHead({ title: 'Blind trainer' })
@@ -31,6 +32,7 @@ const chart = ref<{
   zoom: (factor: number) => void
   scrollToLatest: () => void
   focusOn: (index: number, span?: number) => void
+  focusRange: (from: number, to: number) => void
 } | null>(null)
 const showTicket = ref(false)
 const celebrate = ref(false)
@@ -64,6 +66,23 @@ const overlays = computed<ChartOverlayLevels>((previous) => {
   if (previous && previous.entry === entry && previous.stop === stop && previous.target === target) return previous
   return { entry, stop, target }
 })
+
+const executions = computed(() =>
+  trainer.revealed && (trainer.phase === 'review' || trainer.phase === 'summary')
+    ? tradeExecutions(account.value?.trades ?? [], trainer.candles)
+    : [],
+)
+const chartExecutions = computed(() =>
+  executions.value.map((execution, index) => ({
+    ...execution,
+    entryLabel: `${index + 1} · ${t('review.executions.entry')}`,
+    exitLabel: `${index + 1} · ${t('review.executions.exit')}`,
+  })),
+)
+
+function focusExecution(execution: TradeExecution) {
+  chart.value?.focusRange(execution.entryBar, execution.exitBar)
+}
 
 const logRows = computed<LogRow[]>((previous) => {
   const trades = account.value?.trades ?? []
@@ -123,8 +142,15 @@ watch(
   async (revealed) => {
     if (!revealed) return
     await nextTick()
-    const decision = trainer.plan.submittedAtBar || Math.max(0, trainer.scenario?.replayStart ?? 0)
-    chart.value?.focusOn(decision + 30, 72)
+    if (executions.value.length) {
+      chart.value?.focusRange(
+        Math.min(...executions.value.map((execution) => execution.entryBar)),
+        Math.max(...executions.value.map((execution) => execution.exitBar)),
+      )
+    } else {
+      const decision = trainer.plan.submittedAtBar || Math.max(0, trainer.scenario?.replayStart ?? 0)
+      chart.value?.focusOn(decision + 30, 72)
+    }
   },
 )
 
@@ -376,6 +402,8 @@ onBeforeUnmount(() => {
           :visible-count="trainer.visibleCount"
           :drawings="trainer.drawings"
           :overlays="overlays"
+          :executions="chartExecutions"
+          :show-overlay-labels="!trainer.revealed"
           :tool="trainer.tool"
           :blind="!trainer.revealed"
           :timeframe-minutes="trainer.scenario?.timeframeMinutes ?? 5"
@@ -507,16 +535,18 @@ onBeforeUnmount(() => {
             </div>
 
             <ReviewPanel
-              v-else-if="trainer.grade && account"
+              v-else-if="(trainer.grade || executions.length) && account"
               :grade="trainer.grade"
               :scenario="trainer.scenario!"
               :account="account"
+              :executions="executions"
               :round-index="trainer.roundIndex"
               :total-rounds="trainer.totalRounds"
               :is-last="isLastRound"
               @next="nextRound"
               @end="trainer.endSession()"
               @replay="revealFuture"
+              @focus="focusExecution"
             />
             <div v-else-if="trainer.phase === 'review' && !trainer.grade" class="space-y-3">
               <p class="label-micro">{{ t('review.standAside') }}</p>

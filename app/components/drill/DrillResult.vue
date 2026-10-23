@@ -3,6 +3,7 @@ import { ArrowRight, Check, Copy, Flag, RefreshCw, X } from '@lucide/vue'
 import type { DrillGrade, GradeNote } from '~/domain/drill/grade'
 import type { DrillPlan, PlanOutcome } from '~/domain/drill/plan'
 import type { Scenario } from '~/domain/market/types'
+import type { TradeExecution } from '~/domain/trading/executions'
 
 const props = defineProps<{
   grade: DrillGrade
@@ -10,9 +11,10 @@ const props = defineProps<{
   scenario: Scenario
   plan: DrillPlan
   seed: string
+  executions: readonly TradeExecution[]
 }>()
 
-const emit = defineEmits<{ next: [] }>()
+const emit = defineEmits<{ next: []; focus: [execution: TradeExecution] }>()
 
 const { t, locale } = useI18n()
 const copied = ref(false)
@@ -110,7 +112,14 @@ async function copySeed() {
       </div>
     </div>
 
+    <ExecutionSummary
+      :executions="executions"
+      :precision="scenario.instrument.pricePrecision"
+      @focus="emit('focus', $event)"
+    />
+
     <div class="rounded-md border border-line bg-sunken p-3 font-mono text-[10.5px] text-ink-2">
+      <p class="label-micro mb-1.5 font-sans">{{ t('drill.plannedLevels') }}</p>
       <div class="flex justify-between py-0.5">
         <span class="text-ink-3">{{ t('drill.entry') }}</span>
         <span>{{ plan.entry == null ? '—' : formatPrice(plan.entry, scenario.instrument.pricePrecision) }}</span>

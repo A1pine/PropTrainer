@@ -235,13 +235,26 @@
     "fees": "Fees",
     "trades": "Fills",
     "exit": "Exit",
+    "executions": {
+      "title": "Entry & exit fills",
+      "entry": "Entry fill",
+      "exit": "Exit fill",
+      "empty": "No completed trade — no entry or exit markers to show.",
+      "trade": "Trade {index}",
+      "bar": "Bar {index}",
+      "focus": "Locate",
+      "focusTrade": "Locate trade {index} on chart",
+      "timeHint": "UTC · Times identify the candle, not the exact intrabar fill time.",
+      "chartHint": "Triangle = entry · diamond = exit. Dashed lines connect fills, not the intrabar price path."
+    },
     "exits": {
       "stop": "Stopped out",
       "target": "Target",
       "manual": "Manual close",
       "flatten": "Flattened",
       "breach": "Rule breach",
-      "end": "Round ended"
+      "end": "Round ended",
+      "timeout": "Replay window ended"
     },
     "replay": "Replay the future",
     "nextRound": "Next round",
@@ -453,6 +466,7 @@
     "resultTitle": "What the tape said.",
     "waited": "waited {bars} bars",
     "plan": "Plan",
+    "plannedLevels": "Planned levels",
     "entry": "Entry",
     "stop": "Stop",
     "target": "Target",
@@ -760,7 +774,8 @@
         "b1": "State is graded against the hidden regime.",
         "b2": "Plan structure rewards stops beyond swings and realistic R:R.",
         "b3": "Waiting at least three bars before acting earns discipline points.",
-        "note": "process 100\noutcome R\nA good process with a bad outcome\nis still a good rep."
+        "note": "process 100\noutcome R\nA good process with a bad outcome\nis still a good rep.",
+        "b4": "After submission, actual entry and exit fills are marked on the chart. Times are candle timestamps, shown in UTC."
       }
     },
     "keys": {

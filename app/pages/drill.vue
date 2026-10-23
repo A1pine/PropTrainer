@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Eraser, Maximize2, Minus, MousePointer2, Plus, RefreshCw, Sparkles } from '@lucide/vue'
 import type { ChartTool } from '~/lib/chart/types'
+import { planExecutions, type TradeExecution } from '~/domain/trading/executions'
 
 useHead({ title: 'Decision drill' })
 
@@ -19,7 +20,12 @@ function startKey() {
   return `${seed}:${route.query.mode ?? 'drill'}:${route.query.pk ?? ''}:${route.query.player ?? ''}`
 }
 const settings = useSettingsStore()
-const chart = ref<{ fit: () => void; zoom: (f: number) => void; focusOn: (i: number, s?: number) => void } | null>(null)
+const chart = ref<{
+  fit: () => void
+  zoom: (factor: number) => void
+  focusOn: (index: number, span?: number) => void
+  focusRange: (from: number, to: number) => void
+} | null>(null)
 
 const instrument = computed(() => drill.instrument)
 const overlays = computed(() => ({
@@ -27,6 +33,21 @@ const overlays = computed(() => ({
   stop: drill.plan.stop,
   target: drill.plan.target,
 }))
+const executions = computed(() =>
+  drill.revealed && drill.phase === 'review' ? planExecutions(drill.outcome, drill.plan.direction, drill.candles) : [],
+)
+const chartExecutions = computed(() =>
+  executions.value.map((execution) => ({
+    ...execution,
+    entryLabel: t('review.executions.entry'),
+    exitLabel: t('review.executions.exit'),
+  })),
+)
+
+function focusExecution(execution: TradeExecution) {
+  chart.value?.focusRange(execution.entryBar, execution.exitBar)
+}
+
 const isRevealed = computed(() => drill.revealed)
 const step = computed(() => (drill.phase === 'reading' ? 1 : drill.phase === 'planning' ? 2 : 3))
 const symbolLabel = computed(() =>
@@ -44,7 +65,9 @@ watch(
   async (revealed) => {
     if (!revealed) return
     await nextTick()
-    chart.value?.focusOn(drill.plan.submittedAtBar + 10, 80)
+    const execution = executions.value[0]
+    if (execution) focusExecution(execution)
+    else chart.value?.focusOn(drill.plan.submittedAtBar + 10, 80)
   },
 )
 
@@ -231,6 +254,8 @@ onBeforeUnmount(() => {
           :visible-count="drill.visibleCount"
           :drawings="drill.drawings"
           :overlays="overlays"
+          :executions="chartExecutions"
+          :show-overlay-labels="!drill.revealed"
           :tool="drill.tool"
           :blind="!drill.revealed"
           :timeframe-minutes="drill.scenario?.timeframeMinutes ?? 5"
@@ -296,6 +321,8 @@ onBeforeUnmount(() => {
           :scenario="drill.scenario!"
           :plan="drill.plan"
           :seed="drill.seed"
+          :executions="executions"
+          @focus="focusExecution"
           @next="drill.next()"
         />
         <NuxtLink

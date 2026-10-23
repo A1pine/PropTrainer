@@ -56,7 +56,12 @@ const sections = computed(() => [
     title: t('guide.sections.grading.title'),
     body: t('guide.sections.grading.body'),
     body2: t('guide.sections.grading.body2'),
-    bullets: [t('guide.sections.grading.b1'), t('guide.sections.grading.b2'), t('guide.sections.grading.b3')],
+    bullets: [
+      t('guide.sections.grading.b1'),
+      t('guide.sections.grading.b2'),
+      t('guide.sections.grading.b3'),
+      t('guide.sections.grading.b4'),
+    ],
     note: t('guide.sections.grading.note'),
     noteLabel: t('guide.formula'),
   },
