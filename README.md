@@ -32,10 +32,13 @@ belongs beyond structure rather than at your comfort level.
 - **Analysis lab** — price action, ICT concepts and an OHLCV order-flow proxy on one chart: EMA/VWAP/Bollinger,
   market structure (BOS/CHoCH), FVG and order blocks, liquidity levels/sweeps, volume profile, delta pressure and
   a weighted confluence score. All computed in Rust/WASM.
+- **Optional exam helpers** — the chart toolbar's TA toggle enables the same visible-bar analysis in training
+  and drill questions, including daily/PK attempts. PA, ICT, flow proxy and indicators switch independently;
+  helpers start off, keep blind price/date masking, and do not change the grading rules.
 - **Optional real data** — fetch a local 5-minute pack from Yahoo Finance, switch sources in Settings, and train
   on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
-- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (726 keys each, parity checked).
+- **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (key parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
   reduced-motion support, and a custom canvas chart.
 
@@ -89,6 +92,7 @@ bun run bench:wasm     # size, brotli/gzip, compile, generate/analyze/simulate
 bun run measure:wasm   # real browser timings against a running server
 bun run check:wasm     # proves the core never blocks first paint and loads once
 bun run check:executions # result-page fill markers, same-bar exits and blind masking
+bun run check:analysis   # exam overlay toggles, keyboard isolation, failure recovery and layout
 ```
 
 Current artifact: **150.3 KiB raw / 56.7 KiB brotli**. WASM never gates hydration: it warms on idle;
@@ -232,12 +236,26 @@ trainer, drill and analysis; daily and PK remain generated for reproducibility.
 - **Budgets in CI.** `tests/unit/wasm-budget.spec.ts` fails if the artifact exceeds 160 KiB raw / 60 KiB brotli,
   if compression ratio drops below 2×, if an export disappears, or if the cache-busting hash goes stale.
 
-### Analysis lab
+### Analysis lab and exam helpers
 
-The lab is deliberately separate from the blind trainer. It runs the same Rust core over the visible bars and returns
-indicator series, market structure, ICT zones and an order-flow proxy in one JSON report. The UI renders four overlay
-families (indicator lines, FVG/OB zones, liquidity/S-R/POC levels, BOS/sweep markers) and a confluence score with
-translated reason codes. On narrow screens annotation labels are suppressed while the geometry stays visible.
+The lab remains the full research view: indicator series, market structure, ICT zones, an order-flow proxy, and a
+confluence score with translated reason codes. Exam charts reuse its Rust report and shared `buildChartAnalysis`
+adapter through `useExamAnalysis`, without displaying the confluence score or changing grading rules.
+
+On trainer and drill question pages (including daily/PK attempts), **TA** in the chart toolbar toggles the helpers.
+The adjacent settings button opens a desktop popover or a mobile bottom panel, so it does not reduce chart height.
+PA, ICT, flow proxy and indicators have independent switches, plus EMA, VWAP, Bollinger, FVG, OB, levels/liquidity
+and volume-profile layer controls. The master switch starts off on each page mount; choices stay only for that
+page visit. Escape closes settings and returns keyboard focus; controls do not trigger exam shortcuts.
+
+`useExamAnalysis` slices to `candles.slice(0, visibleCount)` before calling Rust: hidden future bars and retrospective
+scenario metrics are not inputs. The current prefix is recalculated as bars advance, so historical annotations may
+change as new structure is confirmed. Blind mode still masks absolute prices and dates. This is a display-level
+training aid, not secure anti-cheat: the browser still holds the full replay tape.
+
+Framework/layer toggles reuse the computed report while at least one framework is on; disabling all frameworks or
+TA clears it and skips further analysis work. WASM loading or errors never block exam actions; unavailable helpers
+offer Retry. On narrow screens chart annotation labels are suppressed while geometry remains visible.
 
 Order flow is **OHLCV-derived**: candle close position weights volume into a delta proxy. There is no bid/ask or
 footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG, OB, liquidity), not vendor signals.
@@ -253,7 +271,7 @@ On review, plan-level tags are suppressed while their lines stay visible, so the
 
 ### i18n
 
-English is the source (`en.json`). `zh-CN` and `ja` mirror the same 726 keys; a parity check is part of the
+English is the source (`en.json`). `zh-CN` and `ja` mirror its keys; a parity check is part of the
 translation workflow. Locale preference is stored in a cookie as well as localStorage so SSR and hydration agree.
 The last chosen locale is applied before the first render.
 
@@ -286,6 +304,8 @@ The unit and component suites cover:
 - daily seed determinism, reference plans and key parity-ready i18n bundles,
 - trade analytics, history repository round-trips, and settings schema fallbacks,
 - analysis report shape, profile/POC bounds, FVG/OB geometry and event ordering,
+- exam helper visible-prefix isolation, framework/layer gates, cached reports and WASM failure/retry handling,
+- compact analysis controls, localized summaries, keyboard isolation and focus return,
 - exact Rust ↔ TypeScript parity for candles, metrics, swings and plan outcomes,
 - local pack cache generations, refresh races, negative-cache recovery and future-independent rebasing,
 - shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
@@ -297,8 +317,8 @@ Visual QA: `bun run screenshot` writes desktop and mobile captures to `screensho
 ## Limitations
 
 - No server, accounts, or cross-device sync. History and PK rooms are local.
-- If WASM is blocked, generation and trading simulation fall back to TypeScript; the analysis lab is unavailable.
-  Settings shows the active compute status.
+- If WASM is blocked, generation and trading simulation fall back to TypeScript; the analysis lab and exam
+  analysis helpers are unavailable. Exam actions still work. Settings shows the active compute status.
 - Scenarios are synthetic by default, or sampled from an optional local pack; neither proves a real trading edge.
 - One open position and one working order per account, intentionally, to keep the decision surface honest.
 - Reference plans are fixed strategy baselines; they are not a ranking of real traders.
