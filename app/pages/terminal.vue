@@ -1,23 +1,25 @@
 <script setup lang="ts">
-import { ArrowDownRight, ArrowUpRight, Info, Minus, Plus, X } from '@lucide/vue'
+import { X } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { ChartAnalysis, ChartOrderLine, ChartStyle } from '~/lib/chart/types'
 import type { PropTemplate, SimTimeframe } from '~/domain/sim/types'
 import { timeframeMinutes } from '~/domain/sim/timeframe'
+import { templateById } from '~/domain/sim/presets'
 import { instruments } from '~/domain/instruments/catalog'
-import { LAYOUT_SIZES, MAX_PANES, readLayout, resizePanes, writeLayout, type TerminalPane } from '~/lib/sim/layout'
+import { candleIndexAt, isFormingCandle } from '~/lib/sim/chart'
+import {
+  fallbackHotkeys,
+  matchHotkey,
+  readHotkeys,
+  writeHotkeys,
+  type HotkeyAction,
+  type HotkeySettings,
+} from '~/lib/sim/hotkeys'
+import { LAYOUT_SIZES, readLayout, resizePanes, writeLayout, type TerminalPane } from '~/lib/sim/layout'
 
 const { t } = useI18n()
 const terminal = useTerminalStore()
 const toasts = useToastStore()
-
-const chart = ref<{
-  fit: () => void
-  zoom: (factor: number) => void
-  scrollToLatest: () => void
-  focusOn: (index: number, span?: number) => void
-  focusRange: (from: number, to: number) => void
-} | null>(null)
 
 const ticketOpen = ref(false)
 const priceHint = ref<number | null>(null)
@@ -35,6 +37,10 @@ const chartStyle = computed<ChartStyle>({
   },
 })
 const ladderOpen = ref(true)
+// Server and first client render must agree, so the persisted table is adopted
+// after hydration instead of during setup.
+const hotkeys = ref<HotkeySettings>(fallbackHotkeys())
+const hotkeysOpen = ref(false)
 
 interface PaneChart {
   fit: () => void
@@ -55,8 +61,12 @@ function setChart(index: number, handle: unknown) {
   else charts.delete(index)
 }
 
+const renderedPanes = computed(() =>
+  panes.value.map((pane, index) => ({ pane, index, candles: terminal.candlesFor(pane.symbol, pane.timeframe) })),
+)
+
 const visiblePanes = computed(() => {
-  const all = panes.value.map((pane, index) => ({ pane, index }))
+  const all = renderedPanes.value
   if (wide.value) return all
   const current = all[activePane.value]
   return current ? [current] : all.slice(0, 1)
@@ -88,6 +98,8 @@ const watchRows = computed(() =>
       symbol,
       name: spec.name,
       price: quote?.price ?? null,
+      volume: quote?.volume ?? null,
+      precision: spec.pricePrecision,
       changePercent: quote?.changePercent ?? null,
       position: position ? position.side : null,
       active,
@@ -143,8 +155,6 @@ function ordersFor(targetSymbol: string): ChartOrderLine[] {
   return lines
 }
 
-const ordersForChart = computed<ChartOrderLine[]>(() => ordersFor(terminal.symbol))
-
 const position = computed(() => terminal.snapshot?.positions.find((item) => item.symbol === terminal.symbol) ?? null)
 
 const mark = computed(() => terminal.mark?.price ?? null)
@@ -164,20 +174,16 @@ const replayLabel = computed(() => {
 
 const ruleSummary = computed(() => terminal.risk?.status ?? 'active')
 
-const canTrade = computed(() => terminal.ready && terminal.risk?.status === 'active')
+// Use the store's gate: it also requires a fresh mark, an open session and a
+// replay that has not ended, so the chart never invites a click that the engine
+// would reject.
+const canTrade = computed(() => terminal.canTrade)
 
-// Only lines that are actually inside the visible price window are drawn by the
-// chart engine; an out-of-window breach line is still shown in the account bar.
+// Out-of-window price thresholds remain visible in the position card.
 const riskAnalysis = computed<ChartAnalysis>(() => {
   const levels: ChartAnalysis['levels'] = []
-  if (terminal.risk) {
-    levels.push({
-      id: 'floor',
-      price: terminal.risk.floor,
-      tone: 'warn',
-      label: t('terminal.account.floor'),
-    })
-  }
+  // The drawdown floor is an account-equity number, not an instrument price, so
+  // it stays in the account bar; only position-derived prices belong on a chart.
   if (terminal.breachPrice != null) {
     levels.push({
       id: 'breach',
@@ -233,6 +239,15 @@ function openTicket(side: 'long' | 'short') {
   priceHintType.value = null
   ticketSide.value = side
   ticketOpen.value = true
+  // On wide layouts the ticket is already visible, so the shortcut moves focus
+  // to the matching side instead of pretending to open a panel. On mobile the
+  // sheet is the visible copy, so pick whichever instance is actually rendered.
+  void nextTick(() => {
+    const testId = side === 'long' ? 'ticket-long' : 'ticket-short'
+    const nodes = Array.from(document.querySelectorAll<HTMLElement>(`[data-testid="${testId}"]`))
+    const target = nodes.find((node) => node.offsetParent !== null) ?? nodes[0]
+    target?.focus()
+  })
 }
 
 function closeTicket() {
@@ -255,6 +270,11 @@ function paneCandles(pane: TerminalPane) {
   return terminal.candlesFor(pane.symbol, pane.timeframe)
 }
 
+function paneIsForming(pane: TerminalPane, candles: readonly { time: number }[]) {
+  const last = candles[candles.length - 1]
+  return last != null && terminal.knownTime != null && isFormingCandle(last.time, pane.timeframe, terminal.knownTime)
+}
+
 function paneTimeframeMinutes(pane: TerminalPane) {
   return pane.timeframe === '1D' ? 1440 : (timeframeMinutes(pane.timeframe) ?? 5)
 }
@@ -271,12 +291,21 @@ function paneLabel(pane: TerminalPane) {
   return `${pane.symbol} ${pane.timeframe}`
 }
 
+// One place decides which pane owns the ticket, ladder and position card. Every
+// layout mutation funnels through here so the trading context can never point at
+// a symbol or timeframe that is no longer on screen.
+function syncActivePane() {
+  const pane = panes.value[activePane.value] ?? panes.value[0]
+  if (!pane) return
+  if (pane.symbol !== terminal.symbol) void terminal.load(pane.symbol)
+  if (pane.timeframe !== terminal.timeframe) terminal.setTimeframe(pane.timeframe)
+}
+
 function activatePane(index: number) {
   const pane = panes.value[index]
   if (!pane || index === activePane.value) return
   activePane.value = index
-  if (pane.symbol !== terminal.symbol) void terminal.load(pane.symbol)
-  if (pane.timeframe !== terminal.timeframe) terminal.setTimeframe(pane.timeframe)
+  syncActivePane()
 }
 
 function setPaneSymbol(index: number, symbol: string) {
@@ -284,7 +313,7 @@ function setPaneSymbol(index: number, symbol: string) {
   if (!pane || !terminal.symbols.includes(symbol)) return
   pane.symbol = symbol
   persistPanes()
-  if (index === activePane.value) void terminal.load(symbol)
+  if (index === activePane.value) syncActivePane()
 }
 
 function setPaneTimeframe(index: number, value: SimTimeframe) {
@@ -292,7 +321,7 @@ function setPaneTimeframe(index: number, value: SimTimeframe) {
   if (!pane) return
   pane.timeframe = value
   persistPanes()
-  if (index === activePane.value) terminal.setTimeframe(value)
+  if (index === activePane.value) syncActivePane()
 }
 
 function setPaneStyle(index: number, value: ChartStyle) {
@@ -314,6 +343,7 @@ function setPaneCount(size: number) {
   })
   if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1
   persistPanes()
+  syncActivePane()
   void nextTick(() => {
     for (const handle of charts.values()) handle.fit()
   })
@@ -322,24 +352,78 @@ function setPaneCount(size: number) {
 function removePane(index: number) {
   if (panes.value.length <= 1) return
   panes.value.splice(index, 1)
+  // Keep the same chart selected where possible; otherwise fall back to the
+  // pane that slid into its place.
   if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1
+  else if (index < activePane.value) activePane.value -= 1
   persistPanes()
+  syncActivePane()
+  void nextTick(() => {
+    for (const handle of charts.values()) handle.fit()
+  })
+}
+
+function reducePosition(symbol: string, qty: number) {
+  const current = terminal.snapshot?.positions.find((item) => item.symbol === symbol)
+  if (!current) return
+  const side = current.side === 'long' ? 'short' : 'long'
+  const result = terminal.submit({ side, type: 'market', qty, reduceOnly: true }, symbol)
+  if (!result.ok) toasts.error(t('terminal.errors.rejected'), result.error)
+  else toasts.push({ title: t('terminal.toast.reduced'), variant: 'info' })
+}
+
+function cancelSide(side: 'long' | 'short') {
+  const targets = terminal.workingOrders.filter((order) => order.side === side)
+  for (const order of targets) terminal.cancel(order.id)
+  if (targets.length) toasts.push({ title: t('terminal.toast.cancelled'), variant: 'info' })
+}
+
+function cancelAllOrders() {
+  const result = terminal.cancelAll()
+  if (!result.ok) toasts.error(t('terminal.errors.rejected'), result.error)
+  else toasts.push({ title: t('terminal.toast.cancelled'), variant: 'info' })
+}
+
+function modifyOrder(id: string, patch: { limitPrice?: number | null; stopPrice?: number | null; qty?: number }) {
+  const result = terminal.modify(id, patch)
+  if (!result.ok) toasts.error(t('terminal.errors.rejected'), result.error)
+  else toasts.push({ title: t('terminal.toast.modified'), variant: 'info' })
 }
 
 function focusTrade(symbol: string, entryTime: number, exitTime: number) {
-  if (symbol !== terminal.symbol) void terminal.load(symbol)
+  // Jump to a pane that already shows the trade, or retarget the active pane so
+  // the chart and the trading context stay on the same instrument.
+  const paneIndex = panes.value.findIndex((pane) => pane.symbol === symbol)
+  const index = paneIndex >= 0 ? paneIndex : activePane.value
+  const pane = panes.value[index]
+  if (!pane) return
+  if (paneIndex < 0) {
+    pane.symbol = symbol
+    persistPanes()
+  }
+  activePane.value = index
+  syncActivePane()
   void nextTick(() => {
-    const paneIndex = panes.value.findIndex((pane) => pane.symbol === symbol)
-    const index = paneIndex >= 0 ? paneIndex : activePane.value
-    const pane = panes.value[index]
-    if (!pane) return
-    if (index !== activePane.value) activePane.value = index
     const candles = paneCandles(pane)
-    const from = candles.findIndex((candle) => candle.time >= entryTime)
-    const to = candles.findIndex((candle) => candle.time >= exitTime)
+    const from = candleIndexAt(candles, entryTime)
+    const to = candleIndexAt(candles, exitTime)
     if (from < 0) return
-    charts.get(index)?.focusRange(from, to < 0 ? from + 40 : to)
+    charts.get(index)?.focusRange(from, Math.max(from, to))
   })
+}
+
+function applyHotkeys(next: HotkeySettings) {
+  hotkeys.value = next
+  writeHotkeys(next)
+}
+
+function runHotkey(action: HotkeyAction) {
+  if (action === 'play-pause') terminal.toggle()
+  else if (action === 'step') terminal.stepBars(1)
+  else if (action === 'buy') openTicket('long')
+  else if (action === 'sell') openTicket('short')
+  else if (action === 'flatten') flatten()
+  else if (action === 'close') closeTicket()
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -354,26 +438,17 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
   if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+  // A shortcut must never fire while the hotkey editor owns the keyboard.
+  if (hotkeysOpen.value) return
   // A shortcut must never fire while a popover, menu or dialog owns the keys.
   if (target?.closest('[role="dialog"],[role="listbox"],[role="menu"]')) return
-  if (event.key === ' ') {
-    event.preventDefault()
-    terminal.toggle()
-  } else if (event.key === 'n' || event.key === 'N') {
-    event.preventDefault()
-    terminal.stepBars(1)
-  } else if (event.key === 'b' || event.key === 'B') {
-    event.preventDefault()
-    openTicket('long')
-  } else if (event.key === 's' || event.key === 'S') {
-    event.preventDefault()
-    openTicket('short')
-  } else if ((event.key === 'f' || event.key === 'F') && position.value) {
-    event.preventDefault()
-    flatten()
-  } else if (event.key === 'Escape' && ticketOpen.value) {
-    closeTicket()
-  }
+  const action = matchHotkey(event, hotkeys.value, {
+    hasPosition: Boolean(position.value),
+    ticketOpen: ticketOpen.value,
+  })
+  if (!action) return
+  event.preventDefault()
+  runHotkey(action)
 }
 
 function submitOrder(input: Parameters<typeof terminal.submit>[0]) {
@@ -395,38 +470,69 @@ function cancelOrder(id: string) {
 }
 
 function cancelFromChart(id: string) {
-  const order = terminal.workingOrders.find((item) => item.id === id)
+  // Stop lines are chart-only aliases (`<orderId>:stop`); resolve the engine
+  // order before checking that it can actually be cancelled.
+  const orderId = id.endsWith(':stop') ? id.slice(0, -':stop'.length) : id
+  const order = terminal.workingOrders.find((item) => item.id === orderId)
   if (!order) {
     toasts.error(t('terminal.toast.cancelUnavailable'))
     return
   }
-  cancelOrder(id)
+  cancelOrder(orderId)
   toasts.push({ title: t('terminal.toast.cancelled'), variant: 'info' })
 }
 
-function flatten() {
-  terminal.flatten()
-  toasts.push({ title: t('terminal.toast.flattened'), variant: 'warn' })
+// The dock buttons pass a symbol; the right-side card and the hotkey call with
+// no argument. Guard against the DOM event that a bare `@click` supplies.
+function flatten(target?: string) {
+  const symbol = typeof target === 'string' ? target : undefined
+  const result = terminal.flatten(symbol)
+  if (!result.ok) toasts.error(t('terminal.errors.rejected'), result.error)
+  else toasts.push({ title: t('terminal.toast.flattened'), variant: 'warn' })
 }
 
-function reverse() {
-  const result = terminal.reverse()
+function reverse(target?: string) {
+  const symbol = typeof target === 'string' ? target : undefined
+  const result = terminal.reverse(symbol)
   if (result.ok) toasts.push({ title: t('terminal.toast.reversed'), variant: 'info' })
   else toasts.error(t('terminal.errors.rejected'), result.error)
 }
 
-function resetAccount() {
-  if (!window.confirm(t('terminal.rules.resetConfirm'))) return
-  void terminal.reset()
-  toasts.push({ title: t('terminal.toast.reset'), variant: 'info' })
+function exitAll() {
+  if (!window.confirm(t('terminal.positions.exitAllConfirm'))) return
+  const result = terminal.exitAll()
+  if (!result.ok) toasts.error(t('terminal.errors.rejected'), result.error)
+  else toasts.push({ title: t('terminal.toast.flattened'), variant: 'warn' })
 }
 
-// Custom rule edits only apply to a fresh attempt: the ledger and floor cannot
-// change underneath live positions.
+async function freshAttempt(template?: PropTemplate) {
+  if (terminal.loading || !window.confirm(t('terminal.rules.resetConfirm'))) return
+  closeTicket()
+  await terminal.newAttempt({ template, reuseTapes: true })
+  if (terminal.error) toasts.error(t('terminal.errors.rejected'), terminal.error)
+  else {
+    const available = panes.value.filter((pane) => terminal.symbols.includes(pane.symbol))
+    panes.value = available.length
+      ? available
+      : [{ symbol: terminal.symbol, timeframe: terminal.timeframe, style: 'candles' }]
+    activePane.value = Math.min(activePane.value, panes.value.length - 1)
+    syncActivePane()
+    persistPanes()
+    toasts.push({ title: t('terminal.toast.reset'), variant: 'info' })
+  }
+}
+
+function resetAccount() {
+  void freshAttempt()
+}
+
 function configureTemplate(template: PropTemplate) {
-  if (!window.confirm(t('terminal.rules.resetConfirm'))) return
-  void terminal.newAttempt({ template, reuseTapes: true })
-  toasts.push({ title: t('terminal.toast.reset'), variant: 'info' })
+  void freshAttempt(template)
+}
+
+function selectTemplate(id: string) {
+  const next = templateById(id)
+  if (next && next.id !== terminal.templateId) void freshAttempt(next)
 }
 
 function setTimeframe(value: SimTimeframe) {
@@ -443,21 +549,36 @@ function syncWide(event?: MediaQueryList | MediaQueryListEvent) {
   wide.value = matches
 }
 
-onMounted(() => {
+// Restore the layout only after the replay run exists: the saved panes must be
+// validated against the instruments that run actually pinned, otherwise a stale
+// layout can point the ticket at a symbol the account does not trade.
+async function retryRestore() {
+  await terminal.retryRestore()
+  if (terminal.ready) await boot()
+}
+
+async function boot() {
+  await terminal.initialize()
   const saved = readLayout((symbol) => terminal.symbols.includes(symbol))
   if (saved?.length) {
     panes.value = saved
-    const first = saved[0]!
-    if (first.symbol !== terminal.symbol) void terminal.load(first.symbol)
-    if (first.timeframe !== terminal.timeframe) terminal.setTimeframe(first.timeframe)
+    const preferred = saved.findIndex((pane) => pane.symbol === terminal.symbol)
+    activePane.value = preferred >= 0 ? preferred : 0
+    syncActivePane()
   } else {
-    panes.value = [{ symbol: terminal.symbol, timeframe: terminal.timeframe, style: chartStyle.value }]
+    panes.value = [{ symbol: terminal.symbol, timeframe: terminal.timeframe, style: 'candles' }]
   }
+  await nextTick()
+  fitAll()
+}
+
+onMounted(() => {
+  hotkeys.value = readHotkeys()
   media = window.matchMedia('(min-width: 1024px)')
   syncWide()
   media.addEventListener('change', syncWide)
-  if (!terminal.ready) void terminal.load()
   window.addEventListener('keydown', onKeydown)
+  void boot()
 })
 
 // Playback is a page-level activity: leaving the terminal must stop the timer
@@ -480,7 +601,7 @@ useHead({ title: 'Trade terminal' })
         <h1 class="text-[17px] font-semibold tracking-tight text-ink">{{ t('terminal.title') }}</h1>
         <Badge variant="outline" size="sm">{{ t('terminal.badge.replay') }}</Badge>
         <Badge :variant="terminal.source === 'local' ? 'clay' : 'neutral'" size="sm">
-          {{ terminal.source === 'local' ? t('terminal.badge.local') : t('terminal.badge.synthetic') }}
+          {{ t(`terminal.badge.${terminal.source}`) }}
         </Badge>
       </div>
       <div class="flex items-center gap-2">
@@ -496,7 +617,57 @@ useHead({ title: 'Trade terminal' })
       </div>
     </header>
 
+    <div class="flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-ink-3">
+      <span role="status" :data-storage="terminal.storageStatus">{{
+        t(`terminal.storage.${terminal.storageStatus}`)
+      }}</span>
+      <Button
+        variant="danger-ghost"
+        size="xs"
+        data-testid="exit-all"
+        :disabled="!terminal.ready || (!terminal.snapshot?.positions.length && !terminal.workingOrders.length)"
+        @click="exitAll"
+        >{{ t('terminal.positions.exitAll') }}</Button
+      >
+    </div>
+    <div
+      v-if="terminal.restoreBlocked || terminal.storageStatus === 'unavailable'"
+      role="alert"
+      data-testid="storage-warning"
+      class="rounded-lg border border-line bg-surface-2 p-3 text-[11px] text-ink-2"
+    >
+      <p>{{ t(terminal.restoreBlocked ? 'terminal.storage.blocked' : 'terminal.storage.warning') }}</p>
+      <p v-if="terminal.storageError" class="mt-1 break-words font-mono text-[10px]">{{ terminal.storageError }}</p>
+      <div class="mt-2 flex gap-2">
+        <Button
+          variant="outline"
+          size="xs"
+          :disabled="terminal.loading"
+          @click="terminal.restoreBlocked ? retryRestore() : terminal.retrySave()"
+        >
+          {{ t('terminal.storage.retry') }}
+        </Button>
+        <Button
+          v-if="terminal.restoreBlocked"
+          variant="outline"
+          size="xs"
+          :disabled="terminal.loading"
+          @click="resetAccount"
+        >
+          {{ t('terminal.storage.newAttempt') }}
+        </Button>
+      </div>
+    </div>
+    <p v-if="terminal.error" role="alert" class="break-words text-[11px] text-bear-strong">{{ terminal.error }}</p>
+    <p v-if="terminal.dataNotice" role="status" class="text-[11px] text-ink-3">
+      {{ t(`terminal.data.${terminal.dataNotice}`) }}
+    </p>
+    <p v-if="terminal.ready && (terminal.ended || terminal.stale)" role="status" class="text-[11px] text-ink-3">
+      {{ t(terminal.ended ? 'terminal.replay.ended' : 'terminal.replay.stale') }}
+    </p>
+
     <AccountBar
+      v-if="terminal.account"
       :status="ruleSummary"
       :equity="terminal.account?.equity ?? 0"
       :balance="terminal.account?.balance ?? 0"
@@ -509,6 +680,10 @@ useHead({ title: 'Trade terminal' })
       :consistency-ratio="terminal.consistency?.ratio ?? null"
       :consistency-limit="terminal.template.consistency?.maxBestDayRatio ?? null"
       :precision="precision"
+      :realized="terminal.account?.realizedPnl"
+      :unrealized="terminal.account?.unrealizedPnl"
+      :margin="terminal.account?.marginUsed"
+      :buying-power="terminal.account?.buyingPower"
     />
 
     <div class="grid min-h-0 gap-2.5 lg:grid-cols-[212px_minmax(0,1fr)] xl:grid-cols-[212px_minmax(0,1fr)_296px]">
@@ -543,6 +718,7 @@ useHead({ title: 'Trade terminal' })
                 size="sm"
                 class="w-[104px]"
               />
+              <HotkeySettings :settings="hotkeys" @update:settings="applyHotkeys" @open-change="hotkeysOpen = $event" />
               <div
                 class="hidden items-center gap-0.5 rounded-sm bg-ink/[0.05] p-0.5 lg:flex"
                 role="group"
@@ -575,32 +751,32 @@ useHead({ title: 'Trade terminal' })
             <div
               v-for="entry in visiblePanes"
               :key="`${entry.index}:${entry.pane.symbol}`"
-              class="relative bg-surface-2"
+              class="relative min-w-0 bg-surface-2"
               :class="entry.index === activePane ? 'ring-1 ring-inset ring-clay/50' : ''"
               :data-pane="entry.index"
+              :data-symbol="entry.pane.symbol"
               :data-active="entry.index === activePane"
               @pointerdown="activatePane(entry.index)"
             >
               <button
                 v-if="panes.length > 1"
                 type="button"
-                class="absolute right-1.5 top-1.5 z-10 grid size-5 place-items-center rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/90 text-ink-3 backdrop-blur transition-colors hover:text-ink"
+                class="absolute right-1.5 top-10 z-10 grid size-5 place-items-center rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/90 text-ink-3 backdrop-blur transition-colors hover:text-ink"
                 :aria-label="t('terminal.layout.remove')"
                 :title="paneLabel(entry.pane)"
                 @click.stop="removePane(entry.index)"
               >
                 <X class="size-3" aria-hidden="true" />
               </button>
-              <ChartCanvas
+              <TerminalChartPane
                 :ref="(handle) => setChart(entry.index, handle)"
-                :candles="paneCandles(entry.pane)"
-                :visible-count="paneCandles(entry.pane).length"
+                :candles="entry.candles"
+                :visible-count="entry.candles.length"
                 :orders="ordersFor(entry.pane.symbol)"
                 :chart-style="entry.pane.style"
                 :order-draggable="canTrade && entry.index === activePane"
                 :price-pick-enabled="canTrade && entry.index === activePane"
                 :blind="false"
-                :tool="'cursor'"
                 :timeframe-minutes="paneTimeframeMinutes(entry.pane)"
                 :timeframe-label="entry.pane.timeframe"
                 time-zone="America/Chicago"
@@ -610,11 +786,21 @@ useHead({ title: 'Trade terminal' })
                 :analysis="entry.index === activePane ? riskAnalysis : null"
                 :symbol-mask="entry.pane.symbol"
                 :label="paneLabel(entry.pane)"
-                class="h-[clamp(280px,40vh,480px)]"
+                class="h-[clamp(320px,44vh,520px)]"
                 @order-drag="onOrderDrag"
                 @order-cancel="cancelFromChart"
                 @price-pick="onPricePick"
-              />
+              >
+                <template #badge>
+                  <span
+                    v-if="paneIsForming(entry.pane, entry.candles)"
+                    class="rounded-sm bg-surface-2/90 px-1 py-0.5 text-[9px] text-ink-3"
+                    data-testid="forming-bar"
+                    :title="t('terminal.chart.formingHint')"
+                    >{{ t('terminal.chart.forming') }}</span
+                  >
+                </template>
+              </TerminalChartPane>
             </div>
           </div>
           <div class="border-t border-line px-2.5 py-1.5">
@@ -626,9 +812,10 @@ useHead({ title: 'Trade terminal' })
               :total="terminal.totalBars"
               :time-label="replayLabel"
               :source="terminal.source"
+              :ended="terminal.ended"
               @toggle="terminal.toggle"
               @step="terminal.stepBars(1)"
-              @reset="terminal.reset"
+              @reset="resetAccount"
               @speed="terminal.setSpeed"
             />
           </div>
@@ -668,16 +855,22 @@ useHead({ title: 'Trade terminal' })
               :marks="terminal.snapshot?.marks ?? {}"
               :point-values="pointValues"
               :precision="precision"
+              :precisions="precisions"
+              :replay-time="terminal.replayTime ?? undefined"
               @flatten="flatten"
               @reverse="reverse"
+              @reduce="reducePosition"
               @focus="focusSymbol"
             />
             <OrdersTable
               v-else-if="dock === 'orders'"
               :orders="terminal.orders"
               :precision="precision"
+              :precisions="precisions"
               @cancel="cancelOrder"
-              @cancel-all="terminal.cancelAll"
+              @cancel-all="cancelAllOrders"
+              @cancel-side="cancelSide"
+              @modify="modifyOrder"
             />
             <FillsTable v-else-if="dock === 'fills'" :fills="terminal.fills" :precision="precision" />
             <TerminalHistory
@@ -699,7 +892,7 @@ useHead({ title: 'Trade terminal' })
               :statuses="terminal.ruleStatuses"
               :consistency="terminal.consistency"
               :precision="precision"
-              @update:template-id="terminal.setTemplate"
+              @update:template-id="selectTemplate"
               @reset="resetAccount"
               @configure="configureTemplate"
             />
@@ -711,7 +904,9 @@ useHead({ title: 'Trade terminal' })
         <div class="rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 p-2.5">
           <div class="mb-2 flex items-center justify-between">
             <h2 class="label-micro">{{ t('terminal.ticket.title') }}</h2>
-            <span class="font-mono text-[10px] text-ink-3">{{ terminal.symbol }} · {{ terminal.timeframe }}</span>
+            <span class="font-mono text-[10px] text-ink-3" data-testid="ticket-symbol"
+              >{{ terminal.symbol }} · {{ terminal.timeframe }}</span
+            >
           </div>
           <OrderTicket
             :mark="mark"

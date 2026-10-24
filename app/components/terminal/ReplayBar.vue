@@ -10,6 +10,7 @@ const props = defineProps<{
   total: number
   timeLabel: string
   source: 'loading' | 'local' | 'synthetic'
+  ended?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -37,7 +38,7 @@ const sourceLabel = computed(() =>
       type="button"
       class="grid size-8 place-items-center rounded-md bg-clay text-on-clay shadow-xs transition-transform active:scale-95 disabled:opacity-45"
       :aria-label="playing ? t('terminal.replay.pause') : t('terminal.replay.play')"
-      :disabled="source === 'loading'"
+      :disabled="source === 'loading' || ended"
       @click="emit('toggle')"
     >
       <Pause v-if="playing" class="size-4" aria-hidden="true" />
@@ -47,7 +48,7 @@ const sourceLabel = computed(() =>
       type="button"
       class="grid size-8 place-items-center rounded-md border border-line bg-surface-2 text-ink-2 transition-colors hover:text-ink disabled:opacity-45"
       :aria-label="t('terminal.replay.step')"
-      :disabled="source === 'loading'"
+      :disabled="source === 'loading' || ended"
       @click="emit('step')"
     >
       <SkipForward class="size-4" aria-hidden="true" />
@@ -85,11 +86,12 @@ const sourceLabel = computed(() =>
         <span class="font-mono text-[10px] tabular-nums text-ink-3" data-testid="replay-index"
           >{{ index }} / {{ total }}</span
         >
-        <span class="text-[10px] text-ink-3">{{ sourceLabel }}</span>
+        <span class="text-[10px] text-ink-3">{{ ended ? t('terminal.replay.complete') : sourceLabel }}</span>
       </div>
       <div
         class="h-1 overflow-hidden rounded-pill bg-ink/[0.08]"
         role="progressbar"
+        :aria-label="t('terminal.replay.progress')"
         :aria-valuenow="Math.round(progress * 100)"
         aria-valuemin="0"
         aria-valuemax="100"

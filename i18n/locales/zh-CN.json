@@ -283,7 +283,14 @@
     "priceHidden": "价格隐藏",
     "printing": "K 线播放中",
     "waiting": "等待中",
-    "dayMask": "日期 ??"
+    "dayMask": "日期 ??",
+    "tool": {
+      "cursor": "光标 / 平移",
+      "trend": "趋势线",
+      "horizontal": "水平线",
+      "active": "画线模式：点击只添加图形，不会下单",
+      "scope": "切换品种或周期时画线会清除"
+    }
   },
   "log": {
     "title": "成交记录",
@@ -1058,7 +1065,9 @@
       "title": "自选合约",
       "hint": "选择合约以载入行情",
       "loading": "载入中",
-      "noQuote": "载入后显示"
+      "noQuote": "载入后显示",
+      "volume": "量",
+      "volumeTitle": "最新已揭示基础 K 线的成交量"
     },
     "replay": {
       "pause": "暂停",
@@ -1070,11 +1079,26 @@
       "local": "本地数据",
       "synthetic": "合成行情",
       "loading": "载入中",
-      "progress": "回放进度"
+      "progress": "回放进度",
+      "ended": "回放已到达行情末尾。",
+      "stale": "当前合约没有最新报价，请推进回放。",
+      "complete": "已完成"
     },
     "timeframe": {
       "label": "周期",
-      "unavailable": "该行情不支持此周期"
+      "unavailable": "该行情不支持此周期",
+      "custom": {
+        "label": "自定义周期（分钟）",
+        "apply": "应用",
+        "selected": "自定义 {label}",
+        "baseHint": "请输入 5 分钟的整数倍，最大 1440 分钟；不支持比 5 分钟更细的周期。",
+        "errors": {
+          "invalid": "请输入整数分钟。",
+          "finer": "行情为 5 分钟 K 线，不支持更细的周期。",
+          "step": "请输入 5 分钟的整数倍。",
+          "tooLarge": "周期需在一个交易日内（1440 分钟）。"
+        }
+      }
     },
     "ticket": {
       "title": "下单",
@@ -1215,7 +1239,9 @@
       "reduceQty": "减仓数量",
       "invalidReduce": "请输入 1 到 {max} 之间的整数数量。",
       "markTime": "标记价时间（UTC）",
-      "stale": "报价较旧"
+      "stale": "报价较旧",
+      "exitAll": "全部平仓",
+      "exitAllConfirm": "平掉所有持仓并撤销全部挂单？"
     },
     "fills": {
       "title": "成交",
@@ -1350,7 +1376,9 @@
       "reversed": "已反手",
       "reset": "账户已重置",
       "breach": "账户已爆仓，交易锁定",
-      "cancelUnavailable": "该订单无法从图表撤销。"
+      "cancelUnavailable": "该订单无法从图表撤销。",
+      "reduced": "已减仓",
+      "modified": "订单已修改"
     },
     "limits": {
       "title": "数据限制",
@@ -1440,6 +1468,29 @@
         "ohlc": "美国线",
         "line": "折线图",
         "heikin-ashi": "平均K线"
+      },
+      "forming": "形成中",
+      "formingHint": "最后一根 K 线仅由已揭示的行情构成，尚未最终确定。"
+    },
+    "hotkeys": {
+      "title": "快捷键",
+      "enabled": "启用快捷键",
+      "press": "请按键",
+      "reset": "恢复默认",
+      "close": "关闭快捷键设置",
+      "rebind": "重新绑定{action}",
+      "note": "在输入框内输入、或菜单与弹窗打开时，快捷键不会触发。不支持功能键和组合键。",
+      "actions": {
+        "play-pause": "播放 / 暂停",
+        "step": "前进一根 K 线",
+        "buy": "打开买入面板",
+        "sell": "打开卖出面板",
+        "flatten": "平掉持仓",
+        "close": "关闭下单面板"
+      },
+      "errors": {
+        "reserved": "该按键已保留给输入或导航。",
+        "duplicate": "该按键已绑定到其他操作。"
       }
     },
     "layout": {
@@ -1447,6 +1498,20 @@
       "count": "{count} 个图表",
       "single": "单图",
       "remove": "关闭面板"
+    },
+    "storage": {
+      "idle": "就绪",
+      "saving": "保存中…",
+      "saved": "已保存在此浏览器",
+      "unavailable": "存储不可用",
+      "warning": "本次尝试无法保存。交易仍可进行，但刷新页面会丢失进度。",
+      "blocked": "已保存的尝试无法恢复，因此未做任何覆盖。可以重试，或开始新尝试。",
+      "retry": "重试",
+      "newAttempt": "开始新尝试"
+    },
+    "data": {
+      "fallback": "本地数据不可用，本次尝试使用合成行情。",
+      "subset": "仅部分本地合约可用，回放使用该子集。"
     }
   }
 }

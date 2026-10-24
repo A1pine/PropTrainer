@@ -15,6 +15,10 @@ const props = defineProps<{
   consistencyRatio: number | null
   consistencyLimit: number | null
   precision: number
+  realized?: number
+  unrealized?: number
+  margin?: number
+  buyingPower?: number
 }>()
 
 const { t } = useI18n()
@@ -58,10 +62,11 @@ const cushionTone = computed(() => {
 })
 
 const cells = computed(() => [
-  { label: t('terminal.account.equity'), value: formatMoney(props.equity, { decimals: 0 }), tone: 'ink' },
+  { label: t('terminal.account.equity'), value: formatMoney(props.equity, { decimals: 2 }), tone: 'ink' },
+  { label: t('terminal.account.balance'), value: formatMoney(props.balance, { decimals: 2 }), tone: 'ink' },
   {
     label: t('terminal.account.dayPnl'),
-    value: formatMoney(props.dayPnl, { decimals: 0, signed: true }),
+    value: formatMoney(props.dayPnl, { decimals: 2, signed: true }),
     tone: props.dayPnl > 0 ? 'bull' : props.dayPnl < 0 ? 'bear' : 'ink',
   },
   {
@@ -89,6 +94,16 @@ const cells = computed(() => [
         ? 'warn'
         : 'ink',
   },
+])
+
+const details = computed(() => [
+  { label: t('terminal.account.realized'), value: formatMoney(props.realized ?? null, { decimals: 2, signed: true }) },
+  {
+    label: t('terminal.account.unrealized'),
+    value: formatMoney(props.unrealized ?? null, { decimals: 2, signed: true }),
+  },
+  { label: t('terminal.account.margin'), value: formatMoney(props.margin ?? null, { decimals: 2 }) },
+  { label: t('terminal.account.buyingPower'), value: formatMoney(props.buyingPower ?? null, { decimals: 2 }) },
 ])
 
 const toneClass: Record<string, string> = {
@@ -123,7 +138,7 @@ const toneClass: Record<string, string> = {
       </div>
       <div class="ml-auto flex min-w-[150px] flex-1 flex-col gap-1 sm:max-w-[220px]">
         <div class="flex items-center justify-between font-mono text-[9.5px] text-ink-3">
-          <span>{{ t('terminal.account.floor') }} {{ formatPrice(floor, precision) }}</span>
+          <span>{{ t('terminal.account.floor') }} {{ formatMoney(floor, { decimals: 2 }) }}</span>
           <span>{{ Math.round(cushionPercent) }}%</span>
         </div>
         <div
@@ -142,5 +157,14 @@ const toneClass: Record<string, string> = {
         </div>
       </div>
     </div>
+    <dl
+      class="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2 text-[10.5px]"
+      data-testid="account-details"
+    >
+      <div v-for="cell in details" :key="cell.label" class="flex items-baseline gap-1.5">
+        <dt class="text-ink-3">{{ cell.label }}</dt>
+        <dd class="font-mono tabular-nums text-ink-2">{{ cell.value }}</dd>
+      </div>
+    </dl>
   </section>
 </template>

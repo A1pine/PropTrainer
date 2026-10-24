@@ -13,6 +13,7 @@ const props = defineProps<{
   report: AnalysisReport | null
   status: ExamAnalysisStatus
   count: number
+  compact?: boolean
 }>()
 const emit = defineEmits<{
   'update:enabled': [enabled: boolean]
@@ -139,13 +140,14 @@ watch(
       @click="emit('update:enabled', !enabled)"
     >
       <Layers class="size-3.5" aria-hidden="true" />
-      <span class="hidden sm:inline">TA</span>
+      <span :class="compact ? 'sr-only' : 'hidden sm:inline'">TA</span>
       <span class="size-1.5 rounded-full" :class="enabled ? 'bg-clay' : 'bg-ink/25'" aria-hidden="true" />
     </button>
 
     <span
       v-if="enabled"
-      class="hidden items-center gap-1 text-[10px] text-ink-3 md:flex"
+      class="items-center gap-1 text-[10px] text-ink-3"
+      :class="compact ? 'sr-only' : 'hidden md:flex'"
       role="status"
       :title="statusTitle"
       :data-status="status"

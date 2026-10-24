@@ -116,6 +116,7 @@ export const useTerminalStore = defineStore('terminal', () => {
           last
             ? {
                 price: last.close,
+                volume: last.volume,
                 time: last.time,
                 stale: last.time !== replayTime.value,
                 change: previous ? last.close - previous.close : 0,
@@ -260,6 +261,8 @@ export const useTerminalStore = defineStore('terminal', () => {
           install(ReplaySession.restore(saved))
           persistedRuns.add(saved.run.id)
           storageStatus.value = 'saved'
+          storageError.value = null
+          restoreBlocked.value = false
           sourceMode.value = saved.run.tapes[0]?.source ?? 'synthetic'
         } else {
           await newAttempt()
@@ -277,6 +280,23 @@ export const useTerminalStore = defineStore('terminal', () => {
       initialization = null
     })
     return initialization
+  }
+
+  async function retryRestore(): Promise<void> {
+    if (!restoreBlocked.value || initialization || loading.value) return
+    initialized = false
+    await initialize()
+  }
+
+  async function retrySave(): Promise<void> {
+    if (!session.value || restoreBlocked.value || loading.value) return
+    await flush()
+    if (persistedRuns.has(session.value.run.id)) {
+      queueCheckpoint()
+      await flush()
+    } else {
+      await createCheckpoint(session.value.run, session.value.checkpoint())
+    }
   }
 
   async function newAttempt(
@@ -521,6 +541,8 @@ export const useTerminalStore = defineStore('terminal', () => {
     breachFor,
     dailyLineFor,
     initialize,
+    retryRestore,
+    retrySave,
     load,
     selectSymbol,
     newAttempt,

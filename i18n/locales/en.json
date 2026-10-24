@@ -283,7 +283,14 @@
     "priceHidden": "price hidden",
     "printing": "Candles printing",
     "waiting": "Waiting",
-    "dayMask": "DAY ??"
+    "dayMask": "DAY ??",
+    "tool": {
+      "cursor": "Cursor / pan",
+      "trend": "Trend line",
+      "horizontal": "Horizontal line",
+      "active": "Drawing mode: clicks add shapes, not orders",
+      "scope": "Drawings clear when the symbol or timeframe changes"
+    }
   },
   "log": {
     "title": "Execution log",
@@ -1058,7 +1065,9 @@
       "title": "Watchlist",
       "hint": "Select a symbol to load its tape",
       "loading": "Loading",
-      "noQuote": "Load to quote"
+      "noQuote": "Load to quote",
+      "volume": "Vol",
+      "volumeTitle": "Volume of the last revealed base bar"
     },
     "replay": {
       "pause": "Pause",
@@ -1070,11 +1079,26 @@
       "local": "Local pack",
       "synthetic": "Synthetic",
       "loading": "Loading",
-      "progress": "Replay progress"
+      "progress": "Replay progress",
+      "ended": "Replay reached the end of the tape.",
+      "stale": "The selected symbol has no fresh mark. Step the replay.",
+      "complete": "Complete"
     },
     "timeframe": {
       "label": "Timeframe",
-      "unavailable": "Not available for this tape"
+      "unavailable": "Not available for this tape",
+      "custom": {
+        "label": "Custom minutes",
+        "apply": "Apply",
+        "selected": "Custom {label}",
+        "baseHint": "Multiples of 5 minutes, up to 1440. Bars finer than 5m are not available.",
+        "errors": {
+          "invalid": "Enter a whole number of minutes.",
+          "finer": "The tape is 5-minute bars, so finer timeframes are not available.",
+          "step": "Use a multiple of 5 minutes.",
+          "tooLarge": "Keep the timeframe within one trading day (1440 minutes)."
+        }
+      }
     },
     "ticket": {
       "title": "Order ticket",
@@ -1215,7 +1239,9 @@
       "reduceQty": "Reduce quantity",
       "invalidReduce": "Enter a whole quantity from 1 to {max}.",
       "markTime": "Mark time (UTC)",
-      "stale": "Older mark"
+      "stale": "Older mark",
+      "exitAll": "Exit all",
+      "exitAllConfirm": "Close every position and cancel all working orders?"
     },
     "fills": {
       "title": "Fills",
@@ -1350,7 +1376,9 @@
       "reversed": "Position reversed",
       "reset": "Account reset",
       "breach": "Account breached — trading locked",
-      "cancelUnavailable": "This order cannot be cancelled from the chart."
+      "cancelUnavailable": "This order cannot be cancelled from the chart.",
+      "reduced": "Position reduced",
+      "modified": "Order updated"
     },
     "limits": {
       "title": "Data limits",
@@ -1440,6 +1468,29 @@
         "ohlc": "OHLC",
         "line": "Line",
         "heikin-ashi": "Heikin Ashi"
+      },
+      "forming": "Forming",
+      "formingHint": "The last candle is built only from revealed bars; it is not final."
+    },
+    "hotkeys": {
+      "title": "Hotkeys",
+      "enabled": "Enable hotkeys",
+      "press": "Press a key",
+      "reset": "Reset to defaults",
+      "close": "Close hotkeys",
+      "rebind": "Rebind {action}",
+      "note": "Hotkeys never fire while typing in a field or while a menu or dialog is open. Function keys and modifier chords are not supported.",
+      "actions": {
+        "play-pause": "Play / pause",
+        "step": "Step one bar",
+        "buy": "Open buy ticket",
+        "sell": "Open sell ticket",
+        "flatten": "Flatten position",
+        "close": "Close ticket"
+      },
+      "errors": {
+        "reserved": "That key is reserved for typing or navigation.",
+        "duplicate": "That key is already bound to another action."
       }
     },
     "layout": {
@@ -1447,6 +1498,20 @@
       "count": "{count}-pane layout",
       "single": "Single chart",
       "remove": "Close pane"
+    },
+    "storage": {
+      "idle": "Ready",
+      "saving": "Saving…",
+      "saved": "Saved in this browser",
+      "unavailable": "Storage unavailable",
+      "warning": "This attempt cannot be saved. Trading still works, but progress will be lost if you reload.",
+      "blocked": "The saved attempt could not be restored, so it was left untouched. Retry, or start a new attempt.",
+      "retry": "Retry",
+      "newAttempt": "Start new attempt"
+    },
+    "data": {
+      "fallback": "Local packs were unavailable, so this attempt uses a synthetic tape.",
+      "subset": "Only some local symbols were available; replay uses that subset."
     }
   }
 }

@@ -59,7 +59,6 @@ export class ReplaySession {
       this._cursor = restored.cursor
       this.engine = SimEngine.fromState(restored.engine, this.run.instruments)
       const snapshot = this.engine.snapshot()
-      if (snapshot.time > this.time + REPLAY_BASE_SECONDS) throw new Error('Replay checkpoint is ahead of the tape')
       for (const tape of this.market.tapes) {
         const mark = snapshot.marks[tape.symbol]
         const count = revealedCount(tape.candles, this.time)
@@ -68,6 +67,12 @@ export class ReplaySession {
           throw new Error('Replay marks do not match the pinned cursor')
         }
       }
+      // The engine clock may only be the cursor bar, or the scheduled session
+      // close when that bar was the last one before the boundary. Anything else
+      // is a checkpoint that no longer matches this tape.
+      const close = sessionClose(tradingDayKey(this.time))
+      const expected = this.time + REPLAY_BASE_SECONDS >= close ? close : this.time
+      if (snapshot.time !== expected) throw new Error('Replay checkpoint clock does not match the tape')
     } else {
       this._cursor = run.startIndex + 1
       this.engine = new SimEngine({ instruments: this.run.instruments, template, time: this.time })
