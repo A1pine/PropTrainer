@@ -39,10 +39,11 @@ belongs beyond structure rather than at your comfort level.
   on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
 - **Replay terminal** — a free-form Tradovate-style desk on the same historical tape: market/limit/stop/stop-limit/
   trailing entries with DAY/GTC/GTD and release times, one stop plus up to five OCO targets, break-even and
-  trailing ATM, chart drag-to-replace and click-to-price, a price ladder without fake depth, watchlist quotes,
-  positions/orders/fills/history docks, and a prop account with drawdown floor, daily loss, contract cap,
-  consistency and a conditional breach price. Every timeframe is aggregated from one 5-minute tape, and the
-  attempt (clock, positions, orders) is restored from IndexedDB after a refresh.
+  trailing ATM, chart drag-to-replace and click-to-price, up to three linked chart panes with a saved layout, a
+  price ladder without fake depth, watchlist quotes, positions/orders/fills/history docks, and a prop account with
+  drawdown floor, daily loss, contract cap, consistency and a conditional breach price. Every timeframe is
+  aggregated from one 5-minute tape, and the attempt (clock, positions, orders) is restored from IndexedDB after a
+  refresh.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
 - **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (key parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
@@ -278,6 +279,10 @@ footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG
 instrument, and every chart timeframe (`5m`, `15m`, `30m`, `1h`, `4h`, `1D`) is an aggregation of that same revealed
 prefix, so switching timeframe cannot move the clock or reveal future bars. Higher-timeframe bars are computed in
 Rust (`prop_aggregate`) with an identical TypeScript reducer as the fallback and parity oracle.
+
+The chart area holds one to three panes that share the replay clock; the active pane drives the ticket, ladder and
+position card, and the layout (symbol, timeframe, style) is saved locally. Panes are display-only: adding or closing
+one never advances the cursor or changes the account.
 
 Orders support market, limit, stop, stop-limit, trailing stop and trailing stop limit, with DAY/GTC/GTD and optional
 release times, partial targets, one stop plus up to five OCO targets, break-even/trailing ATM, reduce-only, and

@@ -346,7 +346,7 @@ wasm/src/       aggregate + risk analytics where the batch work is O(n)
 | Account                       | balance/equity/realized/unrealized   | same, fees included, day P&L                           | delivered     |
 | Prop rules                    | drawdown, daily loss, consistency    | floor, daily loss, cap, min days, consistency, breach  | delivered     |
 | History                       | orders/fills/journal                 | orders, fills, trades, events, day ledger, CSV         | delivered     |
-| Workspace                     | saved layouts                        | symbol/timeframe prefs; no saved layout presets        | partial       |
+| Workspace                     | saved layouts                        | up to 3 linked chart panes + saved layout/panes        | delivered     |
 | Hotkeys                       | configurable                         | fixed core set (space, N, B, S, F, Esc)                | partial       |
 | Real-time feed                | exchange connectivity                | not in scope                                           | not available |
 | Options/spreads/multi-account | platform extensions                  | out of confirmed scope                                 | not available |
