@@ -1,15 +1,15 @@
 # Prop Desk
 
 A blind-replay trading trainer for prop-firm instruments. Prices, symbol and date are hidden while candles print
-one at a time. You size like a futures trader, place bracketed orders, and manage risk against real evaluation
-guardrails: profit target, trailing drawdown, daily loss limit.
+one at a time. You size like a futures trader, place bracketed orders, and manage risk against configurable
+evaluation-style guardrails: profit target, trailing drawdown, daily loss limit.
 
 The decision drill then grades the part most traders skip — state, an optional thesis, and a plan whose stop
 belongs beyond structure rather than at your comfort level.
 
-> **Simulated by default.** Every series is generated deterministically from a seeded regime model. Optionally,
-> you can drop in a local pack of real 5-minute futures bars (`bun run data:fetch`) and practice on that instead.
-> There is no live market feed, no broker connection, and nothing in this app is financial advice.
+> **Simulated execution only; synthetic data by default.** Series are generated deterministically from a seeded
+> regime model, or you can install a local pack of real 5-minute futures bars (`bun run data:fetch`) for practice.
+> There is no live market feed, broker connection or real-money trading. Nothing here is financial advice.
 
 ![Lobby](docs/media/lobby.png)
 
@@ -37,13 +37,12 @@ belongs beyond structure rather than at your comfort level.
   helpers start off, keep blind price/date masking, and do not change the grading rules.
 - **Optional real data** — fetch a local 5-minute pack from Yahoo Finance, switch sources in Settings, and train
   on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
-- **Replay terminal** — a free-form Tradovate-style desk on the same historical tape: market/limit/stop/stop-limit/
-  trailing entries with DAY/GTC/GTD and release times, one stop plus up to five OCO targets, break-even and
-  trailing ATM, chart drag-to-replace and click-to-price, up to three linked chart panes with a saved layout, a
-  price ladder without fake depth, watchlist quotes, positions/orders/fills/history docks, and a prop account with
-  drawdown floor, daily loss, contract cap, consistency and a conditional breach price. Every timeframe is
-  aggregated from one 5-minute tape, and the attempt (clock, positions, orders) is restored from IndexedDB after a
-  refresh.
+- **Replay terminal** — core Tradovate Web-style futures workflows in Prop Desk's existing design, not a 1:1 clone:
+  six simulated order types, DAY/GTC/GTD, sized OCO targets, break-even/trailing ATM, same-ID chart amendments,
+  one to three linked chart panes with locally saved display settings, opt-in TA/drawings, a price ladder without
+  fake depth, and account/history docks. Configurable prop rules track drawdown, daily loss, caps, consistency and
+  conditional per-symbol risk prices. Preset/custom timeframes share a revealed 5-minute tape; pinned runs and
+  checkpoints use IndexedDB with explicit storage errors and retry.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
 - **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (key parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
@@ -101,17 +100,19 @@ bun run check:wasm     # proves the core never blocks first paint and loads once
 bun run check:executions # result-page fill markers, same-bar exits and blind masking
 bun run check:analysis   # exam overlay toggles, keyboard isolation, failure recovery and layout
 bun run check:terminal   # replay terminal orders, chart trading, prop lines and mobile layout
-bun run bench:timeframes # 13k-bar aggregation parity and P95 against the 10 ms budget
+bun scripts/bench-timeframes.ts # 13k-bar aggregation parity and P95 against the 10 ms budget
 ```
 
-Current artifact: **157.6 KiB raw / 58.8 KiB brotli** (budget 160/60), including the replay aggregator. WASM never gates hydration: it warms on idle;
+Last recorded artifact (prior measurement; a fresh build will replace it): **157.6 KiB raw / 58.8 KiB brotli** (budget 160/60), including the replay aggregator. WASM never gates hydration: it warms on idle;
 only a direct, server-rendered analysis visit adds a preload. SPA navigation shares the loader's pending request.
 See [`docs/perf/wasm.md`](docs/perf/wasm.md) for the artifact history and
 [`docs/perf/response.md`](docs/perf/response.md) for production response budgets, raw before/after samples and limits.
 
 ```bash
-bun run bench:compute --check  # 710-bar public wrappers, validation and cached windows
-bun run bench:ui --check       # production localhost:4173, synthetic + installed local pack
+bun run bench:compute --check    # 710-bar public wrappers, validation and cached windows
+bun run bench:ui --check         # production localhost:4173, synthetic + installed local pack
+bun run bench:terminal           # replay-step and multi-pane chart responsiveness
+bun run bench:timeframes         # aggregation parity, latency and artifact budgets
 ```
 
 ## Routes
@@ -166,14 +167,14 @@ tests/unit/               domain and adapter tests
 - **Domain stays pure** — the broker, generator, sizing and grading have no Vue or DOM dependencies. They are
   deterministic and directly unit-tested.
 - **One writer per concern** — Pinia stores own lifecycle and persistence; components render and emit. The
-  trainer store is the only place that advances bars and feeds the broker.
-- **Conservative simulation** — if a bar touches both stop and target, the stop is assumed first; gaps fill at
-  the open; commissions are split half on entry and half on exit. The review should not flatter the trader.
+  trainer store feeds its broker; the separate terminal store coordinates `ReplaySession` and its engine.
+- **Declared simulation policy** — trainer/drill reviews resolve ambiguous stop/target bars stop-first. The terminal
+  instead walks an explicit OHLC path, described below. Fees and gap behavior remain part of each model.
 - **Honest boundaries** — daily/PK reference results are labelled as deterministic strategy baselines, not people.
-  No fake testimonials, payouts or live-data claims. The terminal's ladder shows prices, never invented depth,
-  and its breach price is labelled conditional on the other instruments staying flat.
+  No fake testimonials, payouts or live-data claims. The terminal's ladder never invents depth, and its conditional
+  breach price holds other symbols' marks fixed; it does not assume those positions are closed.
 
-### The trading model
+### The trainer trading model
 
 - Contracts, not notional leverage. `riskPerContract = stopTicks × tickValue + roundTurnFee`.
 - `contracts = floor(riskBudget / riskPerContract)`, capped by the account's max contracts.
@@ -182,14 +183,15 @@ tests/unit/               domain and adapter tests
 
 ### Rust / WebAssembly compute core
 
-The batch work runs in Rust, compiled to a 150.3 KiB WASM module:
+The batch work runs in Rust; the last recorded build was a 157.6 KiB WASM module:
 
 | Work                                                                 | Why it is in Rust                                                |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Regime scenario generation (710 OHLCV bars + ATR/efficiency metrics) | Runs for every round, daily sample, PK rematch and lobby preview |
 | Fractal swing detection                                              | Cached for the visible prefix; reused across plan edits          |
 | Plan simulation (bracket fill, gaps, stop-first, MAE/MFE, R)         | 300-bar conservative walk for trainer reviews and drill grading  |
-| Chart analysis (indicators, structure, ICT, flow)                    | Recomputed on every visible-bar step in the analysis lab         |
+| Chart analysis (indicators, structure, ICT, flow)                    | Visible-prefix reports for the lab and optional chart helpers    |
+| Terminal higher-timeframe aggregation (`prop_aggregate`)             | Batch OHLCV reduction; TypeScript fallback and parity reference  |
 
 Both the Nuxt server and the browser load the **same** module: the server reads
 `public/wasm/prop_core.wasm` at boot, while the client warms it without blocking hydration. A typed JSON ABI
@@ -198,10 +200,10 @@ session/weekend gaps survive analysis. Generation, swings and plan simulation ha
 The analysis lab requires WASM and shows an unavailable state if it cannot load. The active core is shown under
 Settings → Compute core.
 
-Stateful O(1) work (per-bar broker state, risk sizing, formatting), rendering and Vue orchestration stay in
-TypeScript — moving them across the boundary would add latency and lose reactivity without reducing real CPU work.
-Parity is enforced by tests that generate candles, find swings and simulate plans through both paths and require
-deep equality.
+Stateful broker work, terminal execution/risk transitions (including drawdown and consistency), sizing, rendering
+and Vue orchestration stay in TypeScript. There is no WASM prop-rule state machine. Tests require Rust/TypeScript
+parity for generation, swings, plan simulation and terminal aggregation; the aggregation benchmark does not
+establish that WASM is faster than its TypeScript reference.
 
 ### Theming
 
@@ -275,30 +277,50 @@ footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG
 
 ### Replay terminal
 
-`/terminal` is a separate free-form desk: no grading, no hidden contract. It replays one 5-minute tape per
-instrument, and every chart timeframe (`5m`, `15m`, `30m`, `1h`, `4h`, `1D`) is an aggregation of that same revealed
-prefix, so switching timeframe cannot move the clock or reveal future bars. Higher-timeframe bars are computed in
-Rust (`prop_aggregate`) with an identical TypeScript reducer as the fallback and parity oracle.
+`/terminal` is a separate free-form desk: no grading or hidden contract, and no broker. Its scope is core
+Tradovate Web-style futures workflows adapted to replay, not complete platform parity. The rail/mobile Trade
+entry comes from `app/composables/useNav.ts`; existing exam routes keep their own grading and execution model.
 
-The chart area holds one to three panes that share the replay clock; the active pane drives the ticket, ladder and
-position card, and the layout (symbol, timeframe, style) is saved locally. Panes are display-only: adding or closing
-one never advances the cursor or changes the account.
+**Tape and timeframes.** Each instrument has a pinned 5-minute tape. `cursor` counts revealed entries in the
+shared timeline; the last revealed timestamp is `timeline[cursor - 1]`, and gaps stay gaps. Presets are `5m`, `15m`,
+`30m`, `1h`, `4h`, `1D`, plus custom **5–1440 minute multiples of 5**. Finer 1m/seconds/tick choices are not offered.
+Aggregation uses only revealed bars; the forming badge marks incomplete higher-timeframe buckets. Switching
+frames/styles does not advance the clock. The calendar models Chicago 17:00–16:00 sessions, DST, the maintenance
+break and weekends, **not exchange holidays or early closes**. A synthetic/local source label is displayed, but the
+terminal has no source picker, replay-start picker or surfaced tape-provenance panel.
 
-Orders support market, limit, stop, stop-limit, trailing stop and trailing stop limit, with DAY/GTC/GTD and optional
-release times, partial targets, one stop plus up to five OCO targets, break-even/trailing ATM, reduce-only, and
-add/reduce/reverse/flatten. Fills are print-driven against the revealed bar: resting orders fill at the level or at a
-gapped open, and when a bar spans both stop and target the stop is assumed first. The chart can drag a working order
-to a new tick-rounded price and click a price into the ticket; the price ladder shows prices and your own working
-orders only — there is no order-book depth or time-and-sales in a 5-minute OHLCV tape, and the UI states that.
+**Layout and chart tools.** Up to three panes share the clock; only the active pane renders below 1024 px. It drives
+the ticket, ladder, position card and risk overlays. The watchlist is visible at ≥1024 px, the ticket column at
+≥1280 px; below 1280 px Buy/Sell opens a bottom sheet. Symbol/timeframe/style persist locally, not as named/cloud
+workspaces. Candlestick/OHLC/line/Heikin-Ashi styles, off-by-default TA, trend and horizontal lines are exposed by
+`TerminalChartPane.vue`. Drawings clear on symbol/timeframe changes and are not saved. Watchlist last/change/volume
+refer to the last revealed **base bar**, not bid/ask quotes or session volume.
 
-The prop account tracks a drawdown floor (static, intraday-trailing or end-of-day trailing, on balance or equity),
-daily loss, contract cap, minimum trading days and a consistency gate. The account bar shows equity, day P&L,
-cushion and daily loss left; the chart draws floor, daily and conditional breach levels when they fall inside the
-visible price window. A breach price assumes every other instrument stays flat, so it is labelled as conditional.
+**Execution.** Six order types support DAY/GTC/GTD and release/expiry, one stop plus up to five sized OCO targets,
+break-even/trailing ATM, explicit partial exits and add/reduce/reverse/flatten. Bars walk `O → L → H → C` when
+`close >= open`, otherwise `O → H → L → C`. Stop-limits activate before matching their limit and never reuse
+pre-trigger extrema. There is no queue, spread or volume-based partial-fill simulation. Chart drag amends the
+**same order ID** with a `modified` event; cursor clicks prefill a price. Reverse cancels old protection and does
+not re-arm it. The ladder shows prices/own orders, never fabricated depth or time-and-sales.
 
-Replay state is checkpointed to IndexedDB (`propdesk-replay-v1`) together with the pinned tapes, so a refresh
-restores the same clock, positions and orders; a checkpoint that no longer matches its run is refused instead of
-silently resetting. Display preferences (`symbol`, `timeframe`) live in `localStorage`. Nothing is sent to a broker.
+**Prop account.** Generic editable presets—not licensed firm rulebooks—support static/intraday/EOD drawdown,
+daily actions, contract/trade caps, finalized-day minimums and consistency gates. Peak basis (balance/equity) is
+separate from the balance/equity breach monitor. Fees and session finalization affect floors and eligibility;
+breaches latch. The account strip/details show balance, equity, realized/unrealized P&L, day P&L, margin, buying
+power, floor/cushion and rule status. Charts draw conditional breach and daily-loss **price** lines in scale,
+not the account's dollar floor. Per-symbol breach prices hold other symbols' marks fixed; balance-only drawdown
+has no drawdown price line. Execution and prop-rule transitions are TypeScript, not WASM.
+
+**Persistence and controls.** IndexedDB `propdesk-replay-v1` stores pinned runs and checkpoints. A valid restore
+resumes the same account; failed restore sets `restoreBlocked`, exposes Retry and never silently resets it. Save
+failure can leave the latest state unsaved. Display/ATM/hotkey preferences use localStorage. Six local hotkeys are
+opt-in and remappable (see below); there is no full per-module hotkey catalogue, docking, workspace import/export
+or cloud sync.
+
+See [implementation, scoped parity and evidence map](docs/design/trading-terminal.md) and
+[performance and acceptance evidence](docs/perf/terminal.md). The final production run passed 829 tests,
+65 browser checks, five theme routes, the WASM loading checks and the replay responsiveness budget; the measured
+limits (headless single-machine, 5-minute OHLCV, no depth/tape) are recorded there.
 
 ### Chart engine
 
@@ -323,6 +345,8 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 
 ## Keyboard
 
+Trainer/drill shortcuts and global controls:
+
 | Key             | Action                                              |
 | --------------- | --------------------------------------------------- |
 | `Space`         | Wait one bar while reading / play-pause live replay |
@@ -331,6 +355,17 @@ acceptance checklist live in [`docs/design/ui-spec.md`](docs/design/ui-spec.md).
 | `L` / `S`       | Direction: long / short                             |
 | `⌘K` / `Ctrl K` | Command palette                                     |
 | `Esc`           | Close a dialog or the palette                       |
+
+Terminal shortcuts are **disabled by default** and locally remappable:
+
+| Default key   | Terminal action                                     |
+| ------------- | --------------------------------------------------- |
+| `Space` / `N` | Play/pause / step one shared-timeline entry         |
+| `B` / `S`     | Open/focus the buy/sell ticket, not submit an order |
+| `F`           | Flatten the active symbol's position                |
+| `Esc`         | Close the ticket                                    |
+
+Typing, menus/dialogs, composition, repeated keys and modifier chords do not fire terminal actions.
 
 ## Testing
 
@@ -350,21 +385,25 @@ The unit and component suites cover:
 - local pack cache generations, refresh races, negative-cache recovery and future-independent rebasing,
 - shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
 - fill normalization across session gaps, same-bar round trips, no-fill plans and invalid bar coordinates,
-- replay session no-lookahead/determinism/restore, session rolls and corrupt checkpoints,
-- order lifecycle across all six order types, TIF/release, partial targets, OCO and ATM,
-- prop drawdown modes, daily loss actions, consistency boundaries and breach-price rounding,
-- timeframe aggregation parity (TS ↔ WASM), DST session opens and out-of-session bar filtering,
+- replay no-lookahead/determinism, sparse shared clocks, scheduled closes and corrupt-checkpoint/retry handling,
+- six order types, TIF/release, same-ID amendments, reservations, partial targets, OCO and ATM,
+- prop peak basis vs breach monitor, fee-aware transitions, finalized-day gates and conditional price rounding,
+- timeframe aggregation parity (TS ↔ WASM), custom intervals, DST and weekly-session filtering,
+- terminal layout/hotkey storage, guarded remapping, quote/account controls and TA/drawing isolation,
 - pre-paint chart geometry, no-op redraws, reveal animation targets, option updates and reduced motion.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
 
 ## Limitations
 
-- No server, accounts, or cross-device sync. History and PK rooms are local.
-- If WASM is blocked, generation and trading simulation fall back to TypeScript; the analysis lab and exam
-  analysis helpers are unavailable. Exam actions still work. Settings shows the active compute status.
+- No server-side trading/account service, user login or cross-device sync. History and PK rooms are local.
+- If WASM is blocked, generation/plan simulation and terminal aggregation have TypeScript fallbacks. Terminal
+  execution/risk already run in TypeScript; the analysis lab and optional TA helpers are unavailable.
 - Scenarios are synthetic by default, or sampled from an optional local pack; neither proves a real trading edge.
-- One open position and one working order per account, intentionally, to keep the decision surface honest.
+- The trainer permits one position/working entry at a time. The terminal supports multiple symbols and working
+  orders, with one net position per symbol in one simulated account.
+- Terminal bar paths, weekly calendar and frozen-other-mark risk prices are approximations. No live quotes,
+  order-book depth, tick-based charts, full workspaces or licensed prop-firm rulebooks are provided.
 - Reference plans are fixed strategy baselines; they are not a ranking of real traders.
 
 ## License

@@ -1,0 +1,2999 @@
+{
+  "schemaVersion": 1,
+  "kind": "terminal-ui-benchmark",
+  "startedAt": "2026-10-24T18:01:53.589Z",
+  "environment": {
+    "baseURL": "http://127.0.0.1:4173",
+    "route": "http://127.0.0.1:4173/terminal",
+    "buildMode": "production",
+    "evidence": {
+      "mode": "production",
+      "local": true,
+      "productionEvidence": true,
+      "label": "production-local",
+      "note": "Production build. Programmatic DOM input only; no OS input, paint, compositing, or hot-sample checkpoint drain included."
+    },
+    "platform": "darwin",
+    "osRelease": "27.0.0",
+    "arch": "arm64",
+    "cpu": {
+      "model": "Apple M5 Pro",
+      "logicalCores": 15
+    },
+    "totalMemoryBytes": 25769803776,
+    "node": "v24.3.0",
+    "browser": {
+      "name": "chromium",
+      "channel": "chrome",
+      "version": "155.0.8059.85",
+      "headless": true
+    },
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "deviceScaleFactor": 2,
+    "headless": true,
+    "page": {
+      "scripts": ["", "", "http://127.0.0.1:4173/_nuxt/B5N4J2Zn.js", "", ""],
+      "dpr": 2,
+      "innerWidth": 1440,
+      "innerHeight": 1000,
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+      "hardwareConcurrency": 15,
+      "deviceMemory": 16,
+      "screen": {
+        "width": 1440,
+        "height": 1000,
+        "availWidth": 1440,
+        "availHeight": 1000
+      },
+      "storePresent": true,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      }
+    }
+  },
+  "git": {
+    "commit": "e3dcffc0fde9d3b6165796a32179098968ee91a8",
+    "shortCommit": "e3dcffc",
+    "branch": "main",
+    "describe": "e3dcffc-dirty",
+    "dirty": true,
+    "changedFiles": [
+      "M README.md",
+      " M app/components/analysis/ExamAnalysisControls.vue",
+      " M app/components/terminal/AccountBar.vue",
+      " M app/components/terminal/ReplayBar.vue",
+      " M app/components/terminal/TimeframePicker.vue",
+      " M app/components/terminal/Watchlist.vue",
+      " M app/domain/sim/presets.ts",
+      " M app/lib/sim/replay.ts",
+      " M app/pages/terminal.vue",
+      " M app/stores/terminal.ts",
+      " M docs/design/trading-terminal.md",
+      " M docs/perf/terminal.md",
+      " M docs/perf/wasm.md",
+      " M i18n/locales/en.json",
+      " M i18n/locales/ja.json",
+      " M i18n/locales/zh-CN.json",
+      " M scripts/check-terminal.mjs",
+      " M tests/component/exam-analysis-controls.spec.ts",
+      " M tests/component/terminal-history.spec.ts",
+      " M tests/component/terminal-rules.spec.ts",
+      " M tests/component/terminal-tables.spec.ts",
+      " M tests/component/terminal-ticket.spec.ts",
+      " M tests/unit/sim-replay.spec.ts",
+      " M tests/unit/terminal-persistence.spec.ts",
+      "?? app/components/terminal/HotkeySettings.vue",
+      "?? app/components/terminal/TerminalChartPane.vue",
+      "?? app/lib/sim/chart.ts",
+      "?? app/lib/sim/hotkeys.ts",
+      "?? scripts/bench-terminal.mjs",
+      "?? tests/component/hotkey-settings.spec.ts",
+      "?? tests/component/terminal-chart-pane.spec.ts",
+      "?? tests/component/terminal-market-controls.spec.ts",
+      "?? tests/unit/terminal-chart-helpers.spec.ts",
+      "?? tests/unit/terminal-hotkeys.spec.ts"
+    ]
+  },
+  "config": {
+    "samplesPerHotScenario": 20,
+    "coldSamples": 10,
+    "readyTimeoutMs": 30000,
+    "sampleTimeoutMs": 10000,
+    "idleTimeoutMs": 5000,
+    "selectors": {
+      "step": "[data-testid=\"replay-bar\"] > button:nth-child(2)",
+      "pane": "[data-pane]",
+      "layoutGroup": "[role=\"group\"][aria-label=\"Chart layout\"]",
+      "timeframe5m": "[data-testid=\"timeframe-5m\"]",
+      "analysisToggle": "[data-testid=\"analysis-toggle\"]",
+      "analysisReady": "[data-status=\"ready\"]"
+    },
+    "settings": {
+      "locale": "en",
+      "theme": "light",
+      "reduceMotion": false,
+      "sound": false,
+      "accountPreset": "eval-50k",
+      "accountSize": 50000,
+      "riskPerTrade": 1,
+      "maxContracts": 5,
+      "feePerContract": 0,
+      "autoPlaySpeed": 2,
+      "instruments": ["MNQ"],
+      "dataSource": "synthetic",
+      "showRMultiple": true,
+      "confirmBeforeSubmit": true
+    },
+    "budgets": {
+      "responseP95Ms": 50,
+      "chartCallbackCpuP95Ms": 16.7,
+      "coldP95Ms": 1500
+    }
+  },
+  "boundaries": {
+    "coldStart": "page performance time origin (navigation start)",
+    "coldEnd": "first requestAnimationFrame poll tick that observes terminal.store.ready, loading=false, cursor>0, a non-null account, and every visible [data-pane] canvas last completed clearRect with lastDrawCursor equal to terminal.cursor",
+    "hotStart": "window capture-phase click timestamp for the programmatic Playwright locator.click() that activates the real toolbar control",
+    "hotEnd": "start of the next requestAnimationFrame callback after the draw callback that cleared every visible [data-pane] canvas with terminal.cursor equal to the post-step/control target",
+    "syncWork": "same click event: microtask immediately after event dispatch minus the window capture timestamp; includes the Vue target handler and excludes browser input queue, OS input delivery, render microtasks, and IndexedDB checkpoint drain",
+    "chartCallbackCpu": "sum of instrumented requestAnimationFrame callback durations that called CanvasRenderingContext2D.clearRect in the event window; excludes Vue render microtasks, WASM analysis computation outside those callbacks, paint, compositing, and GPU work",
+    "stepCursor": "terminal.cursor after minus terminal.cursor before must equal exactly 1",
+    "account": "terminal.account must remain non-null and startBalance must be unchanged"
+  },
+  "method": {
+    "input": "programmatic DOM click through Playwright locator.click(); no OS-level input is claimed",
+    "settling": "each hot sample waits for a condition-based chart-idle check (three consecutive RAF polls with no new canvas draw) before the next sample; no fixed sleeps are used",
+    "coldData": "fresh browser context per sample; synthetic settings cookie and localStorage; no private data",
+    "hotData": "one fresh browser context for all hot scenarios; synthetic settings cookie and localStorage; no private data",
+    "checkpoint": "cold readiness includes the app initial checkpoint because store.ready flips only after createCheckpoint resolves; hot step response does not await queueCheckpoint() (IndexedDB drain is excluded)",
+    "excluded": [
+      "OS input delivery",
+      "browser input queue latency before the DOM click event",
+      "paint, compositing, and GPU work",
+      "IndexedDB checkpoint drain during hot samples",
+      "decorative candle entry animation after the presented frame"
+    ]
+  },
+  "cold": {
+    "samples": [
+      {
+        "index": 1,
+        "coldMs": 659.7000000476837,
+        "wallMs": 669.6348750000002,
+        "state": {
+          "at": 663.3000000715256,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 660.8000000715256,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 2,
+        "coldMs": 488.39999997615814,
+        "wallMs": 496.97924999999987,
+        "state": {
+          "at": 497.09999990463257,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 489.6999999284744,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 3,
+        "coldMs": 488.1999999284744,
+        "wallMs": 494.7656670000006,
+        "state": {
+          "at": 492.5,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 489.7999999523163,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 4,
+        "coldMs": 474.2000000476837,
+        "wallMs": 490.49808399999984,
+        "state": {
+          "at": 490.2000000476837,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 475.60000002384186,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 5,
+        "coldMs": 435.2999999523163,
+        "wallMs": 446.43645899999956,
+        "state": {
+          "at": 439.2999999523163,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 436.5,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 6,
+        "coldMs": 469.10000002384186,
+        "wallMs": 474.6582499999995,
+        "state": {
+          "at": 473.10000002384186,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 470.3000000715256,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 7,
+        "coldMs": 460.8000000715256,
+        "wallMs": 466.2814579999995,
+        "state": {
+          "at": 465,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 462.2000000476837,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 8,
+        "coldMs": 424.1999999284744,
+        "wallMs": 432.6927919999998,
+        "state": {
+          "at": 430.7999999523163,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 425.60000002384186,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 9,
+        "coldMs": 450.7000000476837,
+        "wallMs": 458.76195800000096,
+        "state": {
+          "at": 454.7000000476837,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 452,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      },
+      {
+        "index": 10,
+        "coldMs": 413.1999999284744,
+        "wallMs": 418.81816700000127,
+        "state": {
+          "at": 417.59999990463257,
+          "store": true,
+          "ready": true,
+          "loading": false,
+          "playing": false,
+          "ended": false,
+          "cursor": 260,
+          "timeframe": "15m",
+          "source": "synthetic",
+          "paneCount": 1,
+          "activePaneCount": 1,
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "account": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "canvases": [
+            {
+              "token": "canvas-1",
+              "width": 1604,
+              "height": 814,
+              "cssWidth": 802,
+              "cssHeight": 407,
+              "lastDrawAt": 414.59999990463257,
+              "lastDrawCursor": 260
+            }
+          ]
+        },
+        "pageErrors": [],
+        "consoleErrors": []
+      }
+    ],
+    "stats": {
+      "cold": {
+        "n": 10,
+        "p50": 460.8000000715256,
+        "p95": 659.7000000476837,
+        "max": 659.7000000476837,
+        "samples": [
+          659.7000000476837, 488.39999997615814, 488.1999999284744, 474.2000000476837, 435.2999999523163,
+          469.10000002384186, 460.8000000715256, 424.1999999284744, 450.7000000476837, 413.1999999284744
+        ]
+      },
+      "wall": {
+        "n": 10,
+        "p50": 466.2814579999995,
+        "p95": 669.6348750000002,
+        "max": 669.6348750000002,
+        "samples": [
+          669.6348750000002, 496.97924999999987, 494.7656670000006, 490.49808399999984, 446.43645899999956,
+          474.6582499999995, 466.2814579999995, 432.6927919999998, 458.76195800000096, 418.81816700000127
+        ]
+      }
+    }
+  },
+  "hot": [
+    {
+      "id": "single-pane-ta-off",
+      "description": "one pane, TA off; step one bar through the real replay step button",
+      "paneCount": 1,
+      "timeframe": "15m",
+      "ta": false,
+      "analysisStatus": null,
+      "warmup": {
+        "index": null,
+        "eventId": 1,
+        "responseMs": 51,
+        "syncWorkMs": 12.700000047683716,
+        "drawCpuMs": 1.100000023841858,
+        "drawMaxCallbackMs": 1.100000023841858,
+        "drawClearMs": 0,
+        "drawFrames": 1,
+        "drawCanvasCount": 1,
+        "cursorBefore": 260,
+        "cursorAfter": 261,
+        "accountBefore": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "accountAfter": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "paneCount": 1,
+        "timeframe": "15m",
+        "analysisEnabled": false,
+        "analysisStatus": null,
+        "eventStart": 522.5,
+        "presentedAt": 573.5,
+        "frameIds": [13]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "eventId": 2,
+          "responseMs": 28.899999976158142,
+          "syncWorkMs": 9.5,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 261,
+          "cursorAfter": 262,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 673.2000000476837,
+          "presentedAt": 702.1000000238419,
+          "frameIds": [16]
+        },
+        {
+          "index": 2,
+          "eventId": 3,
+          "responseMs": 26.600000023841858,
+          "syncWorkMs": 10,
+          "drawCpuMs": 0.8000000715255737,
+          "drawMaxCallbackMs": 0.8000000715255737,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 262,
+          "cursorAfter": 263,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 774,
+          "presentedAt": 800.6000000238419,
+          "frameIds": [20]
+        },
+        {
+          "index": 3,
+          "eventId": 4,
+          "responseMs": 28.300000071525574,
+          "syncWorkMs": 7.5,
+          "drawCpuMs": 0.6999999284744263,
+          "drawMaxCallbackMs": 0.6999999284744263,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 263,
+          "cursorAfter": 264,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 872.3999999761581,
+          "presentedAt": 900.7000000476837,
+          "frameIds": [24]
+        },
+        {
+          "index": 4,
+          "eventId": 5,
+          "responseMs": 22.700000047683716,
+          "syncWorkMs": 14,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 264,
+          "cursorAfter": 265,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 978.6000000238419,
+          "presentedAt": 1001.3000000715256,
+          "frameIds": [28]
+        },
+        {
+          "index": 5,
+          "eventId": 6,
+          "responseMs": 28.199999928474426,
+          "syncWorkMs": 10.399999976158142,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 265,
+          "cursorAfter": 266,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1107.7000000476837,
+          "presentedAt": 1135.8999999761581,
+          "frameIds": [31]
+        },
+        {
+          "index": 6,
+          "eventId": 7,
+          "responseMs": 27.200000047683716,
+          "syncWorkMs": 8.600000023841858,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 266,
+          "cursorAfter": 267,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1206.8999999761581,
+          "presentedAt": 1234.1000000238419,
+          "frameIds": [35]
+        },
+        {
+          "index": 7,
+          "eventId": 8,
+          "responseMs": 23,
+          "syncWorkMs": 8.699999928474426,
+          "drawCpuMs": 0.7000000476837158,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 267,
+          "cursorAfter": 268,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1327.7000000476837,
+          "presentedAt": 1350.7000000476837,
+          "frameIds": [39]
+        },
+        {
+          "index": 8,
+          "eventId": 9,
+          "responseMs": 27.199999928474426,
+          "syncWorkMs": 8.799999952316284,
+          "drawCpuMs": 0.6999999284744263,
+          "drawMaxCallbackMs": 0.6999999284744263,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 268,
+          "cursorAfter": 269,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1423.3000000715256,
+          "presentedAt": 1450.5,
+          "frameIds": [42]
+        },
+        {
+          "index": 9,
+          "eventId": 10,
+          "responseMs": 28.399999976158142,
+          "syncWorkMs": 10.600000023841858,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 269,
+          "cursorAfter": 270,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1573.7000000476837,
+          "presentedAt": 1602.1000000238419,
+          "frameIds": [46]
+        },
+        {
+          "index": 10,
+          "eventId": 11,
+          "responseMs": 22.700000047683716,
+          "syncWorkMs": 10.400000095367432,
+          "drawCpuMs": 0.7000000476837158,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 270,
+          "cursorAfter": 271,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1727.3999999761581,
+          "presentedAt": 1750.1000000238419,
+          "frameIds": [50]
+        },
+        {
+          "index": 11,
+          "eventId": 12,
+          "responseMs": 25.5,
+          "syncWorkMs": 9.100000023841858,
+          "drawCpuMs": 0.7000000476837158,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 271,
+          "cursorAfter": 272,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1824.7000000476837,
+          "presentedAt": 1850.2000000476837,
+          "frameIds": [53]
+        },
+        {
+          "index": 12,
+          "eventId": 13,
+          "responseMs": 31.899999976158142,
+          "syncWorkMs": 9,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 272,
+          "cursorAfter": 273,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 1969.6000000238419,
+          "presentedAt": 2001.5,
+          "frameIds": [56]
+        },
+        {
+          "index": 13,
+          "eventId": 14,
+          "responseMs": 21,
+          "syncWorkMs": 10.100000023841858,
+          "drawCpuMs": 0.7000000476837158,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 273,
+          "cursorAfter": 274,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 2231,
+          "presentedAt": 2252,
+          "frameIds": [60]
+        },
+        {
+          "index": 14,
+          "eventId": 15,
+          "responseMs": 19.300000071525574,
+          "syncWorkMs": 10.5,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 274,
+          "cursorAfter": 275,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 2384.899999976158,
+          "presentedAt": 2404.2000000476837,
+          "frameIds": [63]
+        },
+        {
+          "index": 15,
+          "eventId": 16,
+          "responseMs": 27.199999928474426,
+          "syncWorkMs": 10.699999928474426,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 275,
+          "cursorAfter": 276,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 2527.3000000715256,
+          "presentedAt": 2554.5,
+          "frameIds": [66]
+        },
+        {
+          "index": 16,
+          "eventId": 17,
+          "responseMs": 20.300000071525574,
+          "syncWorkMs": 10.5,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0.09999990463256836,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 276,
+          "cursorAfter": 277,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 2746.399999976158,
+          "presentedAt": 2766.7000000476837,
+          "frameIds": [69]
+        },
+        {
+          "index": 17,
+          "eventId": 18,
+          "responseMs": 23.200000047683716,
+          "syncWorkMs": 9.100000023841858,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 277,
+          "cursorAfter": 278,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 2977.100000023842,
+          "presentedAt": 3000.3000000715256,
+          "frameIds": [72]
+        },
+        {
+          "index": 18,
+          "eventId": 19,
+          "responseMs": 19.899999976158142,
+          "syncWorkMs": 11.100000023841858,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 278,
+          "cursorAfter": 279,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 3098.7000000476837,
+          "presentedAt": 3118.600000023842,
+          "frameIds": [75]
+        },
+        {
+          "index": 19,
+          "eventId": 20,
+          "responseMs": 27,
+          "syncWorkMs": 8.800000071525574,
+          "drawCpuMs": 0.6999999284744263,
+          "drawMaxCallbackMs": 0.6999999284744263,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 279,
+          "cursorAfter": 280,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 3292.399999976158,
+          "presentedAt": 3319.399999976158,
+          "frameIds": [78]
+        },
+        {
+          "index": 20,
+          "eventId": 21,
+          "responseMs": 16.199999928474426,
+          "syncWorkMs": 9.099999904632568,
+          "drawCpuMs": 0.7000000476837158,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 280,
+          "cursorAfter": 281,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 3484.8000000715256,
+          "presentedAt": 3501,
+          "frameIds": [82]
+        }
+      ],
+      "stats": {
+        "response": {
+          "n": 20,
+          "p50": 25.5,
+          "p95": 28.899999976158142,
+          "max": 31.899999976158142,
+          "samples": [
+            28.899999976158142, 26.600000023841858, 28.300000071525574, 22.700000047683716, 28.199999928474426,
+            27.200000047683716, 23, 27.199999928474426, 28.399999976158142, 22.700000047683716, 25.5,
+            31.899999976158142, 21, 19.300000071525574, 27.199999928474426, 20.300000071525574, 23.200000047683716,
+            19.899999976158142, 27, 16.199999928474426
+          ]
+        },
+        "syncWork": {
+          "n": 20,
+          "p50": 9.5,
+          "p95": 11.100000023841858,
+          "max": 14,
+          "samples": [
+            9.5, 10, 7.5, 14, 10.399999976158142, 8.600000023841858, 8.699999928474426, 8.799999952316284,
+            10.600000023841858, 10.400000095367432, 9.100000023841858, 9, 10.100000023841858, 10.5, 10.699999928474426,
+            10.5, 9.100000023841858, 11.100000023841858, 8.800000071525574, 9.099999904632568
+          ]
+        },
+        "drawCpu": {
+          "n": 20,
+          "p50": 0.7999999523162842,
+          "p95": 0.8999999761581421,
+          "max": 0.8999999761581421,
+          "samples": [
+            0.8999999761581421, 0.8000000715255737, 0.6999999284744263, 0.8999999761581421, 0.8999999761581421,
+            0.8999999761581421, 0.7000000476837158, 0.6999999284744263, 0.7999999523162842, 0.7000000476837158,
+            0.7000000476837158, 0.7999999523162842, 0.7000000476837158, 0.7999999523162842, 0.8999999761581421,
+            0.7999999523162842, 0.7999999523162842, 0.7999999523162842, 0.6999999284744263, 0.7000000476837158
+          ]
+        },
+        "drawMaxCallback": {
+          "n": 20,
+          "p50": 0.7999999523162842,
+          "p95": 0.8999999761581421,
+          "max": 0.8999999761581421,
+          "samples": [
+            0.8999999761581421, 0.8000000715255737, 0.6999999284744263, 0.8999999761581421, 0.8999999761581421,
+            0.8999999761581421, 0.7000000476837158, 0.6999999284744263, 0.7999999523162842, 0.7000000476837158,
+            0.7000000476837158, 0.7999999523162842, 0.7000000476837158, 0.7999999523162842, 0.8999999761581421,
+            0.7999999523162842, 0.7999999523162842, 0.7999999523162842, 0.6999999284744263, 0.7000000476837158
+          ]
+        },
+        "drawFrames": {
+          "n": 20,
+          "p50": 1,
+          "p95": 1,
+          "max": 1,
+          "samples": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        },
+        "drawClear": {
+          "n": 20,
+          "p50": 0,
+          "p95": 0,
+          "max": 0.09999990463256836,
+          "samples": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.09999990463256836, 0, 0, 0, 0]
+        }
+      }
+    },
+    {
+      "id": "three-pane-ta-off",
+      "description": "three panes, TA off; step one bar through the real replay step button",
+      "paneCount": 3,
+      "timeframe": "15m",
+      "ta": false,
+      "analysisStatus": null,
+      "warmup": {
+        "index": null,
+        "eventId": 23,
+        "responseMs": 20.300000071525574,
+        "syncWorkMs": 11.100000023841858,
+        "drawCpuMs": 1.5,
+        "drawMaxCallbackMs": 0.6000000238418579,
+        "drawClearMs": 0,
+        "drawFrames": 3,
+        "drawCanvasCount": 3,
+        "cursorBefore": 281,
+        "cursorAfter": 282,
+        "accountBefore": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "accountAfter": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "paneCount": 3,
+        "timeframe": "15m",
+        "analysisEnabled": false,
+        "analysisStatus": null,
+        "eventStart": 3830.399999976158,
+        "presentedAt": 3850.7000000476837,
+        "frameIds": [93, 94, 95]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "eventId": 24,
+          "responseMs": 19.200000047683716,
+          "syncWorkMs": 9.800000071525574,
+          "drawCpuMs": 1.5,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 282,
+          "cursorAfter": 283,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 3999.399999976158,
+          "presentedAt": 4018.600000023842,
+          "frameIds": [98, 99, 100]
+        },
+        {
+          "index": 2,
+          "eventId": 25,
+          "responseMs": 26.399999976158142,
+          "syncWorkMs": 12,
+          "drawCpuMs": 1.6000001430511475,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 283,
+          "cursorAfter": 284,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4160.200000047684,
+          "presentedAt": 4186.600000023842,
+          "frameIds": [103, 104, 105]
+        },
+        {
+          "index": 3,
+          "eventId": 26,
+          "responseMs": 29.199999928474426,
+          "syncWorkMs": 9.399999976158142,
+          "drawCpuMs": 1.5,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 284,
+          "cursorAfter": 285,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4276.300000071526,
+          "presentedAt": 4305.5,
+          "frameIds": [108, 109, 110]
+        },
+        {
+          "index": 4,
+          "eventId": 27,
+          "responseMs": 29.100000023841858,
+          "syncWorkMs": 10.5,
+          "drawCpuMs": 1.5,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0.10000002384185791,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 285,
+          "cursorAfter": 286,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4472,
+          "presentedAt": 4501.100000023842,
+          "frameIds": [113, 114, 115]
+        },
+        {
+          "index": 5,
+          "eventId": 28,
+          "responseMs": 25.200000047683716,
+          "syncWorkMs": 10.600000023841858,
+          "drawCpuMs": 1.4999998807907104,
+          "drawMaxCallbackMs": 0.5999999046325684,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 286,
+          "cursorAfter": 287,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4579.5,
+          "presentedAt": 4604.700000047684,
+          "frameIds": [119, 120, 121]
+        },
+        {
+          "index": 6,
+          "eventId": 29,
+          "responseMs": 24.399999976158142,
+          "syncWorkMs": 9.899999976158142,
+          "drawCpuMs": 1.600000023841858,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 287,
+          "cursorAfter": 288,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4778.100000023842,
+          "presentedAt": 4802.5,
+          "frameIds": [124, 125, 126]
+        },
+        {
+          "index": 7,
+          "eventId": 30,
+          "responseMs": 27,
+          "syncWorkMs": 12.800000071525574,
+          "drawCpuMs": 1.4999998807907104,
+          "drawMaxCallbackMs": 0.5999999046325684,
+          "drawClearMs": 0.09999990463256836,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 288,
+          "cursorAfter": 289,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 4942.399999976158,
+          "presentedAt": 4969.399999976158,
+          "frameIds": [129, 130, 131]
+        },
+        {
+          "index": 8,
+          "eventId": 31,
+          "responseMs": 26.799999952316284,
+          "syncWorkMs": 10.399999976158142,
+          "drawCpuMs": 1.399999976158142,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 289,
+          "cursorAfter": 290,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5075.100000023842,
+          "presentedAt": 5101.899999976158,
+          "frameIds": [134, 135, 136]
+        },
+        {
+          "index": 9,
+          "eventId": 32,
+          "responseMs": 20.799999952316284,
+          "syncWorkMs": 11.599999904632568,
+          "drawCpuMs": 1.5000001192092896,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 290,
+          "cursorAfter": 291,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5247.300000071526,
+          "presentedAt": 5268.100000023842,
+          "frameIds": [139, 140, 141]
+        },
+        {
+          "index": 10,
+          "eventId": 33,
+          "responseMs": 29.399999976158142,
+          "syncWorkMs": 8.399999976158142,
+          "drawCpuMs": 2.100000023841858,
+          "drawMaxCallbackMs": 1,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 291,
+          "cursorAfter": 292,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5371,
+          "presentedAt": 5400.399999976158,
+          "frameIds": [144, 145, 146]
+        },
+        {
+          "index": 11,
+          "eventId": 34,
+          "responseMs": 25.800000071525574,
+          "syncWorkMs": 9.900000095367432,
+          "drawCpuMs": 1.5,
+          "drawMaxCallbackMs": 0.6000000238418579,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 292,
+          "cursorAfter": 293,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5477.899999976158,
+          "presentedAt": 5503.700000047684,
+          "frameIds": [150, 151, 152]
+        },
+        {
+          "index": 12,
+          "eventId": 35,
+          "responseMs": 25.5,
+          "syncWorkMs": 11.600000023841858,
+          "drawCpuMs": 1.3999998569488525,
+          "drawMaxCallbackMs": 0.5999999046325684,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 293,
+          "cursorAfter": 294,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5644.700000047684,
+          "presentedAt": 5670.200000047684,
+          "frameIds": [155, 156, 157]
+        },
+        {
+          "index": 13,
+          "eventId": 36,
+          "responseMs": 25.5,
+          "syncWorkMs": 10.799999952316284,
+          "drawCpuMs": 1.7999999523162842,
+          "drawMaxCallbackMs": 0.6999999284744263,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 294,
+          "cursorAfter": 295,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 5808.100000023842,
+          "presentedAt": 5833.600000023842,
+          "frameIds": [160, 161, 162]
+        },
+        {
+          "index": 14,
+          "eventId": 37,
+          "responseMs": 26.899999976158142,
+          "syncWorkMs": 9.799999952316284,
+          "drawCpuMs": 1.4999998807907104,
+          "drawMaxCallbackMs": 0.5999999046325684,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 295,
+          "cursorAfter": 296,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6090.700000047684,
+          "presentedAt": 6117.600000023842,
+          "frameIds": [165, 166, 167]
+        },
+        {
+          "index": 15,
+          "eventId": 38,
+          "responseMs": 21.700000047683716,
+          "syncWorkMs": 10.600000023841858,
+          "drawCpuMs": 1.7999998331069946,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 296,
+          "cursorAfter": 297,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6228.399999976158,
+          "presentedAt": 6250.100000023842,
+          "frameIds": [171, 172, 173]
+        },
+        {
+          "index": 16,
+          "eventId": 39,
+          "responseMs": 21,
+          "syncWorkMs": 11.800000071525574,
+          "drawCpuMs": 1.6000001430511475,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 297,
+          "cursorAfter": 298,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6367.899999976158,
+          "presentedAt": 6388.899999976158,
+          "frameIds": [176, 177, 178]
+        },
+        {
+          "index": 17,
+          "eventId": 40,
+          "responseMs": 29.399999976158142,
+          "syncWorkMs": 11.700000047683716,
+          "drawCpuMs": 1.399999976158142,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0.10000002384185791,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 298,
+          "cursorAfter": 299,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6507.5,
+          "presentedAt": 6536.899999976158,
+          "frameIds": [181, 182, 183]
+        },
+        {
+          "index": 18,
+          "eventId": 41,
+          "responseMs": 19,
+          "syncWorkMs": 10.299999952316284,
+          "drawCpuMs": 1.2999999523162842,
+          "drawMaxCallbackMs": 0.5,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 299,
+          "cursorAfter": 300,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6632.100000023842,
+          "presentedAt": 6651.100000023842,
+          "frameIds": [186, 187, 188]
+        },
+        {
+          "index": 19,
+          "eventId": 42,
+          "responseMs": 26,
+          "syncWorkMs": 9.700000047683716,
+          "drawCpuMs": 1.6999999284744263,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 300,
+          "cursorAfter": 301,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6742.399999976158,
+          "presentedAt": 6768.399999976158,
+          "frameIds": [191, 192, 193]
+        },
+        {
+          "index": 20,
+          "eventId": 43,
+          "responseMs": 19.5,
+          "syncWorkMs": 10,
+          "drawCpuMs": 1.600000023841858,
+          "drawMaxCallbackMs": 0.7000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 3,
+          "drawCanvasCount": 3,
+          "cursorBefore": 301,
+          "cursorAfter": 302,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 3,
+          "timeframe": "15m",
+          "analysisEnabled": false,
+          "analysisStatus": null,
+          "eventStart": 6882.700000047684,
+          "presentedAt": 6902.200000047684,
+          "frameIds": [196, 197, 198]
+        }
+      ],
+      "stats": {
+        "response": {
+          "n": 20,
+          "p50": 25.5,
+          "p95": 29.399999976158142,
+          "max": 29.399999976158142,
+          "samples": [
+            19.200000047683716, 26.399999976158142, 29.199999928474426, 29.100000023841858, 25.200000047683716,
+            24.399999976158142, 27, 26.799999952316284, 20.799999952316284, 29.399999976158142, 25.800000071525574,
+            25.5, 25.5, 26.899999976158142, 21.700000047683716, 21, 29.399999976158142, 19, 26, 19.5
+          ]
+        },
+        "syncWork": {
+          "n": 20,
+          "p50": 10.399999976158142,
+          "p95": 12,
+          "max": 12.800000071525574,
+          "samples": [
+            9.800000071525574, 12, 9.399999976158142, 10.5, 10.600000023841858, 9.899999976158142, 12.800000071525574,
+            10.399999976158142, 11.599999904632568, 8.399999976158142, 9.900000095367432, 11.600000023841858,
+            10.799999952316284, 9.799999952316284, 10.600000023841858, 11.800000071525574, 11.700000047683716,
+            10.299999952316284, 9.700000047683716, 10
+          ]
+        },
+        "drawCpu": {
+          "n": 20,
+          "p50": 1.5,
+          "p95": 1.7999999523162842,
+          "max": 2.100000023841858,
+          "samples": [
+            1.5, 1.6000001430511475, 1.5, 1.5, 1.4999998807907104, 1.600000023841858, 1.4999998807907104,
+            1.399999976158142, 1.5000001192092896, 2.100000023841858, 1.5, 1.3999998569488525, 1.7999999523162842,
+            1.4999998807907104, 1.7999998331069946, 1.6000001430511475, 1.399999976158142, 1.2999999523162842,
+            1.6999999284744263, 1.600000023841858
+          ]
+        },
+        "drawMaxCallback": {
+          "n": 20,
+          "p50": 0.6000000238418579,
+          "p95": 0.7999999523162842,
+          "max": 1,
+          "samples": [
+            0.6000000238418579, 0.7000000476837158, 0.6000000238418579, 0.6000000238418579, 0.5999999046325684,
+            0.6000000238418579, 0.5999999046325684, 0.6000000238418579, 0.6000000238418579, 1, 0.6000000238418579,
+            0.5999999046325684, 0.6999999284744263, 0.5999999046325684, 0.7999999523162842, 0.7000000476837158,
+            0.7000000476837158, 0.5, 0.7999999523162842, 0.7000000476837158
+          ]
+        },
+        "drawFrames": {
+          "n": 20,
+          "p50": 3,
+          "p95": 3,
+          "max": 3,
+          "samples": [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+        },
+        "drawClear": {
+          "n": 20,
+          "p50": 0,
+          "p95": 0.10000002384185791,
+          "max": 0.10000002384185791,
+          "samples": [
+            0, 0, 0, 0.10000002384185791, 0, 0, 0.09999990463256836, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.10000002384185791, 0,
+            0, 0
+          ]
+        }
+      }
+    },
+    {
+      "id": "single-pane-ta-on",
+      "description": "one pane, 5m timeframe, TA on; step one bar through the real replay step button",
+      "paneCount": 1,
+      "timeframe": "5m",
+      "ta": true,
+      "analysisStatus": "ready",
+      "warmup": {
+        "index": null,
+        "eventId": 47,
+        "responseMs": 20.100000023841858,
+        "syncWorkMs": 11,
+        "drawCpuMs": 0.7999999523162842,
+        "drawMaxCallbackMs": 0.7999999523162842,
+        "drawClearMs": 0,
+        "drawFrames": 1,
+        "drawCanvasCount": 1,
+        "cursorBefore": 302,
+        "cursorAfter": 303,
+        "accountBefore": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "accountAfter": {
+          "startBalance": 50000,
+          "balance": 50000,
+          "equity": 50000
+        },
+        "paneCount": 1,
+        "timeframe": "5m",
+        "analysisEnabled": true,
+        "analysisStatus": "ready",
+        "eventStart": 7530.5,
+        "presentedAt": 7550.600000023842,
+        "frameIds": [217]
+      },
+      "samples": [
+        {
+          "index": 1,
+          "eventId": 48,
+          "responseMs": 24.699999928474426,
+          "syncWorkMs": 10.699999928474426,
+          "drawCpuMs": 1.1999999284744263,
+          "drawMaxCallbackMs": 1.1999999284744263,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 303,
+          "cursorAfter": 304,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 7645.800000071526,
+          "presentedAt": 7670.5,
+          "frameIds": [220]
+        },
+        {
+          "index": 2,
+          "eventId": 49,
+          "responseMs": 26.09999990463257,
+          "syncWorkMs": 12,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 304,
+          "cursorAfter": 305,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 7776.300000071526,
+          "presentedAt": 7802.399999976158,
+          "frameIds": [223]
+        },
+        {
+          "index": 3,
+          "eventId": 50,
+          "responseMs": 30.899999976158142,
+          "syncWorkMs": 13.399999976158142,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 305,
+          "cursorAfter": 306,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 7944,
+          "presentedAt": 7974.899999976158,
+          "frameIds": [226]
+        },
+        {
+          "index": 4,
+          "eventId": 51,
+          "responseMs": 29,
+          "syncWorkMs": 10.700000047683716,
+          "drawCpuMs": 1.2000000476837158,
+          "drawMaxCallbackMs": 1.2000000476837158,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 306,
+          "cursorAfter": 307,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8138,
+          "presentedAt": 8167,
+          "frameIds": [229]
+        },
+        {
+          "index": 5,
+          "eventId": 52,
+          "responseMs": 24.299999952316284,
+          "syncWorkMs": 11.199999928474426,
+          "drawCpuMs": 1,
+          "drawMaxCallbackMs": 1,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 307,
+          "cursorAfter": 308,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8292.200000047684,
+          "presentedAt": 8316.5,
+          "frameIds": [232]
+        },
+        {
+          "index": 6,
+          "eventId": 53,
+          "responseMs": 19.200000047683716,
+          "syncWorkMs": 10.100000023841858,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 308,
+          "cursorAfter": 309,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8497.100000023842,
+          "presentedAt": 8516.300000071526,
+          "frameIds": [235]
+        },
+        {
+          "index": 7,
+          "eventId": 54,
+          "responseMs": 26,
+          "syncWorkMs": 10.599999904632568,
+          "drawCpuMs": 1,
+          "drawMaxCallbackMs": 1,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 309,
+          "cursorAfter": 310,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8608.800000071526,
+          "presentedAt": 8634.800000071526,
+          "frameIds": [238]
+        },
+        {
+          "index": 8,
+          "eventId": 55,
+          "responseMs": 24.09999990463257,
+          "syncWorkMs": 11.399999976158142,
+          "drawCpuMs": 1,
+          "drawMaxCallbackMs": 1,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 310,
+          "cursorAfter": 311,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8726.800000071526,
+          "presentedAt": 8750.899999976158,
+          "frameIds": [241]
+        },
+        {
+          "index": 9,
+          "eventId": 56,
+          "responseMs": 29.299999952316284,
+          "syncWorkMs": 9.399999976158142,
+          "drawCpuMs": 0.8000000715255737,
+          "drawMaxCallbackMs": 0.8000000715255737,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 311,
+          "cursorAfter": 312,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8838.800000071526,
+          "presentedAt": 8868.100000023842,
+          "frameIds": [244]
+        },
+        {
+          "index": 10,
+          "eventId": 57,
+          "responseMs": 21.40000009536743,
+          "syncWorkMs": 9,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 312,
+          "cursorAfter": 313,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 8945.899999976158,
+          "presentedAt": 8967.300000071526,
+          "frameIds": [248]
+        },
+        {
+          "index": 11,
+          "eventId": 58,
+          "responseMs": 25.800000071525574,
+          "syncWorkMs": 11.899999976158142,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 313,
+          "cursorAfter": 314,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9074.5,
+          "presentedAt": 9100.300000071526,
+          "frameIds": [251]
+        },
+        {
+          "index": 12,
+          "eventId": 59,
+          "responseMs": 26.700000047683716,
+          "syncWorkMs": 10.100000023841858,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0.10000002384185791,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 314,
+          "cursorAfter": 315,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9174,
+          "presentedAt": 9200.700000047684,
+          "frameIds": [254]
+        },
+        {
+          "index": 13,
+          "eventId": 60,
+          "responseMs": 25.800000071525574,
+          "syncWorkMs": 9.300000071525574,
+          "drawCpuMs": 0.9000000953674316,
+          "drawMaxCallbackMs": 0.9000000953674316,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 315,
+          "cursorAfter": 316,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9274,
+          "presentedAt": 9299.800000071526,
+          "frameIds": [258]
+        },
+        {
+          "index": 14,
+          "eventId": 61,
+          "responseMs": 27.700000047683716,
+          "syncWorkMs": 9,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 316,
+          "cursorAfter": 317,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9372.5,
+          "presentedAt": 9400.200000047684,
+          "frameIds": [261]
+        },
+        {
+          "index": 15,
+          "eventId": 62,
+          "responseMs": 26.5,
+          "syncWorkMs": 8.899999976158142,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 317,
+          "cursorAfter": 318,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9474.300000071526,
+          "presentedAt": 9500.800000071526,
+          "frameIds": [265]
+        },
+        {
+          "index": 16,
+          "eventId": 63,
+          "responseMs": 25.799999952316284,
+          "syncWorkMs": 7.199999928474426,
+          "drawCpuMs": 1.5,
+          "drawMaxCallbackMs": 1.5,
+          "drawClearMs": 0.10000002384185791,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 318,
+          "cursorAfter": 319,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9574.800000071526,
+          "presentedAt": 9600.600000023842,
+          "frameIds": [269]
+        },
+        {
+          "index": 17,
+          "eventId": 64,
+          "responseMs": 25.100000023841858,
+          "syncWorkMs": 8.799999952316284,
+          "drawCpuMs": 0.7999999523162842,
+          "drawMaxCallbackMs": 0.7999999523162842,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 319,
+          "cursorAfter": 320,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9676.100000023842,
+          "presentedAt": 9701.200000047684,
+          "frameIds": [273]
+        },
+        {
+          "index": 18,
+          "eventId": 65,
+          "responseMs": 26.90000009536743,
+          "syncWorkMs": 8.700000047683716,
+          "drawCpuMs": 0.8000000715255737,
+          "drawMaxCallbackMs": 0.8000000715255737,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 320,
+          "cursorAfter": 321,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9773.399999976158,
+          "presentedAt": 9800.300000071526,
+          "frameIds": [277]
+        },
+        {
+          "index": 19,
+          "eventId": 66,
+          "responseMs": 25,
+          "syncWorkMs": 9.200000047683716,
+          "drawCpuMs": 0.8999999761581421,
+          "drawMaxCallbackMs": 0.8999999761581421,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 321,
+          "cursorAfter": 322,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9875,
+          "presentedAt": 9900,
+          "frameIds": [281]
+        },
+        {
+          "index": 20,
+          "eventId": 67,
+          "responseMs": 27.699999928474426,
+          "syncWorkMs": 8.600000023841858,
+          "drawCpuMs": 1,
+          "drawMaxCallbackMs": 1,
+          "drawClearMs": 0,
+          "drawFrames": 1,
+          "drawCanvasCount": 1,
+          "cursorBefore": 322,
+          "cursorAfter": 323,
+          "accountBefore": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "accountAfter": {
+            "startBalance": 50000,
+            "balance": 50000,
+            "equity": 50000
+          },
+          "paneCount": 1,
+          "timeframe": "5m",
+          "analysisEnabled": true,
+          "analysisStatus": "ready",
+          "eventStart": 9972.700000047684,
+          "presentedAt": 10000.399999976158,
+          "frameIds": [285]
+        }
+      ],
+      "stats": {
+        "response": {
+          "n": 20,
+          "p50": 25.800000071525574,
+          "p95": 29.299999952316284,
+          "max": 30.899999976158142,
+          "samples": [
+            24.699999928474426, 26.09999990463257, 30.899999976158142, 29, 24.299999952316284, 19.200000047683716, 26,
+            24.09999990463257, 29.299999952316284, 21.40000009536743, 25.800000071525574, 26.700000047683716,
+            25.800000071525574, 27.700000047683716, 26.5, 25.799999952316284, 25.100000023841858, 26.90000009536743, 25,
+            27.699999928474426
+          ]
+        },
+        "syncWork": {
+          "n": 20,
+          "p50": 9.399999976158142,
+          "p95": 12,
+          "max": 13.399999976158142,
+          "samples": [
+            10.699999928474426, 12, 13.399999976158142, 10.700000047683716, 11.199999928474426, 10.100000023841858,
+            10.599999904632568, 11.399999976158142, 9.399999976158142, 9, 11.899999976158142, 10.100000023841858,
+            9.300000071525574, 9, 8.899999976158142, 7.199999928474426, 8.799999952316284, 8.700000047683716,
+            9.200000047683716, 8.600000023841858
+          ]
+        },
+        "drawCpu": {
+          "n": 20,
+          "p50": 0.8999999761581421,
+          "p95": 1.2000000476837158,
+          "max": 1.5,
+          "samples": [
+            1.1999999284744263, 0.8999999761581421, 0.8999999761581421, 1.2000000476837158, 1, 0.7999999523162842, 1, 1,
+            0.8000000715255737, 0.7999999523162842, 0.8999999761581421, 0.8999999761581421, 0.9000000953674316,
+            0.7999999523162842, 0.8999999761581421, 1.5, 0.7999999523162842, 0.8000000715255737, 0.8999999761581421, 1
+          ]
+        },
+        "drawMaxCallback": {
+          "n": 20,
+          "p50": 0.8999999761581421,
+          "p95": 1.2000000476837158,
+          "max": 1.5,
+          "samples": [
+            1.1999999284744263, 0.8999999761581421, 0.8999999761581421, 1.2000000476837158, 1, 0.7999999523162842, 1, 1,
+            0.8000000715255737, 0.7999999523162842, 0.8999999761581421, 0.8999999761581421, 0.9000000953674316,
+            0.7999999523162842, 0.8999999761581421, 1.5, 0.7999999523162842, 0.8000000715255737, 0.8999999761581421, 1
+          ]
+        },
+        "drawFrames": {
+          "n": 20,
+          "p50": 1,
+          "p95": 1,
+          "max": 1,
+          "samples": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        },
+        "drawClear": {
+          "n": 20,
+          "p50": 0,
+          "p95": 0.10000002384185791,
+          "max": 0.10000002384185791,
+          "samples": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.10000002384185791, 0, 0, 0, 0.10000002384185791, 0, 0, 0, 0]
+        }
+      }
+    }
+  ],
+  "controls": [
+    {
+      "id": "layout-3",
+      "kind": "layout",
+      "expected": 3,
+      "responseMs": 25.700000047683716,
+      "syncWorkMs": 14.100000023841858,
+      "drawCpuMs": 2.399999976158142,
+      "drawMaxCallbackMs": 0.8999999761581421,
+      "drawClearMs": 0.20000004768371582,
+      "drawFrames": 3,
+      "drawCanvasCount": 3,
+      "cursorBefore": 281,
+      "cursorAfter": 281,
+      "accountBefore": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "accountAfter": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "paneCount": 3,
+      "timeframe": "15m",
+      "analysisEnabled": false,
+      "analysisStatus": null,
+      "eventStart": 3609.600000023842,
+      "presentedAt": 3635.3000000715256,
+      "frameIds": [85, 86, 87],
+      "wasmInstantiateCalls": 1,
+      "analysisReadyAt": null
+    },
+    {
+      "id": "layout-1",
+      "kind": "layout",
+      "expected": 1,
+      "responseMs": 20.100000023841858,
+      "syncWorkMs": 6.100000023841858,
+      "drawCpuMs": 0.6999999284744263,
+      "drawMaxCallbackMs": 0.6999999284744263,
+      "drawClearMs": 0,
+      "drawFrames": 1,
+      "drawCanvasCount": 1,
+      "cursorBefore": 302,
+      "cursorAfter": 302,
+      "accountBefore": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "accountAfter": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "paneCount": 1,
+      "timeframe": "15m",
+      "analysisEnabled": false,
+      "analysisStatus": null,
+      "eventStart": 7029.899999976158,
+      "presentedAt": 7050,
+      "frameIds": [201],
+      "wasmInstantiateCalls": 1,
+      "analysisReadyAt": null
+    },
+    {
+      "id": "timeframe-5m",
+      "kind": "timeframe",
+      "expected": "5m",
+      "responseMs": 22.399999976158142,
+      "syncWorkMs": 5.299999952316284,
+      "drawCpuMs": 0.8000000715255737,
+      "drawMaxCallbackMs": 0.8000000715255737,
+      "drawClearMs": 0,
+      "drawFrames": 1,
+      "drawCanvasCount": 1,
+      "cursorBefore": 302,
+      "cursorAfter": 302,
+      "accountBefore": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "accountAfter": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "paneCount": 1,
+      "timeframe": "5m",
+      "analysisEnabled": false,
+      "analysisStatus": null,
+      "eventStart": 7144.200000047684,
+      "presentedAt": 7166.600000023842,
+      "frameIds": [205],
+      "wasmInstantiateCalls": 1,
+      "analysisReadyAt": null
+    },
+    {
+      "id": "analysis-on",
+      "kind": "analysis",
+      "expected": "ready",
+      "responseMs": 29,
+      "syncWorkMs": 6.299999952316284,
+      "drawCpuMs": 2.6999999284744263,
+      "drawMaxCallbackMs": 2.6999999284744263,
+      "drawClearMs": 0,
+      "drawFrames": 1,
+      "drawCanvasCount": 1,
+      "cursorBefore": 302,
+      "cursorAfter": 302,
+      "accountBefore": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "accountAfter": {
+        "startBalance": 50000,
+        "balance": 50000,
+        "equity": 50000
+      },
+      "paneCount": 1,
+      "timeframe": "5m",
+      "analysisEnabled": true,
+      "analysisStatus": "ready",
+      "eventStart": 7322.700000047684,
+      "presentedAt": 7351.700000047684,
+      "frameIds": [209],
+      "wasmInstantiateCalls": 1,
+      "analysisReadyAt": 7329
+    }
+  ],
+  "longTasks": [
+    {
+      "startTime": 47.5,
+      "duration": 71,
+      "name": "self"
+    },
+    {
+      "startTime": 192.60000002384186,
+      "duration": 78,
+      "name": "self"
+    },
+    {
+      "startTime": 286.89999997615814,
+      "duration": 67,
+      "name": "self"
+    }
+  ],
+  "checks": {
+    "response": {
+      "metric": "P95 event -> next presented RAF covering every visible pane",
+      "value": 29.399999976158142,
+      "budget": 50,
+      "pass": true
+    },
+    "chartCallbackCpu": {
+      "metric": "P95 sum of chart RAF callback CPU in each event window",
+      "value": 1.6999999284744263,
+      "budget": 16.7,
+      "pass": true
+    },
+    "cold": {
+      "metric": "P95 fresh-context cold open to ready and drawn chart",
+      "value": 659.7000000476837,
+      "budget": 1500,
+      "pass": true
+    },
+    "maxSingleCallback": {
+      "metric": "P95 largest single chart RAF callback",
+      "value": 1,
+      "budget": 16.7,
+      "pass": true
+    },
+    "pass": true,
+    "productionEvidence": true
+  },
+  "finishedAt": "2026-10-24T18:02:14.332Z",
+  "durationMs": 20595.900708,
+  "initialPaused": false,
+  "hotBaseline": {
+    "at": 405.7000000476837,
+    "store": true,
+    "ready": true,
+    "loading": false,
+    "playing": false,
+    "ended": false,
+    "cursor": 260,
+    "timeframe": "15m",
+    "source": "synthetic",
+    "paneCount": 1,
+    "activePaneCount": 1,
+    "analysisEnabled": false,
+    "analysisStatus": null,
+    "account": {
+      "startBalance": 50000,
+      "balance": 50000,
+      "equity": 50000
+    },
+    "canvases": [
+      {
+        "token": "canvas-1",
+        "width": 1604,
+        "height": 814,
+        "cssWidth": 802,
+        "cssHeight": 407,
+        "lastDrawAt": 397.2000000476837,
+        "lastDrawCursor": 260
+      }
+    ]
+  },
+  "analysis": {
+    "ready": "302 visible bars",
+    "instantiateCalls": 1,
+    "wasmErrors": []
+  },
+  "hotErrors": {
+    "pageErrors": [],
+    "consoleErrors": []
+  },
+  "hotSummary": {
+    "response": {
+      "n": 60,
+      "p50": 25.800000071525574,
+      "p95": 29.399999976158142,
+      "max": 31.899999976158142,
+      "samples": [
+        28.899999976158142, 26.600000023841858, 28.300000071525574, 22.700000047683716, 28.199999928474426,
+        27.200000047683716, 23, 27.199999928474426, 28.399999976158142, 22.700000047683716, 25.5, 31.899999976158142,
+        21, 19.300000071525574, 27.199999928474426, 20.300000071525574, 23.200000047683716, 19.899999976158142, 27,
+        16.199999928474426, 19.200000047683716, 26.399999976158142, 29.199999928474426, 29.100000023841858,
+        25.200000047683716, 24.399999976158142, 27, 26.799999952316284, 20.799999952316284, 29.399999976158142,
+        25.800000071525574, 25.5, 25.5, 26.899999976158142, 21.700000047683716, 21, 29.399999976158142, 19, 26, 19.5,
+        24.699999928474426, 26.09999990463257, 30.899999976158142, 29, 24.299999952316284, 19.200000047683716, 26,
+        24.09999990463257, 29.299999952316284, 21.40000009536743, 25.800000071525574, 26.700000047683716,
+        25.800000071525574, 27.700000047683716, 26.5, 25.799999952316284, 25.100000023841858, 26.90000009536743, 25,
+        27.699999928474426
+      ]
+    },
+    "syncWork": {
+      "n": 60,
+      "p50": 10.100000023841858,
+      "p95": 12,
+      "max": 14,
+      "samples": [
+        9.5, 10, 7.5, 14, 10.399999976158142, 8.600000023841858, 8.699999928474426, 8.799999952316284,
+        10.600000023841858, 10.400000095367432, 9.100000023841858, 9, 10.100000023841858, 10.5, 10.699999928474426,
+        10.5, 9.100000023841858, 11.100000023841858, 8.800000071525574, 9.099999904632568, 9.800000071525574, 12,
+        9.399999976158142, 10.5, 10.600000023841858, 9.899999976158142, 12.800000071525574, 10.399999976158142,
+        11.599999904632568, 8.399999976158142, 9.900000095367432, 11.600000023841858, 10.799999952316284,
+        9.799999952316284, 10.600000023841858, 11.800000071525574, 11.700000047683716, 10.299999952316284,
+        9.700000047683716, 10, 10.699999928474426, 12, 13.399999976158142, 10.700000047683716, 11.199999928474426,
+        10.100000023841858, 10.599999904632568, 11.399999976158142, 9.399999976158142, 9, 11.899999976158142,
+        10.100000023841858, 9.300000071525574, 9, 8.899999976158142, 7.199999928474426, 8.799999952316284,
+        8.700000047683716, 9.200000047683716, 8.600000023841858
+      ]
+    },
+    "drawCpu": {
+      "n": 60,
+      "p50": 0.8999999761581421,
+      "p95": 1.6999999284744263,
+      "max": 2.100000023841858,
+      "samples": [
+        0.8999999761581421, 0.8000000715255737, 0.6999999284744263, 0.8999999761581421, 0.8999999761581421,
+        0.8999999761581421, 0.7000000476837158, 0.6999999284744263, 0.7999999523162842, 0.7000000476837158,
+        0.7000000476837158, 0.7999999523162842, 0.7000000476837158, 0.7999999523162842, 0.8999999761581421,
+        0.7999999523162842, 0.7999999523162842, 0.7999999523162842, 0.6999999284744263, 0.7000000476837158, 1.5,
+        1.6000001430511475, 1.5, 1.5, 1.4999998807907104, 1.600000023841858, 1.4999998807907104, 1.399999976158142,
+        1.5000001192092896, 2.100000023841858, 1.5, 1.3999998569488525, 1.7999999523162842, 1.4999998807907104,
+        1.7999998331069946, 1.6000001430511475, 1.399999976158142, 1.2999999523162842, 1.6999999284744263,
+        1.600000023841858, 1.1999999284744263, 0.8999999761581421, 0.8999999761581421, 1.2000000476837158, 1,
+        0.7999999523162842, 1, 1, 0.8000000715255737, 0.7999999523162842, 0.8999999761581421, 0.8999999761581421,
+        0.9000000953674316, 0.7999999523162842, 0.8999999761581421, 1.5, 0.7999999523162842, 0.8000000715255737,
+        0.8999999761581421, 1
+      ]
+    },
+    "drawMaxCallback": {
+      "n": 60,
+      "p50": 0.7999999523162842,
+      "p95": 1,
+      "max": 1.5,
+      "samples": [
+        0.8999999761581421, 0.8000000715255737, 0.6999999284744263, 0.8999999761581421, 0.8999999761581421,
+        0.8999999761581421, 0.7000000476837158, 0.6999999284744263, 0.7999999523162842, 0.7000000476837158,
+        0.7000000476837158, 0.7999999523162842, 0.7000000476837158, 0.7999999523162842, 0.8999999761581421,
+        0.7999999523162842, 0.7999999523162842, 0.7999999523162842, 0.6999999284744263, 0.7000000476837158,
+        0.6000000238418579, 0.7000000476837158, 0.6000000238418579, 0.6000000238418579, 0.5999999046325684,
+        0.6000000238418579, 0.5999999046325684, 0.6000000238418579, 0.6000000238418579, 1, 0.6000000238418579,
+        0.5999999046325684, 0.6999999284744263, 0.5999999046325684, 0.7999999523162842, 0.7000000476837158,
+        0.7000000476837158, 0.5, 0.7999999523162842, 0.7000000476837158, 1.1999999284744263, 0.8999999761581421,
+        0.8999999761581421, 1.2000000476837158, 1, 0.7999999523162842, 1, 1, 0.8000000715255737, 0.7999999523162842,
+        0.8999999761581421, 0.8999999761581421, 0.9000000953674316, 0.7999999523162842, 0.8999999761581421, 1.5,
+        0.7999999523162842, 0.8000000715255737, 0.8999999761581421, 1
+      ]
+    },
+    "drawClear": {
+      "n": 60,
+      "p50": 0,
+      "p95": 0.10000002384185791,
+      "max": 0.10000002384185791,
+      "samples": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.09999990463256836, 0, 0, 0, 0, 0, 0, 0, 0.10000002384185791, 0,
+        0, 0.09999990463256836, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.10000002384185791, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0.10000002384185791, 0, 0, 0, 0.10000002384185791, 0, 0, 0, 0
+      ]
+    },
+    "drawFrames": {
+      "n": 60,
+      "p50": 1,
+      "p95": 3,
+      "max": 3,
+      "samples": [
+        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+      ]
+    }
+  }
+}

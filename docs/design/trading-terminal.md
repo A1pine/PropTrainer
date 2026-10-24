@@ -1,360 +1,316 @@
-# Trading Terminal — design and parity plan
+# Trading terminal — implementation and parity
 
-Status: implementation plan for the Tradovate-style historical replay terminal.
-Scope confirmed with the user: **core futures terminal**, **replay first**, **simulated
-fills only**, **Prop Desk visual language**, **no real-money connection**.
-
-This document is the contract for what will be built, where it lives, and what is
-explicitly out of reach with the available data. It is written before implementation
-and updated with evidence as phases land.
+Confirmed scope: **Tradovate Web core futures workflows**, **replay first**, **simulated fills only**,
+**Prop Desk's existing visual language**, and **prop drawdown, consistency and breach controls**.
+There is no broker connection or real-money trading. This is a source-backed description of the current
+terminal, not a wholesale 1:1 Tradovate claim. Final production/browser acceptance is recorded in
+[the acceptance evidence map](#7-acceptance-evidence-map) and [terminal performance](../perf/terminal.md).
 
 ## 1. Product boundary
 
-| Question           | Decision                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Reference platform | Tradovate Web core futures terminal. Feature parity is tracked item by item, never claimed wholesale.                                  |
-| Market data        | Existing local 5-minute packs (Yahoo) or the deterministic synthetic generator. One base series per symbol.                            |
-| Finer timeframes   | 1m/1s/tick are **not available**. They are shown as disabled with a reason, not synthesized.                                           |
-| Order book / tape  | No depth or time-and-sales data exists. The DOM is a price ladder for order entry and position management, not a claim of book depth.  |
-| Fills              | Deterministic bar-based simulation with a declared path policy. No claim of exchange-grade matching.                                   |
-| Money              | Simulated account only. No broker, no live orders, no real capital.                                                                    |
-| Existing exams     | `/trainer`, `/drill`, `/daily`, `/pk` keep their blind flow, scoring, reveal and analysis. The terminal is a separate route and store. |
+| Area           | Current boundary                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Data           | One pinned 5-minute OHLCV tape per instrument: local packs or deterministic synthetic data.                                              |
+| Execution      | A declared bar-path simulator, not exchange matching or historical tick replay.                                                          |
+| Quotes         | Last revealed close, change from the preceding revealed base bar, and that base bar's volume. No bid/ask quotes or session-volume claim. |
+| DOM            | Price ladder, order entry and own orders only; no fabricated book depth.                                                                 |
+| Account        | One simulated account, multiple symbols and working orders, one net position per symbol.                                                 |
+| Existing exams | `/trainer`, `/drill`, `/daily` and `/pk` retain their separate blind flow and grading.                                                   |
 
-### What "1:1" means here
+Parity statuses in section 8 mean:
 
-A parity matrix (section 9) maps every confirmed core feature to one of:
+- **IMPLEMENTED WITHIN SCOPE**: the stated local workflow exists; this is not a claim that every reference-platform subfeature exists.
+- **ADAPTED**: a narrower substitute, with the missing behavior named.
+- **UNAVAILABLE**: absent or outside the confirmed scope.
 
-- **Implemented** — usable in the terminal with automated evidence.
-- **Adapted** — same workflow, but constrained by OHLCV replay (for example DOM
-  without depth).
-- **Not available** — requires data or services the project does not have.
+## 2. Data, clock and calendar
 
-The terminal will not present an adapted or missing feature as equivalent.
+### Shared replay clock
 
-## 2. Data model and clock
+A run pins instrument specifications, tape arrays, provenance, seed and start index. Its checkpoint pins the
+engine state, including rules, orders, positions, marks and ledger. `ReplaySession` builds a sorted union of tape
+timestamps, capped at the common replay end. Gaps remain gaps; bars are never forward-filled.
 
-### 2.1 Base series
+`cursor` is a **count of revealed shared-timeline entries**, not an index into each symbol's tape. It starts at
+`startIndex + 1`; the last revealed timestamp is `timeline[cursor - 1]`. The UI's `knownTime` adds 300 seconds
+because base timestamps denote candle opens. Each symbol contributes only candles at or before the shared time;
+a stale symbol retains its last mark but cannot accept new entries through the ticket.
 
-Every terminal session loads one **base series** per symbol at 5 minutes. A session
-pins:
+Only stepping/playback advances the replay. Timeframe, style and layout changes do not change accounting.
+Symbols with a bar at the next shared timestamp execute in stable tape order, holding the other marks fixed.
+This is a deterministic cross-symbol approximation, not simultaneous exchange ticks. The full tape is in browser
+memory; no-lookahead is an execution/display invariant, not an anti-cheat security boundary.
 
-- symbol and contract spec (tick size, tick value, point value, fee),
-- the base candle array (immutable for the session),
-- `cursor`: the index of the last **closed** base bar revealed to the trader,
-- the replay start index and the session seed.
+### Timeframes
 
-The cursor is the only clock. Advancing it is the only way time moves. Nothing else
-(switching timeframe, resizing, opening a panel) can advance it.
+| Choice                   | Behavior                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `5m`                     | Revealed base bars, with validation/session filtering.                                     |
+| `15m`, `30m`, `1h`, `4h` | Session-open-anchored aggregation of the same revealed prefix.                             |
+| `1D`                     | One baseline trading-session bucket.                                                       |
+| Custom minutes           | Integer multiples of 5 from **5 through 1440**, entered in the toolbar; for example `45m`. |
+| `1m`, `1s`, tick         | **Not offered**, rather than disabled choices. No finer data is synthesized.               |
 
-### 2.2 Timeframe aggregation
+Buckets use timestamps anchored to the session open, not every N observed bars. A higher-timeframe candle may
+be incomplete; the chart's forming badge uses the revealed clock, and its OHLCV contains only revealed base bars.
+The engine always executes on the original 5-minute bars, regardless of chart timeframe or Heikin-Ashi display.
 
-Higher timeframes are aggregated from the base series **up to the cursor**:
+### Weekly session baseline
 
-| Timeframe        | Source                                        | Availability         |
-| ---------------- | --------------------------------------------- | -------------------- |
-| 5m               | base                                          | always               |
-| 15m, 30m, 1h, 4h | 3/6/12/48 base bars, session-aware            | always               |
-| 1D               | CME trading day (17:00–16:00 America/Chicago) | always               |
-| 1m, 1s, tick     | —                                             | disabled with reason |
+`app/domain/sim/session.ts` models **17:00–16:00 America/Chicago**, the maintenance break, weekends and DST via
+`Intl`. Trade dates are Monday–Friday; Sunday evening belongs to Monday. The day key rolls at the 16:00 close,
+and the next session opens at 17:00. Accounting follows replay timestamps, never the browser's local midnight.
 
-Rules:
+This is **not a complete exchange calendar**: holidays and early closes have no special rules. Missing holiday
+bars stay missing, but a weekday holiday is still a nominal trade date in the weekly model. At a scheduled close,
+positions are flattened at last-known marks, fees are booked, risk is checked, the day is finalized, and risk is
+checked again. DAY orders expire; GTC orders survive. A missing closing bar is handled before the next session's
+bars. Tape exhaustion in the middle of a session does not invent a close or finalize that incomplete day.
 
-- Aggregation buckets by wall-clock boundary, not by "every N bars", so a session
-  gap never smears two days into one candle.
-- A partially formed higher-timeframe candle is displayed from the revealed base
-  bars only, and is marked as forming. Its high/low/close cannot include hidden
-  future bars because the input slice ends at the cursor.
-- Switching timeframe preserves the cursor and every order/fill. The engine always
-  matches on base bars, so a 1h chart cannot fill an order "sooner" than the 5m
-  replay allows.
+## 3. Execution and order management
 
-### 2.3 Trading day and session calendar
+### Declared fill policy
 
-- Trading day = CME Globex session starting 17:00 America/Chicago.
-- Daily P&L, daily loss limit, max trades per day and consistency days use that
-  boundary, computed with `Intl` timezone data — never the browser's local midnight.
-- Weekend and holiday gaps come from the data itself; the aggregator never invents
-  bars to fill them.
-- The session clock is derived from candle timestamps, so replaying a historical
-  Tuesday uses Tuesday's session even if the wall clock says otherwise.
+1. If `close >= open`, walk `O → L → H → C`; otherwise walk `O → H → L → C`.
+2. Visit order/risk crossings along that path. Marketable resting orders fill at a gapped open; otherwise limits
+   and stops fill at eligible path levels. Stop-versus-target ordering follows this path, not blanket stop-first.
+3. An immediate market submission fills at the current revealed mark. A newly submitted resting order cannot
+   reuse already-revealed intrabar history. Suspended orders wait for their eligible release/bar event.
+4. A stop-limit first activates its limit, then matches against that limit at the next matching evaluation.
+   It may fill at the trigger price if marketable there; otherwise it waits for a later eligible path level.
+   Pre-trigger highs/lows are never reused, and a gap cannot bypass the limit constraint.
+5. There is no queue, spread, depth or volume-based partial-fill model. Each eligible order fills its executable
+   quantity at once. **Explicit partial exits and separately sized targets are supported**; those are not queue fills.
 
-## 3. Execution engine
+Risk is evaluated at visited path events and after fees. Touching a floor and then recovering within the same
+bar still breaches. These are reproducible simulator rules, not evidence of the actual intrabar price path.
 
-### 3.1 Declared fill policy
+### Orders, protection and accounting
 
-OHLCV does not reveal the intrabar path. The engine therefore declares one policy
-and applies it consistently:
+- Six order types: `market`, `limit`, `stop`, `stop-limit`, `trailing-stop`, `trailing-stop-limit`.
+  TIF values are `day`, `gtc`, `gtd` (DAY/GTC/GTD in the UI), with optional release and expiry times.
+- Multiple working/suspended entries reserve gross contract capacity and buying power, including entry fees.
+  Opposite pending entries do not net away reservations. Checks run at submission, amendment and fill.
+- A position can have one protective stop and up to five sized OCO targets. Partial reductions resize remaining
+  protection; reduce-only exits cannot reverse the position.
+- **Modify keeps the same order ID** and appends a `modified` event. Chart dragging calls this amendment path;
+  it is not a cancel event followed by a new order.
+- Add, reduce, close, flatten and reverse operate per symbol; confirmed Exit all closes/cancels across the account.
+  Reverse cancels that symbol's orders/protection, closes the position and attempts a new opposite market entry.
+  Closing fees/risk checks can prevent the new entry. **Old brackets/ATM are not automatically re-armed.**
+- ATM supports break-even trigger/offset and trailing trigger/distance/step in ticks, with local per-instrument
+  presets. It advances on eligible path events, not retroactively, and does not recreate a cancelled stop.
+- Balance reflects realized cash changes and fees; equity is balance plus unrealized P&L. Completed-trade P&L
+  includes fees. Fills, amendments, cancellations and risk transitions remain in the event/history records.
 
-1. A bar that opens beyond a resting level fills at the open (gap fill).
-2. Otherwise a stop fills at its trigger price and a limit fills at its limit.
-3. When a bar touches both the stop and a target, the **stop is assumed first**
-   (adverse-first). This is conservative and matches the existing exam broker.
-4. A market order fills at the current mark (last revealed close) and never at a
-   price from a future bar.
-5. All fills are all-or-nothing per level. Partial fills are not simulated because
-   queue position is unknowable; this is documented in the UI.
+## 4. Configurable prop rules
 
-Risk rules are evaluated at the **adverse extreme** of each revealed bar for open
-positions (worst case within the bar), which is conservative and cannot understate a
-breach. The UI states that intrabar sequencing is approximate.
+### Current schema
 
-### 3.2 Order model
-
-- Sides: buy/sell.
-- Types: market, limit, stop (stop-market), stop-limit.
-- Time in force: DAY and GTC. IOC only for marketable limits, documented.
-- One working entry order per instrument at a time; protective legs are separate.
-- Bracket: one stop leg plus up to 5 target legs (OCO). Reducing a target reduces
-  position quantity; remaining targets stay active until filled or cancelled.
-- Position operations: add, reduce, close, reverse (close then open opposite).
-- Protective orders are attached to the position, not to the entry order, so they
-  survive partial exits.
-- Cancel/replace preserves order identity in history (cancel event + new order).
-
-### 3.3 Auto trade management (ATM)
-
-- Auto breakeven: when profit reaches N ticks, move the stop to entry ± offset.
-- Trailing stop: trail by N ticks from the best price since entry.
-- Auto-trim: optional partial exit at a target.
-- ATM settings are per template and visible in the ticket; they are applied by the
-  engine on each revealed bar, never retroactively.
-
-### 3.4 Position and account accounting
-
-- Net position per symbol with average entry, quantity, unrealized P&L.
-- Realized P&L is net of round-turn fees; the same number feeds every rule.
-- Equity = balance + unrealized. Balance changes only on realized fills and fees.
-- Every fill, cancel, rule transition and lock is appended to an event log with a
-  bar index and timestamp, so the journal can be audited.
-
-## 4. Prop-firm rule engine
-
-Rules are a **configurable template**, not a hardcoded "Topstep mode". Presets are
-examples with a source and a date; the engine is generic.
-
-### 4.1 Schema
+The source of truth is `app/domain/sim/types.ts`; these are the current enum spellings, not a firm rulebook:
 
 ```ts
 interface PropTemplate {
   id: string
   label: string
   accountSize: number
-  profitTarget: number // 0 disables
+  profitTarget: number
   drawdown: {
-    mode: 'static' | 'trailing_intraday' | 'trailing_eod'
+    mode: 'static' | 'trailing-intraday' | 'trailing-eod'
     amount: number
-    basis: 'balance' | 'equity' // equity includes unrealized
-    floorCap: number | null // lock the floor at this level, e.g. start balance
+    basis: 'balance' | 'equity'
+    floorCap: number | null
     includeUnrealized: boolean
   }
   dailyLoss: {
-    amount: number // 0 disables
-    action: 'warn' | 'flatten' | 'flatten_lock'
-    sessionStart: '17:00' // America/Chicago
+    amount: number
+    action: 'warn' | 'flatten' | 'flatten-lock'
   }
   maxContracts: number
-  maxTradesPerDay: number // 0 = unlimited
+  maxTradesPerDay: number
   minTradingDays: number
-  consistency: {
-    maxBestDayRatio: number // e.g. 0.4 / 0.5 / 0.55
-    gate: 'pass' | 'payout'
-    basis: 'netProfit'
-  } | null
+  consistency: { maxBestDayRatio: number; gate: 'pass' | 'payout' } | null
+  source?: string
 }
 ```
 
-### 4.2 Floor and breach semantics
+Zero disables the profit target/daily-loss rule or makes max trades unlimited. Max trades counts completed
+flat-to-flat positions, not fills. The session calendar is shared; there is no template-specific `sessionStart`.
 
-- **Static**: floor = start balance − amount, never moves.
-- **Trailing intraday**: floor = max(previous floor, peak equity − amount), updated
-  from realized and unrealized equity at each revealed bar; never moves down.
-- **Trailing EOD**: same, but the peak only updates at session close.
-- **floorCap**: once the trailing floor reaches the cap (typically the starting
-  balance), it locks there permanently.
-- Breach when equity **≤** floor (equality counts). A breach is terminal: positions
-  are flattened at the mark, working orders are cancelled, the account is locked,
-  and editing the template cannot undo it. Only an explicit "new attempt" resets.
-- **Daily loss** is a separate circuit breaker: hitting it flattens and cancels, then
-  locks trading until the next session. It is **not** an account failure unless the
-  template says so.
-- **Consistency** is an eligibility gate, not a liquidation:
-  `best profitable day ÷ total net profit`. Above the ratio, the target/payout is
-  "not yet eligible"; trading continues. Losing days do not reset the best day.
-- **Minimum trading days** gates the target the same way.
+### Drawdown, fees and eligibility
 
-### 4.3 Breach line on the chart
+- **Static floor** = starting balance − drawdown amount.
+- **Trailing floor** uses peak − amount, capped by `floorCap` when set, and never decreases. The peak's
+  `basis` independently selects balance or equity. `trailing-intraday` updates on path/risk events;
+  `trailing-eod` updates only when the ledger day is finalized, after scheduled closing fills and fees.
+- **Breach monitoring is separate from peak basis**: `includeUnrealized` selects equity when true and balance
+  when false. `monitored <= floor + EPSILON` breaches, so equality counts. A breach latches, cancels orders,
+  flattens positions and disables new risk; restore or editing a draft template cannot revive it.
+- Daily loss measures equity against session-start equity. `warn` warns once; `flatten` closes/cancels once but
+  permits later trading that session; `flatten-lock` also blocks entries until the next session. Exit fees may
+  turn a daily stop into a permanent drawdown breach.
+- Consistency = best profitable **finalized** day / total net profit across finalized days, including losing days
+  and booked fees. A nonpositive total has no eligible ratio. It is an eligibility gate, not liquidation.
+  `pass` gates target completion; `payout` is an eligibility display, not an actual payout service.
+- A target requires sufficient profit, no open contracts, finalized fill days, minimum finalized days with fills,
+  and any pass-consistency gate. Crossing the target intraday is not automatically a pass.
+- Rule changes are applied through a confirmed new attempt; the current attempt keeps its pinned rules.
 
-For a single open position, the terminal shows the exact price where equity would
-equal the floor:
+### Conditional price lines
 
-```
-floor = account floor
-distance = equity − floor
-priceMove = distance / (pointValue × |qty|)
-long  breach price = mark − priceMove
-short breach price = mark + priceMove
-```
+For a symbol with an open position and equity-monitored drawdown, the current threshold is:
 
-The line is labelled as a **risk threshold**, not an exchange liquidation price. With
-multiple positions the panel shows account-level cushion only, because a single
-price line would be misleading.
-
-### 4.4 Presets (examples, versioned)
-
-The UI ships generic templates (`50K Evaluation`, `100K Evaluation`, `Funded`) and
-records their source and retrieval date. Topstep's published values as of
-2026-10 are one example:
-
-- Maximum Loss Limit: 50K → $2,000, trailing on end-of-day balance, locks at the
-  starting balance; intraday unrealized losses count.
-- Consistency target: 55% of the profit target in the Combine; 40% for XFA payout.
-- Daily loss limit: optional, $1,000 / $2,000 / $3,000 for 50K/100K/150K, trading day
-  17:00–15:10 America/Chicago, flatten + cancel, resume next session.
-
-These are **not** presented as universal prop rules, and the app does not claim
-certification by any firm.
-
-## 5. UI placement
-
-### 5.1 Navigation
-
-New primary route `/terminal`, label **Trade** (en) / 交易 (zh) / トレード (ja).
-Rail order: Lobby, Trainer, **Trade**, Drill, Analysis, Daily, Stats. On mobile the
-tab bar keeps Trade and moves Daily into "More" so the bar stays readable.
-
-### 5.2 Desktop layout (≥ 1280 px)
-
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│ account bar: equity · day P&L · drawdown cushion · DLL · consistency · status│
-├──────────┬──────────────────────────────────────────────┬──────────────────┤
-│ watchlist│ chart toolbar: TF chips · type · indicators   │ order ticket     │
-│ 220 px   │                                              │ 300 px           │
-│ symbol   │              price chart                     │ Buy / Sell       │
-│ last     │      (1 or 2 panes, same clock)              │ qty · type       │
-│ change   │                                              │ limit/stop       │
-│ position │                                              │ bracket + ATM    │
-│          ├──────────────────────────────────────────────┤ Position summary │
-│          │ DOM ladder (toggle) / volume profile          │ Locate / flatten │
-├──────────┴──────────────────────────────────────────────┴──────────────────┤
-│ dock: Positions | Working orders | Fills | Journal | Rules                  │
-└────────────────────────────────────────────────────────────────────────────┘
+```text
+signedQty = +qty for long, -qty for short
+breachPrice = mark + (floor - accountEquity) / (signedQty * pointValue)
 ```
 
-- Timeframe chips sit in the chart toolbar, not in a separate page.
-- The replay controls (play/pause, step, speed, session progress) sit under the
-  chart toolbar, matching the exam playback language.
-- Buy/Sell buttons are always visible; the ticket defaults to the last used
-  quantity and order type.
-- Chart dragging: dragging an order line moves the price and issues cancel/replace.
-  Dragging a bracket leg updates the protective order.
-- DOM ladder: click a price row to load it into the ticket, shift-click to send a
-  limit, right-click a working order to cancel. Depth column shows "no book data"
-  rather than fabricated sizes.
+It is rounded toward the breaching tick. **Other symbols' marks are held fixed**, so multi-position accounts
+still get a conditional per-symbol value, not an unconditional liquidation price. It uses the current floor and
+excludes hypothetical future closing fees; changing marks, fees or a trailing floor can change the outcome.
+Balance-only drawdown has **no drawdown price line**. The separate daily-loss line remains equity-based.
 
-### 5.3 Medium (768–1279 px)
+The active chart pane draws conditional breach and daily-loss levels only when in scale. The account's dollar
+floor is an account-bar metric, not a price line. Off-scale values remain available in the position/account UI.
 
-- Watchlist collapses to a symbol dropdown in the account bar.
-- Order ticket becomes a right-side drawer (320 px) opened by Buy/Sell.
-- DOM becomes a tab beside the chart.
+### Generic presets, not licensed firm rules
 
-### 5.4 Mobile (< 768 px)
+`app/domain/sim/presets.ts` ships `50K Evaluation`, `100K Evaluation`, `50K Funded` and `Practice (no limits)`.
+The evaluation examples use 55% pass-consistency and the funded example 40% payout-consistency as **local
+illustrative parameters**, not current Topstep or other firm's rules. Their source strings are descriptive
+metadata, not licenses or independently verified rulebook versions. Practice still has a finite floor, contract
+cap and margin validation. No preset certifies firm eligibility, exchange compliance or a payout.
 
-- Chart full width; sticky Buy/Sell bar above the tab bar.
-- Ticket opens as a bottom sheet; brackets/ATM are collapsible sections.
-- Dock becomes a segmented control (Positions / Orders / Fills / Rules).
-- Timeframe chips scroll horizontally; unavailable timeframes stay visible but
-  disabled with an explanation.
-- Risk strip stays visible under the chart: equity, day P&L, cushion.
+## 5. UI and local preferences
 
-## 6. Technical architecture
+### Navigation and responsive layout
 
-```
+`app/composables/useNav.ts` defines the rail order: Lobby, Trainer, Trade (`/terminal`), Drill, Analysis, Daily,
+PK, Stats; Guide and Settings are secondary. On mobile, the primary links are Lobby, Trainer, Trade, Drill,
+Analysis and Stats; More contains Daily, PK, Guide and Settings.
+
+- **≥1280 px**: 212 px watchlist, chart area and 296 px ticket column. Account bar is above; the ladder can be
+  toggled; the dock has Positions, Orders, Fills, History and Rules.
+- **1024–1279 px**: watchlist remains; Buy/Sell opens the shared **bottom-sheet ticket**, not a right drawer.
+- **<1024 px**: watchlist sidebar is hidden and only the active chart pane renders; pane/symbol controls remain.
+  Buy/Sell uses the same bottom sheet. The mobile navigation itself appears below 768 px.
+- One to three panes share the replay clock. The active pane controls ticket, ladder, position card and risk
+  overlays. The locally saved pane list contains symbol, timeframe and style; it is not named workspaces,
+  import/export, arbitrary docking/resizing, multi-window layouts or cloud sync.
+
+### Charts, quotes and account details
+
+`TerminalChartPane.vue` exposes candlestick/OHLC/line/Heikin-Ashi rendering, opt-in TA, trend lines and horizontal
+lines. TA starts off and reuses visible-prefix EMA/VWAP/Bollinger, price-action, ICT and OHLCV-flow helpers with
+independent controls. This is a fixed local toolset, not the complete Tradovate indicator/drawing catalogue.
+Drawings are component-local, clear on symbol/timeframe changes, and are not saved with the layout. Drawing
+mode suppresses chart order actions. There are no tick/range/Renko, TPO, footprint or heatmap charts.
+
+Cursor mode supports click-to-price, tick-rounded order amendments and cancellation. The ladder's center price
+prefills the ticket (shift-click selects a limit); side buttons place limits, with shift-click/context-menu/shift-Enter
+for stops. Own order quantities and cancel controls are shown; depth stays unavailable.
+
+Watchlist last/change/volume refer to the **revealed 5-minute base bar**, not the selected chart interval or
+session totals. The account strip/details show balance, equity, realized/unrealized P&L, day P&L, margin,
+buying power, floor/cushion, daily remaining, contracts, consistency and status.
+
+### Hotkeys
+
+Six locally remappable actions are **disabled by default**: Space play/pause, N step, B/S open or focus the
+buy/sell ticket (not submit), F flatten the active-symbol position, Escape close the ticket. Bindings persist
+locally. Typing, menus/dialogs, composition, repeats and modifier chords are guarded. This is not full
+per-module Tradovate hotkey support.
+
+## 6. Architecture and persistence
+
+```text
 app/domain/sim/
-  types.ts        order, position, account, template, event types
-  session.ts      CME trading day, session boundaries, DST-safe
-  timeframe.ts    base → higher timeframe aggregation (cursor-bounded)
-  engine.ts       deterministic matching, positions, brackets, ATM
-  risk.ts         drawdown/daily/consistency evaluation and transitions
-  presets.ts      versioned example templates
+  types.ts, presets.ts    contracts and generic templates
+  session.ts              weekly Chicago/DST calendar
+  timeframe.ts            validated, revealed-prefix aggregation
+  engine.ts, risk.ts      TypeScript execution and rule state transitions
 app/lib/sim/
-  clock.ts        replay cursor + speed, single source of truth
-  persistence.ts  snapshot serialization and restore
-app/stores/terminal.ts
-app/pages/terminal.vue
+  tape.ts, replay.ts      pinned tapes, shared timeline and ReplaySession
+  persistence.ts         IndexedDB run/checkpoint repository
+  layout.ts, hotkeys.ts   local display/input preferences
+  chart.ts, risk-lines.ts chart helpers and risk-price rounding
+  atm-presets.ts          local ATM presets
+  export.ts               CSV output
+app/stores/terminal.ts    page orchestration, timer, persistence status/retry
+app/pages/terminal.vue    responsive desk and active-pane coordination
 app/components/terminal/
-  AccountBar.vue  Watchlist.vue  OrderTicket.vue  DomLadder.vue
-  PositionsTable.vue  OrdersTable.vue  FillsTable.vue  RulesPanel.vue
-  ReplayControls.vue  TimeframePicker.vue
-app/lib/chart/  (extend: order lines, click-to-price, drag-to-replace)
-wasm/src/       aggregate + risk analytics where the batch work is O(n)
+  AccountBar.vue, Watchlist.vue, OrderTicket.vue, DomLadder.vue
+  PositionsTable.vue, OrdersTable.vue, FillsTable.vue, TerminalHistory.vue
+  RulesPanel.vue, ReplayBar.vue, TimeframePicker.vue
+  TerminalChartPane.vue, HotkeySettings.vue
+app/lib/chart/           shared canvas rendering and pointer interaction
+wasm/src/terminal.rs     prop_aggregate batch aggregation
 ```
 
-- The engine is pure and deterministic: same candles + same actions = same result.
-- Rust/WASM takes the O(n) batch work (multi-timeframe aggregation, drawdown curve,
-  consistency aggregation) behind the existing optional-loader contract; a
-  TypeScript fallback keeps the terminal usable if WASM fails.
-- Persistence is a versioned snapshot in IndexedDB (`propdesk-replay-v1`) pinned to
-  its run and tapes; a checkpoint whose cursor, marks or engine time no longer match
-  is refused with `restoreBlocked` instead of being partially applied.
-- The terminal never reads a candle beyond the cursor.
+WASM accelerates aggregation and supplies the existing analysis helpers. Aggregation has a TypeScript fallback;
+TA is unavailable without its analysis core, while replay/trading remains usable. **Execution, drawdown and
+consistency transitions stay in TypeScript**; there is no WASM drawdown/consistency engine.
 
-## 7. Milestones
+IndexedDB `propdesk-replay-v1` stores the pinned run plus checkpoint. Restore validates cursor, tape marks and
+engine time; a bad/unreadable checkpoint sets `restoreBlocked` rather than silently resetting an account.
+The UI exposes save/restore status, Retry and an explicit confirmed new attempt. Async save failure means the
+latest state may not survive refresh; trading success is not a promise that storage succeeded.
 
-| #   | Milestone                                                        | Evidence                                                    |
-| --- | ---------------------------------------------------------------- | ----------------------------------------------------------- |
-| 1   | Domain: sessions, timeframes, order engine, risk engine          | unit tests, property tests for determinism and no-lookahead |
-| 2   | Replay clock + terminal store + persistence                      | restore/continue tests, breach immutability                 |
-| 3   | Shell: account bar, chart, timeframe switching, replay controls  | screenshots at 1440/1280/390, same cursor across TFs        |
-| 4   | Ticket, brackets/OCO, ATM, positions, add/reduce/reverse/flatten | engine + component tests, e2e order lifecycle               |
-| 5   | Chart trading + DOM ladder + watchlist                           | drag-to-replace e2e, ladder entry e2e                       |
-| 6   | Rules panel, breach line, consistency gate, journal              | rule test matrix, screenshot evidence                       |
-| 7   | i18n, responsive, a11y, docs, perf, commits                      | full suite, theme audit, smoke, perf log                    |
+Symbol/timeframe, pane layout, hotkeys and ATM preferences use localStorage separately from accounting.
+The terminal shows a synthetic/local source label and fallback notices. Tape provenance is carried in
+`ReplayTape.provenance` but not surfaced as a panel, and there is **no source or replay-start picker**.
+An existing attempt restores its pinned tape rather than silently switching to a newly installed pack.
 
-## 8. Verification plan
+## 7. Acceptance evidence map
 
-- **No lookahead**: mutate or replace candles after the cursor; reports, fills and
-  risk must not change. Property test across all timeframes.
-- **Clock invariance**: switching timeframe or layout cannot change cursor, orders,
-  fills or equity.
-- **Determinism**: same seed + same action script = identical event log and P&L.
-- **Risk matrix**: static/trailing intraday/trailing EOD, floor cap, equality breach,
-  daily lock vs account breach, consistency gate vs breach, min days.
-- **Order matrix**: market/limit/stop/stop-limit, gap fills, stop-first ambiguity,
-  OCO target/stop, partial target reduction, reverse, flatten, cancel/replace.
-- **Persistence**: reload mid-session restores exactly; breach cannot be edited away.
-- **UI**: keyboard operation, focus return, no exam shortcut leakage, mobile no
-  overflow, light/dark contrast AA.
-- **Performance**: timeframe switch and step latency budgets recorded in
-  [`docs/perf/terminal.md`](../perf/terminal.md) — aggregation P95 4.67 ms against
-  a 10 ms budget, artifact 157.6 KiB raw / 58.8 KiB brotli inside 160/60.
+The final production run passed the source and browser checks below; unit/component checks do not substitute for
+the browser pointer, focus and responsive flows, which are listed separately.
 
-## 9. Parity matrix (filled in during acceptance)
+| Contract                                                                                  | Evidence source and scope                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Calendar, custom frames, no future aggregation, TS/WASM parity                            | `tests/unit/sim-core.spec.ts`, `tests/unit/sim-timeframes.spec.ts`                                                                                                                                                                                                 |
+| Path ordering, gaps, six order types, reservations, partial exits, ATM, fee/session risk  | `tests/unit/sim-engine.spec.ts`                                                                                                                                                                                                                                    |
+| Peak basis vs monitor, floors/caps, daily actions, finalized consistency/target gates     | `tests/unit/sim-risk.spec.ts`                                                                                                                                                                                                                                      |
+| Shared timeline, future mutation isolation, deterministic actions, exhaustion and restore | `tests/unit/sim-replay.spec.ts`                                                                                                                                                                                                                                    |
+| Save/restore failures, pinned rules, retry, breach persistence                            | `tests/unit/terminal-persistence.spec.ts`                                                                                                                                                                                                                          |
+| Ticket/ladder/table/rules/history controls and CSV                                        | `tests/component/terminal-ticket.spec.ts`, `tests/component/terminal-tables.spec.ts`, `tests/component/terminal-rules.spec.ts`, `tests/component/terminal-history.spec.ts`                                                                                         |
+| Quotes, custom input, account details and replay controls                                 | `tests/component/terminal-market-controls.spec.ts`                                                                                                                                                                                                                 |
+| TA/drawing isolation, forming/focus helpers, canvas behavior                              | `tests/component/terminal-chart-pane.spec.ts`, `tests/unit/terminal-chart-helpers.spec.ts`, `tests/unit/chart-engine.spec.ts`, `tests/component/chart-canvas.spec.ts`                                                                                              |
+| Layout storage and guarded remapping                                                      | `tests/unit/terminal-layout.spec.ts`, `tests/unit/terminal-hotkeys.spec.ts`, `tests/component/hotkey-settings.spec.ts`                                                                                                                                             |
+| Browser checks against a running server                                                   | `scripts/check-terminal.mjs`: 65 checks passed on the production build — orders/steps, conditional risk display, display invariance, layout reload, hotkeys, 1440/390 layouts, TA/drawing isolation, real canvas amend/cancel, Exit all and restore-blocked retry. |
+| Aggregation/artifact and WASM loading                                                     | `scripts/bench-timeframes.ts`, `tests/unit/wasm-budget.spec.ts`, `scripts/check-wasm-load.mjs`; measurements/limits in [terminal performance](../perf/terminal.md)                                                                                                 |
 
-| Area                          | Tradovate core behavior              | Terminal delivery                                      | Status        |
-| ----------------------------- | ------------------------------------ | ------------------------------------------------------ | ------------- |
-| Timeframes                    | intraday + daily, custom intervals   | 5m base + 15/30/60/240/D via one aggregator            | delivered     |
-| Charts                        | multiple panes, indicators, drawings | single pane, 4 styles, existing TA overlays + drawings | partial       |
-| Quotes                        | watchlist with last/change/volume    | watchlist last/change from replay cursor               | partial       |
-| Orders                        | market/limit/stop/stop-limit, TIF    | + trailing stop and trailing stop limit, DAY/GTC/GTD   | delivered     |
-| Brackets                      | OCO stop + multiple targets          | 1 stop + up to 5 OCO targets                           | delivered     |
-| ATM                           | auto BE, trailing                    | auto BE + trailing by ticks, per-contract presets      | delivered     |
-| Chart trading                 | drag/modify/cancel                   | drag order lines, click to price, X to cancel          | delivered     |
-| DOM                           | depth + order entry                  | price ladder and own orders; no depth claim            | adapted       |
-| Tape                          | time & sales                         | unavailable without tick data                          | not available |
-| Positions                     | add/reduce/reverse/flatten           | same, per instrument                                   | delivered     |
-| Account                       | balance/equity/realized/unrealized   | same, fees included, day P&L                           | delivered     |
-| Prop rules                    | drawdown, daily loss, consistency    | floor, daily loss, cap, min days, consistency, breach  | delivered     |
-| History                       | orders/fills/journal                 | orders, fills, trades, events, day ledger, CSV         | delivered     |
-| Workspace                     | saved layouts                        | up to 3 linked chart panes + saved layout/panes        | delivered     |
-| Hotkeys                       | configurable                         | fixed core set (space, N, B, S, F, Esc)                | partial       |
-| Real-time feed                | exchange connectivity                | not in scope                                           | not available |
-| Options/spreads/multi-account | platform extensions                  | out of confirmed scope                                 | not available |
+The older browser checks did **not** establish chart drag acceptance; a check existing in the updated script is
+not itself a passing result. Nor does this map claim every order/rule combination has end-to-end coverage.
 
-## 10. Open risks
+## 8. Scoped parity matrix
 
-- OHLCV ambiguity: stop/target ordering is a policy, not truth. The UI says so.
-- Data licensing: local packs stay uncommitted; the app ships synthetic by default.
-- Scope size: the matrix is large; milestones land independently and each is
-  verified before the next, so partial delivery is never presented as full parity.
-- Historical replay only: no claim about live behavior, latency or fills.
+| Area                               | Current implementation and omissions                                                                                                   | Status                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Replay timeframes                  | Six presets plus custom 5–1440 minute multiples of 5, forming badge, one revealed timeline.                                            | IMPLEMENTED WITHIN SCOPE |
+| Finer timeframes                   | No 1m/seconds/tick data or choices.                                                                                                    | UNAVAILABLE              |
+| Charts/studies/drawings            | Up to three panes, four styles, fixed TA layers, trend/horizontal drawings; no full catalogue, saved drawings or advanced chart types. | ADAPTED                  |
+| Quotes                             | Replay last, one-base-bar change and volume; no bid/ask or live/session quote service.                                                 | ADAPTED                  |
+| Orders                             | Six local order types, DAY/GTC/GTD, release/expiry, amendment/cancel; no exchange queue, volume-based partial fills or routing.        | ADAPTED                  |
+| Brackets and ATM                   | One stop/up to five sized targets, OCO reduction, break-even/trailing and local presets; no automatic protection re-arm after reverse. | IMPLEMENTED WITHIN SCOPE |
+| Chart trading                      | Click-to-price, same-ID drag amendment and X cancel in cursor mode; simulated orders only.                                             | IMPLEMENTED WITHIN SCOPE |
+| DOM                                | Price ladder and own orders, not book depth/queue/liquidity.                                                                           | ADAPTED                  |
+| Time & sales / order flow feed     | No trade prints, bid/ask delta, footprint or depth feed; analysis flow is an OHLCV proxy only.                                         | UNAVAILABLE              |
+| Positions/account                  | Multi-symbol net positions, add/reduce/reverse/flatten/Exit all, fee-aware P&L, margin/buying power; one simulated account.            | IMPLEMENTED WITHIN SCOPE |
+| Prop overlay                       | Configurable floors, daily actions, caps, finalized-day/consistency gates and conditional risk price; not a licensed firm rulebook.    | IMPLEMENTED WITHIN SCOPE |
+| History                            | Orders, fills, trades, events, day ledger and CSV; local records, not broker statements.                                               | IMPLEMENTED WITHIN SCOPE |
+| Workspace                          | One locally saved pane list; no named workspaces, layout import/export, docking, multi-window or cloud sync.                           | ADAPTED                  |
+| Hotkeys                            | Six opt-in remappable local actions; not the full per-module action catalogue.                                                         | ADAPTED                  |
+| Exchange connectivity / real money | No live or delayed streaming feed, broker, real orders or payout service.                                                              | UNAVAILABLE              |
+| Options, spreads, multi-account    | Outside the confirmed core replay scope.                                                                                               | UNAVAILABLE              |
+
+## 9. References and remaining limits
+
+Official reference context: [Tradovate](https://www.tradovate.com/) and
+[Tradovate platform overview](https://www.tradovate.com/platform/). These identify the reference product; they do
+not certify this simulator or verify any firm's current rules. No unverified deep help-article URL is used as
+acceptance evidence.
+
+Local packs remain subject to their source's licensing and are not committed. Weekly session modeling,
+bar-path ambiguity, frozen other-symbol marks and local-only storage are explicit limits. No result here
+establishes live-market latency, realistic queue fills or a real trading edge.

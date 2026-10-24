@@ -5,8 +5,9 @@ This log preserves the earlier artifact-size and loading experiments. Their hist
 For public-wrapper P50/P95, production UI response, raw samples and budgets, see [response.md](response.md).
 Re-run after any change to `wasm/` or to the load path.
 
-Current snapshot after the timestamp-gap fix: **150.3 KiB raw / 66.3 KiB gzip / 56.7 KiB brotli**;
-artifact version `2898da228aa29802`. Direct SSR analysis entry has a preload; SPA navigation does not add one.
+Current snapshot after the replay-terminal aggregate export: **157.6 KiB raw / 69.1 KiB gzip /
+58.8 KiB brotli**; artifact version `6f25df2fa549bae9`. The earlier 150.3 KiB /
+`2898da228aa29802` figures below are the historical timestamp-gap snapshot. Direct SSR analysis entry has a preload; SPA navigation does not add one.
 `bun run check:wasm` now holds the actual download, verifies trainer stepping without it, then verifies a real
 analysis report and one core request for both SPA navigation and direct entry.
 

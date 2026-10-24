@@ -1,23 +1,71 @@
-# Replay terminal performance
+# Replay terminal performance and verification
 
-The terminal adds two costs that the trainer did not have: aggregating a 5-minute
-tape into a chart timeframe, and stepping eight pinned tapes through one replay
-clock. Both are measured instead of assumed.
+The terminal aggregates 5-minute tapes for display and steps pinned instruments through one shared replay clock.
+This page separates the acceptance run from historical microbenchmarks: the current replay-step and chart-frame
+numbers come from a fresh production build, while the aggregation table remains a labelled prior measurement.
 
-Reproduce against a local build:
+## Current acceptance run
+
+Production build at acceptance (`bun run build`): **9.25 MB total / 2.32 MB gzip**, built in 25.0 s. The server
+was started with `PORT=4173 HOST=127.0.0.1 node .output/server/index.mjs`; all browser checks below ran against
+that server, not the dev server.
+
+| Gate                                          | Result                                         |
+| --------------------------------------------- | ---------------------------------------------- |
+| `bun run test`                                | 829 tests / 43 files                           |
+| `bun run typecheck`                           | clean                                          |
+| `bun run format:check`                        | clean                                          |
+| `cargo test --manifest-path wasm/Cargo.toml`  | 10 passed                                      |
+| `bun run check:terminal`                      | 65 checks passed                               |
+| `bun run smoke`                               | 18 flows, no console errors                    |
+| `bun run audit:theme`                         | 5 routes × light/dark, terminal 218 text nodes |
+| `bun run check:wasm`                          | 4 checks passed                                |
+| `bun run check:analysis` / `check:executions` | passed (11 / 5 checks)                         |
+
+### Replay and chart responsiveness
+
+`scripts/bench-terminal.mjs` uses a fresh production context per cold sample and three hot scenarios, each stepping
+the real replay button. It measures event-to-next-presented-RAF latency covering every visible pane, plus the chart
+callback CPU inside that frame. Programmatic DOM input is used; OS input, paint, compositing and checkpoint drain
+are outside the number.
+
+| Scenario                        | Response P95                  | Chart callback P95 |
+| ------------------------------- | ----------------------------- | ------------------ |
+| Single pane, TA off             | 28.9 ms                       | 0.9 ms             |
+| Three panes, TA off             | 29.4 ms                       | 1.8 ms             |
+| Single pane, TA on              | 29.3 ms                       | 1.2 ms             |
+| Cold open → ready + drawn chart | **659.7 ms P95** (10 samples) | —                  |
+
+Budgets are **50 ms** hot response, **16.7 ms** chart callback, **1500 ms** cold. The aggregate 60-event hot sample
+was **P95 29.4 ms / P50 25.8 ms / max 31.9 ms**; sync work P95 12.0 ms; draw P95 1.7 ms. Raw samples and machine
+metadata are in [`terminal-ui.json`](./terminal-ui.json).
+
+These are single-machine, headless Chrome numbers, not a live-market SLA. The terminal is a historical replay desk:
+tapes are 5-minute OHLCV, execution is a deterministic matcher, and no claim is made about exchange queue position,
+real spreads or live fill quality.
+
+## Reproduction
+
+Run the benchmark alone, not alongside tests/builds. Browser scripts need a running server; use a production
+preview when recording acceptance evidence.
 
 ```bash
-bun scripts/bench-timeframes.ts           # aggregation parity + latency
-bun run check:terminal                    # real browser, 19 checks
-bun run check:wasm                        # first paint and single-fetch proof
+bun run bench:timeframes # aggregation parity, latency and artifact budgets
+bun run bench:terminal   # replay-step and chart-frame responsiveness (production server)
+bun run check:terminal   # 65 browser checks; BASE_URL defaults to http://localhost:3000
+bun run check:wasm       # first-paint and single-fetch checks
 ```
 
-## Aggregation (Rust vs TypeScript)
+`bench:terminal` expects a production preview on `127.0.0.1:4173` by default. Use `SAMPLES`/`COLD_SAMPLES` for a
+quick pass and `PERF_OUTPUT` to choose where the JSON evidence is written; a full run uses 30 + 30 samples.
 
-`bun scripts/bench-timeframes.ts` builds a 13,000-bar 5-minute tape, aggregates
-it into 15m/30m/1h/4h/1D plus a custom 45m frame, and checks that the Rust
-`prop_aggregate` path and the pure TypeScript reducer produce identical bars
-before timing them. Artifact: `6f25df2fa549bae9`.
+## Prior aggregation measurement
+
+The existing recorded run used artifact **`6f25df2fa549bae9`**. These are historical local microbenchmark values,
+not new measurements of the current UI. `scripts/bench-timeframes.ts` builds a 13,000-bar tape and compares each
+Rust-backed `aggregateCandles` result against `aggregateCandlesTs`. It times the public aggregation paths,
+including validation, session filtering and the WASM ABI where applicable—not just a raw Rust loop or a browser
+chart paint.
 
 | Frame | P50  | P95  | P99  |
 | ----- | ---- | ---- | ---- |
@@ -29,41 +77,65 @@ before timing them. Artifact: `6f25df2fa549bae9`.
 | 1D    | 3.25 | 3.69 | 3.69 |
 | 45m   | 3.70 | 4.53 | 4.53 |
 
-Milliseconds, 60 samples after warm-up, budget P95 ≤ 10 ms. The TypeScript
-oracle is faster (P95 0.67 ms) because it never crosses the ABI; WASM is kept for
-the size of the working set and parity, and every non-base timeframe falls back
-to the TS reducer if the export is missing or fails.
+Milliseconds; six warm-up calls, then **60 total samples** rotating through six frames (ten per frame). Per-frame
+P95/P99 are therefore coarse, effectively the maximum of ten samples. The script fails at overall P95 **≥10 ms**.
+The TypeScript reference was faster in this recorded run (**P95 0.67 ms**); these numbers do not establish a WASM
+speedup. Non-base aggregation falls back to the TypeScript reducer if the optional export is absent or fails.
 
-Base 5-minute charts bypass aggregation entirely — the revealed slice is drawn
-as-is — so the common case costs nothing.
+Base `5m` skips higher-timeframe reduction and the WASM call, but still pays for prefix slicing, validation and
+session filtering. It is not a zero-cost operation. Rendering, TA, multi-pane updates and storage are not timed by
+this benchmark. Execution, drawdown and consistency state transitions remain TypeScript; WASM is used for
+aggregation and the existing optional analysis helpers.
 
-## Artifact budget
+## Prior artifact measurement
 
-| Metric | Value     | Budget |
-| ------ | --------- | ------ |
-| raw    | 157.6 KiB | 160    |
-| brotli | 58.8 KiB  | 60     |
-| gzip   | 69.1 KiB  | 70     |
+Same recorded artifact; sizes cover the **whole shared core**, not just terminal aggregation.
 
-`tests/unit/wasm-budget.spec.ts` fails on size, compression ratio, a missing
-export or a stale content hash. `prop_aggregate` is optional in the loader, so
-an older artifact still boots the terminal with the TS path.
+| Metric | Value     | Budget (KiB) |
+| ------ | --------- | ------------ |
+| raw    | 157.6 KiB | 160          |
+| brotli | 58.8 KiB  | 60           |
+| gzip   | 69.1 KiB  | 70           |
 
-## Replay stepping
+`tests/unit/wasm-budget.spec.ts` checks sizes, compression ratio, required core exports and content hash.
+`scripts/bench-timeframes.ts` additionally requires `prop_aggregate` and verifies aggregation parity. The loader
+keeps that export optional so an older artifact can still run the terminal with the TypeScript reducer.
 
-`check-terminal.mjs` drives the real page: one market order, four single-bar
-steps, a timeframe switch, a chart-style switch and a mobile ticket, with no
-console errors and no horizontal overflow. Playback is a 250 ms timer that
-advances `speed × 0.5` bars per tick, so a 1× replay reveals two 5-minute bars
-per second; the store clamps `stepBars` to 1..10000 and stops at the tape end.
+## Replay stepping and persistence
 
-There is no wall-clock dependency: the replay clock is the only clock the
-engine, risk rules and order scheduling read, which is why the same action
-script reproduces the same account state (see `tests/unit/sim-replay.spec.ts`).
+`app/stores/terminal.ts` uses a 250 ms timer, accumulating `speed × 0.5` steps per tick. At 1× this requests two
+shared-timeline entries per second; it is not a real-time market clock or a measured latency guarantee. Supported
+speeds are 0.5×/1×/2×/4×. `stepBars` accepts integers 1–10000 and clamps at tape exhaustion.
+
+The last revealed timestamp is `timeline[cursor - 1]`; symbol-local bars and session boundaries follow that
+clock. `tests/unit/sim-replay.spec.ts` covers deterministic actions, sparse tapes, no-lookahead, scheduled closes,
+exhaustion and validated continuation. A replay ending mid-session does not fabricate a final close.
+
+Pinned runs and engine checkpoints live in IndexedDB. Writes are asynchronous, but snapshot creation and
+serialization are not measured here. Save failures can leave the most recent state unsaved; the UI reports them
+and offers Retry. Failed restore sets `restoreBlocked` and does not silently overwrite the attempt.
+
+## Browser acceptance scope
+
+`scripts/check-terminal.mjs` is a behavioral check source, not a performance benchmark. The accepted run executes
+**65 checks** at 1440 and 390 px: market entry and steps, four independent technical-analysis frameworks, custom
+45-minute timeframes, quote volume/account details, canvas **order drag/amend/cancel**, drawing isolation, confirmed
+Exit all, three-pane layouts with per-pane study panels, layout reload/close, hotkey remapping and typing isolation,
+mobile ticket/study bounds, and corrupt-checkpoint retry without silent reset. It records console/page errors and
+horizontal overflow.
+
+The script is not exhaustive end-to-end coverage of every order type, risk rule or breakpoint. It proves the named
+flows and the absence of the named errors; it does not prove exchange-grade execution or every combination of
+instruments and templates.
+
+The source-level acceptance map is in [the terminal design document](../design/trading-terminal.md#7-acceptance-evidence-map).
 
 ## Limits
 
-- These numbers are local production builds on one machine, not a CI gate.
-- IndexedDB checkpoint writes are asynchronous and not part of the measured
-  interaction path; a slow disk can delay the saved snapshot, never the fill.
-- Historical replay only. Nothing here claims live-market latency.
+- The timing values are from one local machine/runtime, not a cross-device or live-market SLA. Aggregation's
+  timing gate is the standalone benchmark; normal unit tests enforce correctness and artifact budgets.
+- Replay-step and chart-frame numbers exclude OS input, paint/compositing and IndexedDB checkpoint drain.
+  Checkpoint serialization/write latency is not measured.
+- A 5-minute OHLCV tape cannot validate exchange queue position, partial fills, spreads or real execution quality.
+- Session handling is weekly (Monday–Friday, 17:00–16:00 Chicago); exchange holidays and early closes are not modelled.
+- Browser checks use headless Chrome. Mobile layout is viewport-checked, not tested on a physical device.
