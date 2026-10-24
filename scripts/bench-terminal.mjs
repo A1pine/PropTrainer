@@ -133,18 +133,19 @@ const report = {
     coldEnd:
       'first requestAnimationFrame poll tick that observes terminal.store.ready, loading=false, cursor>0, a non-null account, and every visible [data-pane] canvas last completed clearRect with lastDrawCursor equal to terminal.cursor',
     hotStart:
-      'window capture-phase click timestamp for the programmatic Playwright locator.click() that activates the real toolbar control',
+      'window capture-phase click timestamp for HTMLElement.click() on the real toolbar button inside a Playwright locator.evaluate() task',
     hotEnd:
       'start of the next requestAnimationFrame callback after the draw callback that cleared every visible [data-pane] canvas with terminal.cursor equal to the post-step/control target',
     syncWork:
-      'same click event: document bubble-phase timestamp after the app target handler and before Vue microtask flush, minus the window capture timestamp; includes synchronous event dispatch and the Vue handler, excludes browser input queue, OS input delivery, render microtasks, and IndexedDB checkpoint drain',
+      'timestamp immediately after HTMLElement.click() returns minus its window capture timestamp, in the same JavaScript task; includes synchronous event dispatch and handlers, excludes Vue render microtasks, browser/OS input delivery, and IndexedDB checkpoint drain',
     chartCallbackCpu:
       'sum of instrumented requestAnimationFrame callback durations that called CanvasRenderingContext2D.clearRect in the event window; excludes Vue render microtasks, WASM analysis computation outside those callbacks, paint, compositing, and GPU work',
     stepCursor: 'terminal.cursor after minus terminal.cursor before must equal exactly 1',
     account: 'terminal.account must remain non-null and startBalance must be unchanged',
   },
   method: {
-    input: 'programmatic DOM click through Playwright locator.click(); no OS-level input is claimed',
+    input:
+      'programmatic DOM HTMLElement.click() on real toolbar buttons, via Playwright locator.evaluate(); no pointer/keyboard or OS-level input is claimed',
     settling:
       'each hot sample waits for a condition-based chart-idle check (three consecutive RAF polls with no new canvas draw) before the next sample; no fixed sleeps are used',
     staleDraws:
@@ -172,7 +173,6 @@ const report = {
 }
 
 let browser = null
-let fatalError = null
 const started = performance.now()
 
 function attachErrors(page) {
@@ -390,11 +390,9 @@ async function openContext() {
           error: null,
         }
         currentFrame = rec
-        let thrown = null
         try {
           callback(frameTime)
         } catch (error) {
-          thrown = error
           rec.error = String(error)
           throw error
         } finally {
@@ -469,21 +467,6 @@ async function openContext() {
             : null,
         }
         if (id != null) bench.events[id] = rec
-        const finish = (kind) => {
-          if (rec.end != null) return
-          rec.end = performance.now()
-          rec.handlerMs = rec.end - rec.start
-          rec.handlerEndKind = kind
-        }
-        // The bubble listener runs after the app's button handler and before
-        // Vue's microtask flush, so it captures only synchronous handler work.
-        const finishBubble = () => finish('bubble')
-        document.addEventListener('click', finishBubble, { once: true })
-        // Fallback if a handler stops propagation before the event reaches document.
-        setTimeout(() => {
-          document.removeEventListener('click', finishBubble)
-          finish('timeout')
-        }, 0)
       },
       true,
     )
@@ -534,7 +517,7 @@ async function waitIdle(page, label) {
       () => {
         const bench = window.__bench
         if (!bench) return false
-        const state = bench.snapshot()
+        const state = bench.snapshot(false)
         if (!state.store) return false
         if (bench.idleProbeLastDraw !== bench.lastDrawAt) {
           bench.idleProbeLastDraw = bench.lastDrawAt
@@ -568,10 +551,27 @@ function nextEventId() {
   return report.__eventSeq
 }
 
-async function armEvent(page, id) {
-  await page.evaluate((eventId) => {
-    window.__bench.pendingEventId = eventId
-  }, id)
+async function clickControl(locator, id) {
+  await locator.evaluate(
+    (button, eventId) => {
+      if (!(button instanceof HTMLButtonElement) || !button.isConnected || button.disabled) {
+        throw new Error('Benchmark control must be a connected, enabled button')
+      }
+      const bounds = button.getBoundingClientRect()
+      if (bounds.width <= 0 || bounds.height <= 0) throw new Error('Benchmark control is not visible')
+      const bench = window.__bench
+      bench.pendingEventId = eventId
+      button.click()
+      const endedAt = performance.now()
+      const event = bench.events[eventId]
+      if (!event) throw new Error(`Button did not dispatch click event ${eventId}`)
+      event.end = endedAt
+      event.handlerMs = endedAt - event.start
+      event.handlerEndKind = 'dom-click-return'
+    },
+    id,
+    { timeout: SAMPLE_TIMEOUT },
+  )
 }
 
 async function readEvent(page, id) {
@@ -598,8 +598,7 @@ async function measureStep(page, label, expectedCursor, expectedAnalysis = false
   }
   const eventId = nextEventId()
 
-  await armEvent(page, eventId)
-  await page.locator(SELECTORS.step).click({ timeout: SAMPLE_TIMEOUT })
+  await clickControl(page.locator(SELECTORS.step), eventId)
 
   try {
     await page.waitForFunction(
@@ -679,6 +678,21 @@ async function measureStep(page, label, expectedCursor, expectedAnalysis = false
         drawMaxCallbackMs: Math.max(...drawFrames.map((frame) => frame.durationMs)),
         drawClearMs: drawFrames.reduce((sum, frame) => sum + frame.clearMs, 0),
         frameIds: drawFrames.map((frame) => frame.id),
+        drawCallbacks: drawFrames.map((frame) => ({
+          id: frame.id,
+          frameTime: frame.frameTime,
+          startedAt: frame.startedAt,
+          endedAt: frame.endedAt,
+          durationMs: frame.durationMs,
+          clearMs: frame.clearMs,
+          canvasTokens: frame.tokens,
+          cursor: frame.cursor,
+          analysisEnabled: frame.analysisEnabled,
+          analysisStatus: frame.analysisStatus,
+          presentedAt: frame.presentedAt,
+          presentedFrameTime: frame.presentedFrameTime,
+          error: frame.error,
+        })),
       }
     },
     { id: eventId, targetCursor: target, expectedAnalysis },
@@ -719,6 +733,7 @@ async function measureStep(page, label, expectedCursor, expectedAnalysis = false
     eventStart: result.event.start,
     presentedAt: result.presentedAt,
     frameIds: result.frameIds,
+    drawCallbacks: result.drawCallbacks,
   }
 }
 
@@ -727,8 +742,7 @@ async function measureTransition(page, { id, kind, expected, action }) {
   if (!before.store || !before.ready) throw new Error(`${id}: terminal not ready before control`)
   if (!before.account) throw new Error(`${id}: terminal.account is null before control`)
   const eventId = nextEventId()
-  await armEvent(page, eventId)
-  await action()
+  await action(eventId)
 
   try {
     await page.waitForFunction(
@@ -772,7 +786,7 @@ async function measureTransition(page, { id, kind, expected, action }) {
     throw new Error(`${id}: control did not present a complete chart frame: ${error.message}`)
   }
 
-  const event = await readEvent(page, eventId)
+  await readEvent(page, eventId)
   const result = await page.evaluate(
     ({ eventId, kind, expected }) => {
       const bench = window.__bench
@@ -817,6 +831,21 @@ async function measureTransition(page, { id, kind, expected, action }) {
         drawMaxCallbackMs: Math.max(...drawFrames.map((frame) => frame.durationMs)),
         drawClearMs: drawFrames.reduce((sum, frame) => sum + frame.clearMs, 0),
         frameIds: drawFrames.map((frame) => frame.id),
+        drawCallbacks: drawFrames.map((frame) => ({
+          id: frame.id,
+          frameTime: frame.frameTime,
+          startedAt: frame.startedAt,
+          endedAt: frame.endedAt,
+          durationMs: frame.durationMs,
+          clearMs: frame.clearMs,
+          canvasTokens: frame.tokens,
+          cursor: frame.cursor,
+          analysisEnabled: frame.analysisEnabled,
+          analysisStatus: frame.analysisStatus,
+          presentedAt: frame.presentedAt,
+          presentedFrameTime: frame.presentedFrameTime,
+          error: frame.error,
+        })),
         wasmInstantiateCalls: bench.wasm.instantiateCalls,
         analysisReadyAt: bench.analysisReadyAt,
       }
@@ -860,6 +889,7 @@ async function measureTransition(page, { id, kind, expected, action }) {
     eventStart: result.event.start,
     presentedAt: result.presentedAt,
     frameIds: result.frameIds,
+    drawCallbacks: result.drawCallbacks,
     wasmInstantiateCalls: result.wasmInstantiateCalls,
     analysisReadyAt: result.analysisReadyAt,
   }
@@ -1063,7 +1093,7 @@ async function run() {
       id: 'layout-3',
       kind: 'layout',
       expected: 3,
-      action: async () => (await layoutButton(page, 3)).click({ timeout: SAMPLE_TIMEOUT }),
+      action: async (eventId) => clickControl(await layoutButton(page, 3), eventId),
     })
     report.controls.push(layout3)
     await runStepScenario(page, {
@@ -1077,7 +1107,7 @@ async function run() {
       id: 'layout-1',
       kind: 'layout',
       expected: 1,
-      action: async () => (await layoutButton(page, 1)).click({ timeout: SAMPLE_TIMEOUT }),
+      action: async (eventId) => clickControl(await layoutButton(page, 1), eventId),
     })
     report.controls.push(layout1)
 
@@ -1085,7 +1115,7 @@ async function run() {
       id: 'timeframe-5m',
       kind: 'timeframe',
       expected: '5m',
-      action: () => page.locator(SELECTORS.timeframe5m).first().click({ timeout: SAMPLE_TIMEOUT }),
+      action: (eventId) => clickControl(page.locator(SELECTORS.timeframe5m).first(), eventId),
     })
     report.controls.push(timeframe5m)
 
@@ -1096,7 +1126,7 @@ async function run() {
       id: 'analysis-on',
       kind: 'analysis',
       expected: 'ready',
-      action: () => toggle.click({ timeout: SAMPLE_TIMEOUT }),
+      action: (eventId) => clickControl(toggle, eventId),
     })
     report.controls.push(analysisOn)
     const analysisState = await page.evaluate(() => ({
@@ -1135,19 +1165,41 @@ async function finalize() {
   const draw = stats(interactionSamples.map((sample) => sample.drawCpuMs))
   const drawMax = stats(interactionSamples.map((sample) => sample.drawMaxCallbackMs))
   const cold = stats(report.cold.samples.map((sample) => sample.coldMs))
+  const scopeChecks = [
+    ...report.hot.map((scenario) => ({
+      id: scenario.id,
+      n: scenario.samples.length,
+      statistic: 'p95',
+      responseMs: scenario.stats.response.p95,
+      drawCpuMs: scenario.stats.drawCpu.p95,
+      maxCallbackMs: scenario.stats.drawMaxCallback.p95,
+    })),
+    ...controlSamples.map((sample) => ({
+      id: sample.id,
+      n: 1,
+      statistic: 'single observation, not a sampled distribution',
+      responseMs: sample.responseMs,
+      drawCpuMs: sample.drawCpuMs,
+      maxCallbackMs: sample.drawMaxCallbackMs,
+    })),
+  ]
+  const worstResponse = Math.max(...scopeChecks.map((scope) => scope.responseMs))
+  const worstDraw = Math.max(...scopeChecks.map((scope) => scope.drawCpuMs))
+  const worstCallback = Math.max(...scopeChecks.map((scope) => scope.maxCallbackMs))
   const checks = {
     response: {
       metric:
-        'P95 event -> next presented RAF covering every visible pane, across hot step samples and toolbar transitions',
-      value: response.p95,
+        'Worst hot-scenario P95 or individual toolbar transition: event -> next presented RAF covering every pane',
+      value: worstResponse,
       budget: BUDGETS.responseP95Ms,
-      pass: response.p95 <= BUDGETS.responseP95Ms,
+      pass: worstResponse <= BUDGETS.responseP95Ms,
     },
     chartCallbackCpu: {
-      metric: 'P95 sum of chart RAF callback CPU in each event window, across hot step samples and toolbar transitions',
-      value: draw.p95,
+      metric:
+        'Worst hot-scenario P95 or individual toolbar transition: sum of chart RAF callback CPU in the event window',
+      value: worstDraw,
       budget: BUDGETS.chartCallbackCpuP95Ms,
-      pass: draw.p95 <= BUDGETS.chartCallbackCpuP95Ms,
+      pass: worstDraw <= BUDGETS.chartCallbackCpuP95Ms,
     },
     cold: {
       metric: 'P95 fresh-context cold open to ready and drawn chart',
@@ -1156,13 +1208,14 @@ async function finalize() {
       pass: cold.p95 <= BUDGETS.coldP95Ms,
     },
     maxSingleCallback: {
-      metric: 'P95 largest single chart RAF callback',
-      value: drawMax.p95,
+      metric: 'Worst hot-scenario P95 or individual toolbar transition: largest single chart RAF callback',
+      value: worstCallback,
       budget: BUDGETS.chartCallbackCpuP95Ms,
-      pass: drawMax.p95 <= BUDGETS.chartCallbackCpuP95Ms,
+      pass: worstCallback <= BUDGETS.chartCallbackCpuP95Ms,
     },
+    scopes: scopeChecks,
   }
-  checks.pass = Object.values(checks).every((entry) => typeof entry !== 'object' || entry.pass !== false)
+  checks.pass = ['response', 'chartCallbackCpu', 'cold', 'maxSingleCallback'].every((key) => checks[key].pass)
   checks.productionEvidence = report.environment.evidence?.productionEvidence === true
   report.checks = checks
   report.hotSummary = {
@@ -1218,7 +1271,6 @@ try {
   }
   console.error(`saved ${OUTPUT}`)
 } catch (error) {
-  fatalError = error
   report.error = { message: error.message, stack: error.stack ?? null }
   report.finishedAt = new Date().toISOString()
   report.durationMs = performance.now() - started

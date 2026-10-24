@@ -26,19 +26,19 @@ that server, not the dev server.
 
 `scripts/bench-terminal.mjs` uses a fresh production context per cold sample and three hot scenarios, each stepping
 the real replay button. It measures event-to-next-presented-RAF latency covering every visible pane, plus the chart
-callback CPU inside that frame. Programmatic DOM input is used; OS input, paint, compositing and checkpoint drain
-are outside the number.
+callback CPU inside that frame. Input is a programmatic `HTMLElement.click()` on the real toolbar button; OS input,
+pointer delivery, paint, compositing and checkpoint drain are outside the number.
 
 | Scenario                        | Response P95                  | Chart callback P95 |
 | ------------------------------- | ----------------------------- | ------------------ |
-| Single pane, TA off             | 28.9 ms                       | 0.9 ms             |
-| Three panes, TA off             | 29.4 ms                       | 1.8 ms             |
-| Single pane, TA on              | 29.3 ms                       | 1.2 ms             |
-| Cold open → ready + drawn chart | **659.7 ms P95** (10 samples) | —                  |
+| Single pane, TA off             | 26.4 ms                       | 2.8 ms             |
+| Three panes, TA off             | 26.7 ms                       | 3.9 ms             |
+| Single pane, TA on              | 27.8 ms                       | 3.5 ms             |
+| Cold open → ready + drawn chart | **938.7 ms P95** (30 samples) | —                  |
 
-Budgets are **50 ms** hot response, **16.7 ms** chart callback, **1500 ms** cold. The aggregate 60-event hot sample
-was **P95 29.4 ms / P50 25.8 ms / max 31.9 ms**; sync work P95 12.0 ms; draw P95 1.7 ms. Raw samples and machine
-metadata are in [`terminal-ui.json`](./terminal-ui.json).
+Budgets are **50 ms** hot response, **16.7 ms** chart callback, **1500 ms** cold. The aggregate 90-event hot sample
+was **P95 26.8 ms / P50 23.8 ms / max 30.8 ms**; synchronous click work P95 1.3 ms; draw CPU P95 3.8 ms; the largest
+single chart callback was 3.8 ms. Raw samples and machine metadata are in [`terminal-ui.json`](./terminal-ui.json).
 
 These are single-machine, headless Chrome numbers, not a live-market SLA. The terminal is a historical replay desk:
 tapes are 5-minute OHLCV, execution is a deterministic matcher, and no claim is made about exchange queue position,
