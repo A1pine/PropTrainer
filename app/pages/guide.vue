@@ -80,6 +80,21 @@ const sections = computed(() => [
     note: t('guide.sections.examTA.note'),
     noteLabel: t('guide.fieldNote'),
   },
+  {
+    id: 'terminal',
+    n: '07',
+    title: t('guide.sections.terminal.title'),
+    body: t('guide.sections.terminal.body'),
+    body2: t('guide.sections.terminal.body2'),
+    bullets: [
+      t('guide.sections.terminal.b1'),
+      t('guide.sections.terminal.b2'),
+      t('guide.sections.terminal.b3'),
+      t('guide.sections.terminal.b4'),
+    ],
+    note: t('guide.sections.terminal.note'),
+    noteLabel: t('guide.fieldNote'),
+  },
 ])
 
 const shortcuts = computed(() => [

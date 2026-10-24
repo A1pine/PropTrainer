@@ -37,6 +37,12 @@ belongs beyond structure rather than at your comfort level.
   helpers start off, keep blind price/date masking, and do not change the grading rules.
 - **Optional real data** — fetch a local 5-minute pack from Yahoo Finance, switch sources in Settings, and train
   on real CME micro/mini futures tape without giving up the blind contract. Daily and PK stay generated.
+- **Replay terminal** — a free-form Tradovate-style desk on the same historical tape: market/limit/stop/stop-limit/
+  trailing entries with DAY/GTC/GTD and release times, one stop plus up to five OCO targets, break-even and
+  trailing ATM, chart drag-to-replace and click-to-price, a price ladder without fake depth, watchlist quotes,
+  positions/orders/fills/history docks, and a prop account with drawdown floor, daily loss, contract cap,
+  consistency and a conditional breach price. Every timeframe is aggregated from one 5-minute tape, and the
+  attempt (clock, positions, orders) is restored from IndexedDB after a refresh.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
 - **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (key parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
@@ -51,7 +57,7 @@ belongs beyond structure rather than at your comfort level.
 | Primitives | Reka UI wrapped shadcn-style; `class-variance-authority` + `tailwind-merge`                           |
 | State      | Pinia setup stores                                                                                    |
 | i18n       | `@nuxtjs/i18n` (no prefix, cookie-aware SSR)                                                          |
-| Charts     | Custom Canvas 2D engine (scales, candles, drawings, blind mode)                                       |
+| Charts     | Custom Canvas 2D engine (candles/OHLC/line/Heikin-Ashi, drawings, order lines, blind mode)            |
 | Compute    | Rust → WebAssembly core for O(n) market, drill and analysis math, with a TypeScript fallback          |
 | Tests      | Vitest unit/component tests including Rust/TypeScript parity, data races and chart invariants         |
 | QA         | Playwright screenshot script                                                                          |
@@ -93,9 +99,11 @@ bun run measure:wasm   # real browser timings against a running server
 bun run check:wasm     # proves the core never blocks first paint and loads once
 bun run check:executions # result-page fill markers, same-bar exits and blind masking
 bun run check:analysis   # exam overlay toggles, keyboard isolation, failure recovery and layout
+bun run check:terminal   # replay terminal orders, chart trading, prop lines and mobile layout
+bun run bench:timeframes # 13k-bar aggregation parity and P95 against the 10 ms budget
 ```
 
-Current artifact: **150.3 KiB raw / 56.7 KiB brotli**. WASM never gates hydration: it warms on idle;
+Current artifact: **157.6 KiB raw / 58.8 KiB brotli** (budget 160/60), including the replay aggregator. WASM never gates hydration: it warms on idle;
 only a direct, server-rendered analysis visit adds a preload. SPA navigation shares the loader's pending request.
 See [`docs/perf/wasm.md`](docs/perf/wasm.md) for the artifact history and
 [`docs/perf/response.md`](docs/perf/response.md) for production response budgets, raw before/after samples and limits.
@@ -111,6 +119,7 @@ bun run bench:ui --check       # production localhost:4173, synthetic + installe
 | ----------- | -------------------------------------------------------------------------------- |
 | `/`         | Lobby: pitch, animated preview, universe picker, rules, daily entry, recent form |
 | `/trainer`  | Blind session: read → plan → live bracket → review → next round                  |
+| `/terminal` | Replay trading desk: orders, brackets/ATM, ladder, prop account, history         |
 | `/analysis` | Analysis lab: indicators, PA, ICT, order-flow proxy, confluence                  |
 | `/drill`    | Standalone decision drill (`?seed=` for a shared sample)                         |
 | `/daily`    | Daily sample, lock state, result and reference board                             |
@@ -134,13 +143,15 @@ app/
     stats/                trade analytics + persistence record types
     analysis/             analysis report types and the Rust-core entry point
     settings/             zod schema and defaults
+    sim/                  replay calendar, timeframes, risk engine, order engine, presets
   lib/
     chart/                canvas engine, geometry, theme reader
+    sim/                  pinned replay tapes, session wrapper, IndexedDB checkpoints
     repositories/         history repository over a KeyValueStore
     storage.ts            storage adapter factory (localStorage / memory)
     audio.ts              Web Audio cue synth (no assets)
-  components/             ui kit, layout shell, chart, trainer, lobby, drill, stats
-  stores/                 Pinia orchestration (trainer, drill, settings, history, pk, toasts)
+  components/             ui kit, layout shell, chart, terminal, trainer, lobby, drill, stats
+  stores/                 Pinia orchestration (trainer, drill, terminal, settings, history, pk, toasts)
   pages/                  routes
 i18n/locales/             en, zh-CN, ja
 tests/unit/               domain and adapter tests
@@ -158,7 +169,8 @@ tests/unit/               domain and adapter tests
 - **Conservative simulation** — if a bar touches both stop and target, the stop is assumed first; gaps fill at
   the open; commissions are split half on entry and half on exit. The review should not flatter the trader.
 - **Honest boundaries** — daily/PK reference results are labelled as deterministic strategy baselines, not people.
-  No fake testimonials, payouts or live-data claims.
+  No fake testimonials, payouts or live-data claims. The terminal's ladder shows prices, never invented depth,
+  and its breach price is labelled conditional on the other instruments staying flat.
 
 ### The trading model
 
@@ -260,6 +272,29 @@ offer Retry. On narrow screens chart annotation labels are suppressed while geom
 Order flow is **OHLCV-derived**: candle close position weights volume into a delta proxy. There is no bid/ask or
 footprint feed, and the UI says so. ICT concepts are heuristics (swing-based FVG, OB, liquidity), not vendor signals.
 
+### Replay terminal
+
+`/terminal` is a separate free-form desk: no grading, no hidden contract. It replays one 5-minute tape per
+instrument, and every chart timeframe (`5m`, `15m`, `30m`, `1h`, `4h`, `1D`) is an aggregation of that same revealed
+prefix, so switching timeframe cannot move the clock or reveal future bars. Higher-timeframe bars are computed in
+Rust (`prop_aggregate`) with an identical TypeScript reducer as the fallback and parity oracle.
+
+Orders support market, limit, stop, stop-limit, trailing stop and trailing stop limit, with DAY/GTC/GTD and optional
+release times, partial targets, one stop plus up to five OCO targets, break-even/trailing ATM, reduce-only, and
+add/reduce/reverse/flatten. Fills are print-driven against the revealed bar: resting orders fill at the level or at a
+gapped open, and when a bar spans both stop and target the stop is assumed first. The chart can drag a working order
+to a new tick-rounded price and click a price into the ticket; the price ladder shows prices and your own working
+orders only — there is no order-book depth or time-and-sales in a 5-minute OHLCV tape, and the UI states that.
+
+The prop account tracks a drawdown floor (static, intraday-trailing or end-of-day trailing, on balance or equity),
+daily loss, contract cap, minimum trading days and a consistency gate. The account bar shows equity, day P&L,
+cushion and daily loss left; the chart draws floor, daily and conditional breach levels when they fall inside the
+visible price window. A breach price assumes every other instrument stays flat, so it is labelled as conditional.
+
+Replay state is checkpointed to IndexedDB (`propdesk-replay-v1`) together with the pinned tapes, so a refresh
+restores the same clock, positions and orders; a checkpoint that no longer matches its run is refused instead of
+silently resetting. Display preferences (`symbol`, `timeframe`) live in `localStorage`. Nothing is sent to a broker.
+
 ### Chart engine
 
 `ChartEngine` is a small retained-mode renderer: it owns viewport math, price scales, candles, volume, overlay
@@ -310,6 +345,10 @@ The unit and component suites cover:
 - local pack cache generations, refresh races, negative-cache recovery and future-independent rebasing,
 - shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
 - fill normalization across session gaps, same-bar round trips, no-fill plans and invalid bar coordinates,
+- replay session no-lookahead/determinism/restore, session rolls and corrupt checkpoints,
+- order lifecycle across all six order types, TIF/release, partial targets, OCO and ATM,
+- prop drawdown modes, daily loss actions, consistency boundaries and breach-price rounding,
+- timeframe aggregation parity (TS ↔ WASM), DST session opens and out-of-session bar filtering,
 - pre-paint chart geometry, no-op redraws, reveal animation targets, option updates and reduced motion.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
