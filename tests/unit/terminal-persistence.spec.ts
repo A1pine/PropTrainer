@@ -407,3 +407,215 @@ describe('terminal store persistence and revealed chart state', () => {
     expect(save).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('terminal store restore and save recovery', () => {
+  it('restores the pinned account and clock on an explicit retry after one load failure', async () => {
+    const replay = fixture()
+    expect(replay.engine.submit({ side: 'long', type: 'market', qty: 1 }, 'MNQ').ok).toBe(true)
+    replay.step(2)
+    await repository.create(replay.run, replay.checkpoint())
+    const original = await repository.load()
+    const load = vi.spyOn(repository, 'load').mockRejectedValueOnce(new Error('Replay storage read failed'))
+    const create = vi.spyOn(repository, 'create')
+    const save = vi.spyOn(repository, 'save')
+    const store = useTerminalStore()
+
+    await store.initialize()
+
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(create).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(store.restoreBlocked).toBe(true)
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay storage read failed')
+    expect(store.ready).toBe(false)
+    expect(store.run).toBeNull()
+    expect(store.snapshot).toBeNull()
+    expect(store.cursor).toBe(0)
+    expect(store.totalBars).toBe(0)
+    expect(store.chartCandles).toEqual([])
+
+    await store.retryRestore()
+
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(create).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(store.restoreBlocked).toBe(false)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    expect(store.run).toEqual(replay.run)
+    expect(store.cursor).toBe(replay.cursor)
+    expect(store.replayTime).toBe(replay.time)
+    expect(store.knownTime).toBe(replay.time + REPLAY_BASE_SECONDS)
+    expect(store.snapshot).toEqual(replay.engine.snapshot())
+    expect(store.account).toEqual(replay.engine.account())
+    expect(await repository.load()).toEqual(original)
+  })
+
+  it.each(['run id', 'mark price'] as const)(
+    'keeps a corrupt %s restore blocked across explicit retries without touching history',
+    async (corruption) => {
+      const replay = fixture()
+      const checkpoint = replay.checkpoint()
+      if (corruption === 'run id') checkpoint.runId = 'wrong-run'
+      else checkpoint.engine.marks.MNQ!.price += 1
+      const expectedError =
+        corruption === 'run id' ? 'Invalid replay cursor' : 'Replay marks do not match the pinned cursor'
+      await repository.create(replay.run, checkpoint)
+      const original = await repository.load()
+      const load = vi.spyOn(repository, 'load')
+      const create = vi.spyOn(repository, 'create')
+      const save = vi.spyOn(repository, 'save')
+      const store = useTerminalStore()
+
+      await store.initialize()
+      expect(store.restoreBlocked).toBe(true)
+
+      await store.retryRestore()
+      await store.retryRestore()
+
+      expect(load).toHaveBeenCalledTimes(3)
+      expect(create).not.toHaveBeenCalled()
+      expect(save).not.toHaveBeenCalled()
+      expect(store.restoreBlocked).toBe(true)
+      expect(store.storageStatus).toBe('unavailable')
+      expect(store.storageError).toBe(expectedError)
+      expect(store.ready).toBe(false)
+      expect(store.run).toBeNull()
+      expect(store.snapshot).toBeNull()
+      expect(store.account).toBeNull()
+      expect(store.cursor).toBe(0)
+      expect(store.totalBars).toBe(0)
+      expect(store.chartCandles).toEqual([])
+      expect(store.playing).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      expect(await repository.load()).toEqual(original)
+    },
+  )
+
+  it('retries a failed save with the submitted trade without replacing the attempt or account', async () => {
+    const replay = fixture()
+    await repository.create(replay.run, replay.checkpoint())
+    const original = await repository.load()
+    const save = vi.spyOn(repository, 'save').mockRejectedValueOnce(new Error('Replay checkpoint not saved'))
+    const create = vi.spyOn(repository, 'create')
+    const store = useTerminalStore()
+    await store.initialize()
+
+    expect(store.submit({ side: 'long', type: 'market', qty: 1 }).ok).toBe(true)
+    const submitted = accounting(store)
+    const pinnedRun = store.run
+    const pinnedSnapshot = store.snapshot
+    expect(store.fills).toHaveLength(1)
+    await store.flush()
+
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(create).not.toHaveBeenCalled()
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay checkpoint not saved')
+    expect(store.run).toBe(pinnedRun)
+    expect(store.snapshot).toBe(pinnedSnapshot)
+    expect(accounting(store)).toEqual(submitted)
+    expect(await repository.load()).toEqual(original)
+
+    await store.retrySave()
+
+    expect(save).toHaveBeenCalledTimes(2)
+    expect(create).not.toHaveBeenCalled()
+    expect(store.run).toBe(pinnedRun)
+    expect(store.snapshot).toBe(pinnedSnapshot)
+    expect(accounting(store)).toEqual(submitted)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    const saved = await repository.load()
+    expect(saved!.run).toEqual(replay.run)
+    expect(saved!.checkpoint.engine.fills).toHaveLength(1)
+    const restored = ReplaySession.restore(saved!)
+    expect(restored.cursor).toBe(store.cursor)
+    expect(restored.engine.snapshot()).toEqual(store.snapshot)
+  })
+
+  it('creates the current attempt and checkpoint when the initial create is retried', async () => {
+    const create = vi.spyOn(repository, 'create').mockRejectedValueOnce(new Error('Replay storage unavailable'))
+    const save = vi.spyOn(repository, 'save')
+    const store = useTerminalStore()
+
+    await store.initialize()
+
+    expect(store.ready).toBe(true)
+    expect(store.restoreBlocked).toBe(false)
+    expect(store.error).toBeNull()
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay storage unavailable')
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(await repository.load()).toBeNull()
+    const pinnedRun = store.run
+    const pinnedSnapshot = store.snapshot
+    const before = accounting(store)
+    expect(pinnedRun).not.toBeNull()
+
+    await store.retrySave()
+
+    expect(create).toHaveBeenCalledTimes(2)
+    expect(save).not.toHaveBeenCalled()
+    expect(store.run).toBe(pinnedRun)
+    expect(store.snapshot).toBe(pinnedSnapshot)
+    expect(accounting(store)).toEqual(before)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    const saved = await repository.load()
+    expect(saved!.run).toEqual(pinnedRun)
+    const restored = ReplaySession.restore(saved!)
+    expect(restored.cursor).toBe(store.cursor)
+    expect(restored.time).toBe(store.replayTime)
+    expect(restored.engine.snapshot()).toEqual(store.snapshot)
+  })
+
+  it('does not write or fabricate state when retrySave runs while restore is blocked', async () => {
+    const replay = fixture()
+    const checkpoint = replay.checkpoint()
+    checkpoint.runId = 'wrong-run'
+    await repository.create(replay.run, checkpoint)
+    const original = await repository.load()
+    const create = vi.spyOn(repository, 'create')
+    const save = vi.spyOn(repository, 'save')
+    const store = useTerminalStore()
+
+    await store.initialize()
+    expect(store.restoreBlocked).toBe(true)
+    await store.retrySave()
+    await store.flush()
+
+    expect(create).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(store.run).toBeNull()
+    expect(store.snapshot).toBeNull()
+    expect(store.account).toBeNull()
+    expect(store.cursor).toBe(0)
+    expect(store.chartCandles).toEqual([])
+    expect(store.restoreBlocked).toBe(true)
+    expect(store.storageStatus).toBe('unavailable')
+    expect(await repository.load()).toEqual(original)
+  })
+
+  it('refuses retrySave writes while restoreBlocked is raised on an installed session', async () => {
+    const store = await initializeStore()
+    const pinnedRun = store.run
+    const before = accounting(store)
+    const persisted = await repository.load()
+    const create = vi.spyOn(repository, 'create')
+    const save = vi.spyOn(repository, 'save')
+    store.restoreBlocked = true
+
+    await store.retrySave()
+    await store.flush()
+
+    expect(create).not.toHaveBeenCalled()
+    expect(save).not.toHaveBeenCalled()
+    expect(store.ready).toBe(true)
+    expect(store.run).toBe(pinnedRun)
+    expect(accounting(store)).toEqual(before)
+    expect(store.storageStatus).toBe('saved')
+    expect(await repository.load()).toEqual(persisted)
+  })
+})

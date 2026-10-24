@@ -13,13 +13,14 @@ import Input from '@/components/ui/Input.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import { formatMoney, formatPrice } from '@/utils/format'
 import { serializeCsv } from '@/lib/sim/export'
-import translations from '../../profile_output/terminal-ledger-translations.json'
 import type { SimFill, SimOrder, SimPosition } from '@/domain/sim/types'
 import en from '../../i18n/locales/en.json'
 import zh from '../../i18n/locales/zh-CN.json'
 import ja from '../../i18n/locales/ja.json'
 
 enableAutoUnmount(afterEach)
+
+const translations = { en, 'zh-CN': zh, ja }
 
 beforeEach(() => {
   vi.stubGlobal('computed', computed)
@@ -38,7 +39,6 @@ afterEach(() => {
 
 function globalOptions(locale = 'en') {
   const i18n = createI18n({ legacy: false, locale, fallbackLocale: 'en', messages: { en, 'zh-CN': zh, ja } })
-  for (const key of ['en', 'zh-CN', 'ja'] as const) i18n.global.mergeLocaleMessage(key, translations[key])
   return {
     plugins: [i18n],
     components: { Badge, Button, Input, SegmentedControl },

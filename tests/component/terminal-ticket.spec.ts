@@ -10,9 +10,21 @@ import type { SimOrderInput } from '@/domain/sim/types'
 import en from '../../i18n/locales/en.json'
 import zh from '../../i18n/locales/zh-CN.json'
 import ja from '../../i18n/locales/ja.json'
-import patch from '../../profile_output/terminal-ticket-translations.json'
 
 enableAutoUnmount(afterEach)
+
+/** Flatten nested locale messages to dotted keys for the patch assertions. */
+function flattenMessages(source: object, prefix = '', out: Record<string, string> = {}): Record<string, string> {
+  for (const [key, value] of Object.entries(source)) {
+    const path = prefix ? `${prefix}.${key}` : key
+    if (value && typeof value === 'object') flattenMessages(value as object, path, out)
+    else out[path] = String(value)
+  }
+  return out
+}
+
+const patch = { en: flattenMessages(en), 'zh-CN': flattenMessages(zh), ja: flattenMessages(ja) }
+
 const replayTime = Date.UTC(2024, 5, 3, 13, 27, 18) / 1000
 const Select = defineComponent({
   props: ['modelValue', 'options', 'placeholder'],

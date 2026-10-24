@@ -428,7 +428,7 @@ describe('ReplaySession checkpoint validation', () => {
       corrupt: (checkpoint, replay) => {
         checkpoint.engine.time = replay.time + REPLAY_BASE_SECONDS + 1
       },
-      error: 'Replay checkpoint is ahead of the tape',
+      error: 'Replay checkpoint clock does not match the tape',
     },
   ]
 

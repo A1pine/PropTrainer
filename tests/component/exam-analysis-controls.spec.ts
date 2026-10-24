@@ -75,6 +75,15 @@ describe('exam analysis controls', () => {
     expect(view.text()).toContain('Off')
   })
 
+  it('keeps compact status accessible while reserving narrow-pane toolbar space', async () => {
+    const view = render({ compact: true })
+    expect(view.get('[data-status]').classes()).toContain('sr-only')
+    expect(view.get('[data-status]').text()).toContain('180')
+    await openSettings(view)
+    expect(view.get('[data-testid="analysis-settings"] [role="status"]').text()).toContain('180')
+    expect(view.findAll('[data-testid^="analysis-framework-"]')).toHaveLength(4)
+  })
+
   it('enables analysis from the toolbar without opening settings', async () => {
     const view = render({ enabled: false, status: 'off' })
     const toggle = view.get('[data-testid="analysis-toggle"]')
