@@ -8,6 +8,8 @@ export interface ChartOverlayLevels {
 
 export type ChartTool = 'cursor' | 'trend' | 'horizontal' | 'fib'
 export type DrawingType = 'trend' | 'horizontal' | 'fib'
+/** Presentation-only rendering style. Underlying candles stay raw. */
+export type ChartStyle = 'candles' | 'ohlc' | 'line' | 'heikin-ashi'
 
 export interface DrawingPoint {
   index: number
@@ -55,15 +57,35 @@ export interface ChartTheme {
 
 export interface CrosshairPayload {
   index: number
+  /** Always the raw revealed candle, never a chart-style derivative. */
   candle: Candle
   x: number
   y: number
   relativeLabel: string
+  /** Non-blind wall-clock stamp (YYYY-MM-DD HH:mm TZ). Absent while blind. */
+  timeLabel?: string
+}
+
+export interface ChartOrderLine {
+  id: string
+  /** long = buy-side order, short = sell-side order */
+  side: 'long' | 'short'
+  kind: 'limit' | 'stop'
+  price: number
+  label: string
+  qty: number
+  /** Protective stop/target lines draw thinner and dashed */
+  protective?: boolean
+  /** Whether the price line can be dragged. Defaults to true. */
+  draggable?: boolean
 }
 
 export interface ChartCallbacks {
   onCrosshair?: (payload: CrosshairPayload | null) => void
   onOverlayDrag?: (kind: keyof ChartOverlayLevels, price: number) => void
+  onOrderDrag?: (id: string, price: number) => void
+  onOrderCancel?: (id: string) => void
+  onPricePick?: (price: number) => void
   onDrawingCommit?: (drawing: ChartDrawing) => void
   onViewportChange?: (end: number, span: number) => void
 }
@@ -74,6 +96,15 @@ export interface ChartOptions {
   showVolume?: boolean
   showWatermark?: boolean
   overlayDraggable?: boolean
+  orderDraggable?: boolean
+  /** Arm click-to-pick. Off by default so read-only exam charts stay inert. */
+  pricePickEnabled?: boolean
+  /** Presentation style. Never changes the underlying candle data. */
+  chartStyle?: ChartStyle
+  /** IANA time zone used by date/time labels. Defaults to UTC. */
+  timeZone?: string
+  /** Show date labels at the first bar of each new day (intraday charts). */
+  showDates?: boolean
   /** Hide the right-edge ENTRY/STOP/TARGET tags while keeping their lines. */
   showOverlayLabels?: boolean
   reducedMotion?: boolean

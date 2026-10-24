@@ -7,7 +7,9 @@ import type {
   ChartAnalysis,
   ChartDrawing,
   ChartExecution,
+  ChartOrderLine,
   ChartOverlayLevels,
+  ChartStyle,
   ChartTool,
   CrosshairPayload,
 } from '~/lib/chart/types'
@@ -17,6 +19,7 @@ const props = withDefaults(
     candles: Candle[]
     visibleCount: number
     overlays?: ChartOverlayLevels
+    orders?: readonly ChartOrderLine[]
     drawings?: ChartDrawing[]
     executions?: readonly ChartExecution[]
     analysis?: ChartAnalysis | null
@@ -26,12 +29,18 @@ const props = withDefaults(
     pricePrecision?: number
     tickSize?: number
     overlayDraggable?: boolean
+    orderDraggable?: boolean
+    pricePickEnabled?: boolean
+    chartStyle?: ChartStyle
+    timeZone?: string
+    showDates?: boolean
     showOverlayLabels?: boolean
     symbolMask?: string
     label?: string
   }>(),
   {
     overlays: () => ({ entry: null, stop: null, target: null }),
+    orders: () => [],
     drawings: () => [],
     executions: () => [],
     analysis: null,
@@ -41,6 +50,11 @@ const props = withDefaults(
     pricePrecision: 2,
     tickSize: 0.25,
     overlayDraggable: false,
+    orderDraggable: false,
+    pricePickEnabled: false,
+    chartStyle: 'candles',
+    timeZone: 'UTC',
+    showDates: false,
     showOverlayLabels: true,
     symbolMask: 'M???',
     label: 'Price chart',
@@ -50,6 +64,9 @@ const props = withDefaults(
 const emit = defineEmits<{
   'update:drawings': [drawings: ChartDrawing[]]
   'overlay-drag': [kind: keyof ChartOverlayLevels, price: number]
+  'order-drag': [id: string, price: number]
+  'order-cancel': [id: string]
+  'price-pick': [price: number]
 }>()
 
 const container = ref<HTMLElement | null>(null)
@@ -85,6 +102,13 @@ function init() {
         hover.value = payload
       },
       onOverlayDrag: (kind, price) => emit('overlay-drag', kind, price),
+      onOrderDrag: (id, price) => emit('order-drag', id, price),
+      onOrderCancel: (id) => emit('order-cancel', id),
+      // Click-to-pick is opt-in: read-only exam charts never pass this option and
+      // must stay inert even when a listener happens to be attached.
+      onPricePick: (price) => {
+        if (props.pricePickEnabled) emit('price-pick', price)
+      },
       onDrawingCommit: (drawing) => emit('update:drawings', [...props.drawings, drawing]),
     },
     readChartTheme(container.value),
@@ -94,12 +118,18 @@ function init() {
       pricePrecision: props.pricePrecision,
       tickSize: props.tickSize,
       overlayDraggable: props.overlayDraggable,
+      orderDraggable: props.orderDraggable,
+      pricePickEnabled: props.pricePickEnabled,
+      chartStyle: props.chartStyle,
+      timeZone: props.timeZone,
+      showDates: props.showDates,
       showOverlayLabels: props.showOverlayLabels,
       reducedMotion: reducedMotion.value,
     },
   )
   chart.setCandles(props.candles, props.visibleCount)
   chart.setOverlays(props.overlays)
+  chart.setOrderLines(props.orders)
   chart.setDrawings(props.drawings)
   chart.setExecutions(props.executions)
   chart.setAnalysis(props.analysis)
@@ -144,6 +174,13 @@ watch(
   { deep: true },
 )
 
+// Order lines are rebuilt as immutable arrays on every replay tick. A shallow
+// watch lets the engine's deep-equal no-op absorb ticks that did not move an order.
+watch(
+  () => props.orders,
+  (orders) => engine.value?.setOrderLines(orders),
+)
+
 watch(
   () => props.drawings,
   (drawings) => engine.value?.setDrawings(drawings),
@@ -181,9 +218,40 @@ watch(
 )
 
 watch(
-  () => [props.overlayDraggable, props.timeframeMinutes, props.showOverlayLabels, reducedMotion.value] as const,
-  ([overlayDraggable, timeframeMinutes, showOverlayLabels, reducedMotion]) =>
-    engine.value?.setOptions({ overlayDraggable, timeframeMinutes, showOverlayLabels, reducedMotion }),
+  () =>
+    [
+      props.overlayDraggable,
+      props.orderDraggable,
+      props.pricePickEnabled,
+      props.chartStyle,
+      props.timeZone,
+      props.showDates,
+      props.timeframeMinutes,
+      props.showOverlayLabels,
+      reducedMotion.value,
+    ] as const,
+  ([
+    overlayDraggable,
+    orderDraggable,
+    pricePickEnabled,
+    chartStyle,
+    timeZone,
+    showDates,
+    timeframeMinutes,
+    showOverlayLabels,
+    reducedMotion,
+  ]) =>
+    engine.value?.setOptions({
+      overlayDraggable,
+      orderDraggable,
+      pricePickEnabled,
+      chartStyle,
+      timeZone,
+      showDates,
+      timeframeMinutes,
+      showOverlayLabels,
+      reducedMotion,
+    }),
 )
 
 watch(
@@ -235,6 +303,9 @@ defineExpose({
         <div class="flex items-center justify-between text-[9.5px] text-ink-3">
           <span class="font-mono uppercase tracking-wide">{{ hover.relativeLabel }}</span>
           <span>{{ hover.index + 1 }}</span>
+        </div>
+        <div v-if="!blind && hover.timeLabel" class="font-mono text-[9.5px] text-ink-3">
+          {{ hover.timeLabel }}
         </div>
         <div class="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 font-mono text-[10.5px] tabular-nums">
           <span class="text-ink-3">O</span

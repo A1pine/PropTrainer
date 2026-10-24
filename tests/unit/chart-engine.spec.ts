@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Candle } from '@/domain/market/types'
 import { ChartEngine } from '@/lib/chart/engine'
 import { clampPriceToTick, clampViewport, createIndexGeometry, createPriceScale, rect } from '@/lib/chart/geometry'
-import type { ChartCallbacks, ChartExecution, ChartOptions, ChartTheme } from '@/lib/chart/types'
+import type { ChartCallbacks, ChartExecution, ChartOptions, ChartOrderLine, ChartTheme } from '@/lib/chart/types'
 
 const theme: ChartTheme = {
   surface: 'surface',
@@ -37,7 +37,7 @@ const candles = (count = 200): Candle[] =>
 
 type Fill = { x: number; y: number; width: number; height: number; color: string; alpha: number }
 type Shape = { points: { x: number; y: number }[]; color: string; alpha: number }
-type Stroke = Shape & { dash: number[] }
+type Stroke = Shape & { dash: number[]; lineWidth: number }
 const execution = (overrides: Partial<ChartExecution> = {}): ChartExecution => ({
   id: 'trade-1',
   side: 'long',
@@ -97,6 +97,7 @@ function setup(options: ChartOptions = {}, callbacks: ChartCallbacks = {}) {
     fillStyle: '',
     strokeStyle: '',
     globalAlpha: 1,
+    lineWidth: 1,
     setTransform: vi.fn(),
     clearRect: vi.fn(() => {
       fills.length = 0
@@ -118,7 +119,13 @@ function setup(options: ChartOptions = {}, callbacks: ChartCallbacks = {}) {
       path.push({ x, y })
     }),
     stroke: vi.fn(() => {
-      strokes.push({ points: [...path], color: ctx.strokeStyle, alpha: ctx.globalAlpha, dash: [...dash] })
+      strokes.push({
+        points: [...path],
+        color: ctx.strokeStyle,
+        alpha: ctx.globalAlpha,
+        dash: [...dash],
+        lineWidth: ctx.lineWidth,
+      })
     }),
     setLineDash: vi.fn((segments: number[]) => {
       dash = [...segments]
@@ -715,5 +722,705 @@ describe('chart focus range', () => {
 
     engine.focusRange(-50, 999)
     expect(onViewportChange).toHaveBeenLastCalledWith(299, 300)
+  })
+})
+
+const orderLine = (overrides: Partial<ChartOrderLine> = {}): ChartOrderLine => ({
+  id: 'order-1',
+  side: 'long',
+  kind: 'limit',
+  price: 100.25,
+  label: 'BUY',
+  qty: 2,
+  ...overrides,
+})
+
+const orderStrokes = (strokes: Stroke[]) =>
+  strokes.filter(
+    (stroke) =>
+      (stroke.color === 'bull' || stroke.color === 'bear') &&
+      stroke.points.length === 2 &&
+      stroke.points[0]!.x === priceArea.left &&
+      stroke.points[1]!.x === priceArea.right,
+  )
+
+describe('chart order lines', () => {
+  it('draws a right-edge tag per order line and clears them with an empty set', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([
+      orderLine({ id: 'buy', price: 100.25, label: 'BUY', qty: 2 }),
+      orderLine({ id: 'sell', side: 'short', price: 105.5, label: 'SELL', qty: 3 }),
+    ])
+    paint()
+
+    const texts = ctx.fillText.mock.calls.map(([text]) => text)
+    expect(texts).toContain('BUY 2')
+    expect(texts).toContain('SELL 3')
+    expect(shapes.filter((shape) => shape.color === 'surface')).toHaveLength(2)
+
+    const lines = orderStrokes(strokes)
+    expect(lines.map((line) => line.color)).toEqual(['bull', 'bear'])
+    expect(lines.every((line) => line.lineWidth === 1.5)).toBe(true)
+    expect(lines.map((line) => line.dash)).toEqual([[], []])
+    const scale = createPriceScale(90, 110, priceArea)
+    expect(lines.map((line) => line.points)).toEqual(
+      [100.25, 105.5].map((price) => [
+        { x: priceArea.left, y: Math.round(scale.y(price)) + 0.5 },
+        { x: priceArea.right, y: Math.round(scale.y(price)) + 0.5 },
+      ]),
+    )
+    expect(ctx.rect).toHaveBeenCalledWith(priceArea.left, priceArea.top, priceArea.width, priceArea.height)
+    expect(ctx.clip).toHaveBeenCalled()
+
+    ctx.fillText.mockClear()
+    engine.setOrderLines([])
+    paint()
+    expect(shapes.filter((shape) => shape.color === 'surface')).toEqual([])
+    expect(orderStrokes(strokes)).toEqual([])
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'BUY 2')).toBe(false)
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'SELL 3')).toBe(false)
+  })
+
+  it('draws protective legs thinner and translucent while stop entries stay dashed', () => {
+    const { engine, ctx, shapes, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([
+      orderLine({ id: 'working', kind: 'stop', price: 100.5, label: 'SELL', qty: 1 }),
+      orderLine({ id: 'protect', side: 'short', kind: 'stop', price: 95, label: 'STOP', qty: 1, protective: true }),
+    ])
+    paint()
+
+    const [working, protective] = orderStrokes(strokes)
+    expect(working).toMatchObject({ color: 'bull', dash: [4, 3], alpha: 1, lineWidth: 1.5 })
+    expect(protective).toMatchObject({ color: 'bear', dash: [4, 3], alpha: 0.75, lineWidth: 1 })
+    expect(shapes.filter((shape) => shape.color === 'surface')).toHaveLength(2)
+    expect(ctx.fillText.mock.calls.map(([text]) => text)).toEqual(expect.arrayContaining(['SELL 1', 'STOP 1']))
+  })
+
+  it('skips invalid and off-scale orders without expanding the price scale', () => {
+    const { engine, ctx, shapes, strokes, bodies } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+    const before = bodies().map(({ x, y, width, height }) => ({ x, y, width, height }))
+    const scale = createPriceScale(90, 110, priceArea)
+
+    engine.setOrderLines([
+      orderLine({ id: 'off', price: 300, label: 'OFF' }),
+      orderLine({ id: 'nan', price: Number.NaN }),
+      orderLine({ id: 'infinite-price', price: Number.POSITIVE_INFINITY }),
+      orderLine({ id: 'infinite-qty', qty: Number.POSITIVE_INFINITY }),
+      orderLine({ id: 'nan-qty', qty: Number.NaN }),
+      orderLine({ id: 'zero', qty: 0 }),
+      orderLine({ id: 'negative', qty: -1 }),
+      orderLine({ id: 'side', side: 'buy' as never }),
+      orderLine({ id: 'kind', kind: 'market' as never }),
+      orderLine({ id: 'ok', price: 101, label: 'BUY', qty: 2 }),
+    ])
+    paint()
+
+    expect(bodies().map(({ x, y, width, height }) => ({ x, y, width, height }))).toEqual(before)
+    expect(ctx.fillText.mock.calls.map(([text]) => text)).toEqual(expect.arrayContaining(['BUY 2']))
+    expect(ctx.fillText.mock.calls.some(([text]) => String(text).startsWith('OFF'))).toBe(false)
+    expect(shapes.filter((shape) => shape.color === 'surface')).toHaveLength(1)
+    expect(orderStrokes(strokes)).toHaveLength(1)
+    const [line] = orderStrokes(strokes)
+    expect(line?.points[0]!.y).toBe(Math.round(scale.y(101)) + 0.5)
+  })
+
+  it('does not repaint for the same array reference or an equivalent snapshot', () => {
+    const { engine } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    const orders = [orderLine()]
+    engine.setOrderLines(orders)
+    expect(frames.size).toBe(1)
+    paint()
+
+    engine.setOrderLines(orders)
+    expect(frames.size).toBe(0)
+    engine.setOrderLines([{ ...orders[0]! }])
+    expect(frames.size).toBe(0)
+    engine.setOrderLines([orderLine({ price: 101 })])
+    expect(frames.size).toBe(1)
+  })
+
+  it.each([0, 2] as const)('picks a tick-clamped price with %s px of movement without panning', (movement) => {
+    const onPricePick = vi.fn()
+    const onViewportChange = vi.fn()
+    const { engine, pointer } = setup({ tickSize: 1, pricePickEnabled: true }, { onPricePick, onViewportChange })
+    engine.setCandles(candles(), 100)
+    engine.focusOn(50, 40)
+    paint()
+    onViewportChange.mockClear()
+
+    pointer('pointerdown', 400, 140)
+    pointer('pointermove', 400 + movement, 140 + movement)
+    pointer('pointerup', 400 + movement, 140 + movement)
+
+    expect(onPricePick).toHaveBeenCalledTimes(1)
+    expect(onPricePick).toHaveBeenCalledWith(
+      clampPriceToTick(createPriceScale(90, 110, priceArea).price(140 + movement), 1),
+    )
+    expect(onViewportChange).not.toHaveBeenCalled()
+  })
+
+  it('pans beyond the click slop and never picks even after returning to the start', () => {
+    const onPricePick = vi.fn()
+    const onViewportChange = vi.fn()
+    const { engine, pointer } = setup({ pricePickEnabled: true }, { onPricePick, onViewportChange })
+    engine.setCandles(candles(), 150)
+    engine.focusOn(90, 40)
+    paint()
+    onViewportChange.mockClear()
+
+    const slot = createIndexGeometry({ end: 102, span: 40 }, priceArea).slot
+    pointer('pointerdown', 400, 140)
+    pointer('pointermove', 400 + slot * 2, 140)
+    expect(onViewportChange).toHaveBeenLastCalledWith(100, 40)
+    pointer('pointermove', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onViewportChange).toHaveBeenLastCalledWith(102, 40)
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it('checks the release position and excludes the volume pane, axes, and cancelled gestures from picks', () => {
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup({ showVolume: true, pricePickEnabled: true }, { onPricePick })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    for (const [x, y, upX, upY] of [
+      [400, 140, 404, 140],
+      [400, 140, 403, 143],
+      [400, 350, 400, 350],
+      [750, 140, 750, 140],
+      [7, 140, 9, 140],
+      [9, 140, 7, 140],
+      [400, 311, 400, 313],
+    ] as const) {
+      pointer('pointerdown', x, y)
+      pointer('pointerup', upX, upY)
+    }
+    pointer('pointerdown', 400, 140)
+    pointer('pointercancel', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it('does not report a price after a real pan, an outside start, or while drawing', () => {
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup({ tickSize: 1, pricePickEnabled: true }, { onPricePick })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    const slot = createIndexGeometry({ end: 99, span: 100 }, priceArea).slot
+    pointer('pointerdown', 400, 140)
+    pointer('pointermove', 400 + slot * 2, 140)
+    pointer('pointerup', 400 + slot * 2, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+
+    pointer('pointerdown', 400, 390)
+    pointer('pointerup', 400, 390)
+    expect(onPricePick).not.toHaveBeenCalled()
+
+    engine.setTool('horizontal')
+    pointer('pointerdown', 400, 140)
+    pointer('pointermove', 420, 140)
+    pointer('pointerup', 420, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it('drags orders with a tick-clamped price and prefers them over overlays', () => {
+    const onOrderDrag = vi.fn()
+    const onOverlayDrag = vi.fn()
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup(
+      { orderDraggable: true, overlayDraggable: true, tickSize: 1, pricePickEnabled: true },
+      { onOrderDrag, onOverlayDrag, onPricePick },
+    )
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOverlays({ entry: 100, stop: null, target: null })
+    engine.setOrderLines([orderLine({ id: 'live', price: 100.25 })])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 400, scale.y(100.25))
+    pointer('pointermove', 400, scale.y(98.4))
+    pointer('pointermove', 400, scale.y(98.2))
+    pointer('pointermove', 400, scale.y(98.4))
+    expect(onOrderDrag).toHaveBeenCalledTimes(1)
+    expect(onOrderDrag).toHaveBeenLastCalledWith('live', 98)
+    pointer('pointermove', 400, scale.y(97.2))
+    expect(onOrderDrag).toHaveBeenCalledTimes(2)
+    expect(onOrderDrag).toHaveBeenLastCalledWith('live', 97)
+    expect(onOverlayDrag).not.toHaveBeenCalled()
+
+    pointer('pointerup', 400, scale.y(98.4))
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [true, -6, true],
+    [true, 6, true],
+    [true, 6.1, false],
+    [false, 0, false],
+  ] as const)('hit-tests with orderDraggable=%s and a %s px offset', (orderDraggable, offset, hit) => {
+    const onOrderDrag = vi.fn()
+    const onViewportChange = vi.fn()
+    const { engine, pointer } = setup({ orderDraggable }, { onOrderDrag, onViewportChange })
+    engine.setCandles(candles(), 150)
+    engine.focusOn(90, 40)
+    engine.setOrderLines([orderLine()])
+    paint()
+    onViewportChange.mockClear()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 400, scale.y(100.25) + offset)
+    pointer('pointermove', 420, scale.y(98.25))
+    pointer('pointerup', 420, scale.y(98.25))
+    if (hit) {
+      expect(onOrderDrag).toHaveBeenCalledExactlyOnceWith('order-1', 98.25)
+      expect(onViewportChange).not.toHaveBeenCalled()
+    } else {
+      expect(onOrderDrag).not.toHaveBeenCalled()
+      expect(onViewportChange).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it.each(['removed', 'invalid', 'disabled', 'cancelled'] as const)('stops an active order drag when %s', (change) => {
+    const onOrderDrag = vi.fn()
+    const onPricePick = vi.fn()
+    const { engine, canvas, pointer } = setup(
+      { orderDraggable: true, pricePickEnabled: true },
+      { onOrderDrag, onPricePick },
+    )
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine()])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 400, scale.y(100.25))
+    pointer('pointermove', 400, scale.y(99))
+    expect(onOrderDrag).toHaveBeenCalledExactlyOnceWith('order-1', 99)
+    if (change === 'removed') engine.setOrderLines([orderLine({ id: 'other', price: 98 })])
+    else if (change === 'invalid') engine.setOrderLines([orderLine({ qty: 0 })])
+    else if (change === 'disabled') engine.setOptions({ orderDraggable: false })
+    else pointer('pointercancel', 400, scale.y(99))
+
+    pointer('pointermove', 400, scale.y(98))
+    pointer('pointerup', 400, scale.y(98))
+    expect(onOrderDrag).toHaveBeenCalledTimes(1)
+    expect(onPricePick).not.toHaveBeenCalled()
+    expect(canvas.style.cursor).toBe('crosshair')
+  })
+
+  it('keeps an order drag active through immutable price updates of the same id', () => {
+    const onOrderDrag = vi.fn()
+    const { engine, pointer } = setup({ orderDraggable: true }, { onOrderDrag })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine()])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 400, scale.y(100.25))
+    pointer('pointermove', 400, scale.y(99))
+    engine.setOrderLines([orderLine({ price: 99 })])
+    pointer('pointermove', 400, scale.y(98))
+    expect(onOrderDrag.mock.calls).toEqual([
+      ['order-1', 99],
+      ['order-1', 98],
+    ])
+  })
+
+  it('clips to the price pane and never hit-tests orders in the volume pane or outside the x bounds', () => {
+    const onOrderDrag = vi.fn()
+    const { engine, ctx, strokes, pointer } = setup({ orderDraggable: true, showVolume: true }, { onOrderDrag })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    const area = rect(8, 12, 728, 300)
+    const scale = createPriceScale(90, 110, area)
+    engine.setOrderLines([
+      orderLine(),
+      orderLine({ id: 'volume', label: 'VOLUME', price: scale.price(350) }),
+      orderLine({ id: 'edge', label: 'EDGE', price: scale.price(area.bottom + 1) }),
+    ])
+    paint()
+
+    expect(orderStrokes(strokes)).toHaveLength(1)
+    expect(ctx.fillText.mock.calls.some(([text]) => /^(VOLUME|EDGE)/.test(String(text)))).toBe(false)
+    expect(ctx.rect).toHaveBeenCalledWith(area.left, area.top, area.width, area.height)
+    for (const [x, y] of [
+      [400, 350],
+      [400, area.bottom - 1],
+      [750, scale.y(100.25)],
+    ] as const) {
+      pointer('pointerdown', x, y)
+      pointer('pointermove', x, y - 20)
+      pointer('pointerup', x, y - 20)
+    }
+    expect(onOrderDrag).not.toHaveBeenCalled()
+  })
+
+  it('renders orders safely with no candles and accepts zero or negative prices', () => {
+    const { engine, ctx, strokes } = setup()
+    engine.setOrderLines([
+      orderLine({ id: 'zero', label: 'ZERO', price: 0 }),
+      orderLine({ id: 'negative', label: 'NEG', price: -0.02 }),
+      orderLine({ id: 'off', price: 100 }),
+    ])
+    expect(() => paint()).not.toThrow()
+    expect(orderStrokes(strokes)).toHaveLength(2)
+    expect(ctx.fillText.mock.calls.map(([text]) => text)).toEqual(expect.arrayContaining(['ZERO 2', 'NEG 2']))
+  })
+
+  it('does not retain caller mutations when comparing order snapshots', () => {
+    const { engine, ctx } = setup()
+    engine.setCandles(candles(), 100)
+    const orders = [orderLine()]
+    engine.setOrderLines(orders)
+    paint()
+    orders[0]!.qty = 3
+    engine.render()
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'BUY 3')).toBe(false)
+    engine.setOrderLines(orders)
+    expect(frames.size).toBe(1)
+    paint()
+    expect(ctx.fillText.mock.calls.some(([text]) => text === 'BUY 3')).toBe(true)
+  })
+
+  it('renders orders for the terminal while blind still hides execution markers', () => {
+    const { engine, ctx, shapes } = setup({ blind: false })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine({ label: 'BUY', qty: 2 })])
+    engine.setExecutions([execution()])
+    paint()
+
+    expect(ctx.fillText.mock.calls.map(([text]) => text)).toContain('BUY 2')
+    expect(entryTriangles(shapes)).toHaveLength(1)
+
+    ctx.fillText.mockClear()
+    engine.setBlind(true)
+    paint()
+    const texts = ctx.fillText.mock.calls.map(([text]) => text)
+    expect(texts).toContain('BUY 2')
+    expect(entryTriangles(shapes)).toEqual([])
+    expect(texts.some((text) => String(text).startsWith('Entry'))).toBe(false)
+  })
+})
+
+describe('chart style options', () => {
+  it('defaults to candle bodies and keeps every style on the same theme colors', () => {
+    const { engine, bodies, strokes } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+    const candleBodies = bodies().length
+    expect(candleBodies).toBeGreaterThan(0)
+    expect(bodies().every((fill) => fill.color === 'bull' || fill.color === 'bear')).toBe(true)
+
+    engine.setOptions({ chartStyle: 'ohlc' })
+    paint()
+    expect(bodies()).toEqual([])
+    expect(strokes.some((stroke) => stroke.color === 'bull' || stroke.color === 'bear')).toBe(true)
+
+    engine.setOptions({ chartStyle: 'line' })
+    paint()
+    expect(bodies()).toEqual([])
+    expect(strokes.some((stroke) => stroke.color === 'text')).toBe(true)
+  })
+
+  it('draws OHLC ticks around the open and close instead of a filled body', () => {
+    const { engine, strokes } = setup({ chartStyle: 'ohlc' })
+    engine.setCandles(candles(5), 5)
+    engine.fit()
+    paint()
+    const priceStrokes = strokes.filter((stroke) => stroke.color === 'bull' || stroke.color === 'bear')
+    expect(priceStrokes.some((stroke) => stroke.points.length === 2)).toBe(true)
+    expect(priceStrokes.some((stroke) => stroke.points.length === 4)).toBe(true)
+  })
+
+  it('derives heikin-ashi bodies from the revealed prefix while hover stays raw', () => {
+    const onCrosshair = vi.fn()
+    const { engine, bodies, pointer, ctx } = setup({ chartStyle: 'heikin-ashi', reducedMotion: true }, { onCrosshair })
+    const data = candles()
+    engine.setCandles(data, 100)
+    engine.fit()
+    paint()
+    const first = bodies()[0]!
+    expect(first.height).not.toBe(
+      Math.max(1, Math.abs(createPriceScale(90, 110, priceArea).y(106) - createPriceScale(90, 110, priceArea).y(100))),
+    )
+
+    const geo = createIndexGeometry({ end: 99, span: 100 }, priceArea)
+    pointer('pointermove', geo.x(98))
+    paint()
+    expect(onCrosshair.mock.lastCall?.[0]?.candle).toBe(data[98])
+    expect(ctx.fillText.mock.calls.some(([text]) => text === '106.00')).toBe(true)
+
+    const prefix = bodies()
+      .slice(0, 4)
+      .map((fill) => [fill.y, fill.height])
+
+    // Rebuilding from a shorter revealed prefix must reproduce the same bodies a
+    // prefix-only series would produce, never values that peeked at hidden bars.
+    const truncated = setup({ chartStyle: 'heikin-ashi', reducedMotion: true })
+    truncated.engine.setCandles(data.slice(0, 4), 4)
+    truncated.engine.fit()
+    paint()
+    expect(truncated.bodies().map((fill) => [fill.y, fill.height])).toEqual(prefix)
+
+    engine.setVisibleCount(4)
+    engine.fit()
+    paint()
+    expect(bodies()).toHaveLength(4)
+    engine.setVisibleCount(100)
+    engine.fit()
+    paint()
+    expect(bodies()).toHaveLength(100)
+  })
+})
+
+describe('chart time axis and hover stamps', () => {
+  it('defaults to UTC clock labels and hides dates unless asked', () => {
+    const { engine, ctx } = setup({ timeframeMinutes: 5 })
+    engine.setCandles(candles(40), 40)
+    engine.fit()
+    paint()
+    const texts = ctx.fillText.mock.calls.map(([text]) => String(text))
+    expect(texts).toContain('00:00')
+    expect(texts.some((text) => text.includes('1970-01-01'))).toBe(false)
+  })
+
+  it('labels the first bar of each new day with its date when showDates is on', () => {
+    const { engine, ctx } = setup({ showDates: true })
+    engine.setCandles(
+      candles(40).map((candle, index) => ({ ...candle, time: index * 3600 })),
+      40,
+    )
+    engine.fit()
+    paint()
+    const texts = ctx.fillText.mock.calls.map(([text]) => String(text))
+    // The session opens on a date, later bars in the same day keep the clock.
+    expect(texts).toContain('01-01')
+    expect(texts).toContain('01-02')
+    expect(texts).toContain('06:00')
+    expect(texts).not.toContain('1970-01-01')
+
+    // The day boundary gets its own tick even though 24 is not one of the
+    // evenly spaced labels, so reviewers always see when the session date rolls.
+    const geo = createIndexGeometry({ end: 39, span: 40 }, priceArea)
+    const boundary = ctx.fillText.mock.calls.find(([text]) => text === '01-02')
+    expect(boundary?.[1]).toBeCloseTo(geo.x(24), 5)
+    // A neighbouring clock tick is dropped so the date never collides with it.
+    const neighbour = ctx.fillText.mock.calls.find(([text]) => text === '01:00')
+    expect(neighbour).toBeUndefined()
+  })
+
+  it('uses full dates for daily bars and the configured time zone', () => {
+    const { engine, ctx } = setup({ timeframeMinutes: 1441, timeZone: 'America/Chicago' })
+    engine.setCandles(candles(40), 40)
+    engine.fit()
+    paint()
+    const texts = ctx.fillText.mock.calls.map(([text]) => String(text))
+    expect(texts).toContain('1969-12-31')
+    expect(texts).not.toContain('1970-01-01')
+  })
+
+  it('falls back to UTC for an invalid zone and rebuilds only when options change', () => {
+    const formatter = vi.spyOn(Intl, 'DateTimeFormat')
+    const { engine, ctx } = setup({ timeframeMinutes: 1441, timeZone: 'Not/AZone' })
+    const built = formatter.mock.calls.length
+    engine.setCandles(candles(40), 40)
+    engine.fit()
+    paint()
+    expect(ctx.fillText.mock.calls.map(([text]) => String(text))).toContain('1970-01-01')
+
+    // Repainting and unrelated option updates must reuse the cached formatter.
+    paint()
+    engine.setOptions({ showDates: true, timeframeMinutes: 1441 })
+    paint()
+    expect(formatter.mock.calls.length).toBe(built)
+
+    // Changing the zone rebuilds it exactly once, and the new zone takes effect.
+    engine.setOptions({ timeZone: 'America/Chicago' })
+    expect(formatter.mock.calls.length).toBe(built + 1)
+    ctx.fillText.mockClear()
+    paint()
+    expect(ctx.fillText.mock.calls.map(([text]) => String(text))).toContain('1969-12-31')
+  })
+
+  it('unblinds hover with a full stamped time while blind keeps relative labels only', () => {
+    const onCrosshair = vi.fn()
+    const { engine, ctx, pointer } = setup({ reducedMotion: true }, { onCrosshair })
+    engine.setCandles(candles(40), 40)
+    engine.fit()
+    paint()
+    const geo = createIndexGeometry({ end: 39, span: 40 }, priceArea)
+    pointer('pointermove', geo.x(10))
+    paint()
+    expect(onCrosshair.mock.lastCall?.[0]).toMatchObject({ relativeLabel: '−2.4h', timeLabel: '1970-01-01 00:50 UTC' })
+    expect(ctx.fillText.mock.calls.map(([text]) => String(text))).toContain('00:50')
+
+    engine.setBlind(true)
+    ctx.fillText.mockClear()
+    paint()
+    const payload = onCrosshair.mock.lastCall?.[0]
+    expect(payload.timeLabel).toBeUndefined()
+    expect(payload.relativeLabel).toBe('−2.4h')
+    const texts = ctx.fillText.mock.calls.map(([text]) => String(text))
+    expect(texts.some((text) => text.includes('1970-01-01'))).toBe(false)
+    expect(texts.some((text) => text.includes('00:50'))).toBe(false)
+  })
+})
+
+describe('chart interaction gating', () => {
+  it('never picks unless the caller opts in, even when onPricePick is present', () => {
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup({}, { onPricePick })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    pointer('pointerdown', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+
+    engine.setOptions({ pricePickEnabled: true })
+    pointer('pointerdown', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).toHaveBeenCalledTimes(1)
+
+    engine.setOptions({ pricePickEnabled: false })
+    pointer('pointerdown', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).toHaveBeenCalledTimes(1)
+
+    engine.setOptions({ pricePickEnabled: true })
+    engine.setBlind(true)
+    pointer('pointerdown', 400, 140)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays inert for exam charts that never supply onPricePick', () => {
+    const { engine, pointer } = setup()
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+    pointer('pointerdown', 400, 140)
+    pointer('pointerup', 400, 140)
+    // Nothing to assert on a callback that does not exist: the guarantee is that no
+    // viewport change, drawing, or drag is triggered by a bare tap.
+    expect(engine.getDrawings()).toHaveLength(0)
+  })
+
+  it('abandons a price tap when the viewport is replaced mid-gesture', () => {
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup({ pricePickEnabled: true, tickSize: 1 }, { onPricePick })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    paint()
+
+    pointer('pointerdown', 400, 140)
+    engine.setCandles(
+      candles().map((candle) => ({ ...candle, high: 300 })),
+      100,
+    )
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+
+    engine.setVisibleCount(40)
+    pointer('pointerdown', 400, 140)
+    engine.setVisibleCount(90)
+    pointer('pointerup', 400, 140)
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it('leaves display-only order lines undraggable without disturbing neighbours', () => {
+    const onOrderDrag = vi.fn()
+    const onViewportChange = vi.fn()
+    const { engine, pointer } = setup({ orderDraggable: true }, { onOrderDrag, onViewportChange })
+    engine.setCandles(candles(), 150)
+    engine.focusOn(90, 40)
+    engine.setOrderLines([orderLine({ id: 'avg', price: 100.25, draggable: false })])
+    paint()
+    onViewportChange.mockClear()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 400, scale.y(100.25))
+    pointer('pointermove', 420, scale.y(98.25))
+    pointer('pointerup', 420, scale.y(98.25))
+    expect(onOrderDrag).not.toHaveBeenCalled()
+    expect(onViewportChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('cancels the exact order from its chip and never starts a drag or pick', () => {
+    const onOrderCancel = vi.fn()
+    const onOrderDrag = vi.fn()
+    const onPricePick = vi.fn()
+    const { engine, pointer } = setup(
+      { orderDraggable: true, pricePickEnabled: true },
+      { onOrderCancel, onOrderDrag, onPricePick },
+    )
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine({ id: 'live' }), orderLine({ id: 'other', price: 102 })])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    const y = scale.y(100.25)
+    pointer('pointerdown', 685, y)
+    pointer('pointermove', 685, scale.y(99))
+    pointer('pointerup', 685, scale.y(99))
+    expect(onOrderCancel).toHaveBeenCalledExactlyOnceWith('live')
+    expect(onOrderDrag).not.toHaveBeenCalled()
+    expect(onPricePick).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['blind', { orderDraggable: true, blind: true }, 'cursor'],
+    ['read-only', { orderDraggable: false }, 'cursor'],
+    ['drawing tool', { orderDraggable: true }, 'horizontal'],
+  ] as const)('hides the cancel affordance while %s', (_label, options, tool) => {
+    const onOrderCancel = vi.fn()
+    const { engine, pointer } = setup(options, { onOrderCancel })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine()])
+    engine.setTool(tool)
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 685, scale.y(100.25))
+    pointer('pointerup', 685, scale.y(100.25))
+    expect(onOrderCancel).not.toHaveBeenCalled()
+  })
+
+  it('offers no cancel chip for a display-only order line', () => {
+    const onOrderCancel = vi.fn()
+    const onOrderDrag = vi.fn()
+    const { engine, pointer } = setup({ orderDraggable: true }, { onOrderCancel, onOrderDrag })
+    engine.setCandles(candles(), 100)
+    engine.fit()
+    engine.setOrderLines([orderLine({ draggable: false })])
+    paint()
+
+    const scale = createPriceScale(90, 110, priceArea)
+    pointer('pointerdown', 685, scale.y(100.25))
+    pointer('pointerup', 685, scale.y(100.25))
+    expect(onOrderCancel).not.toHaveBeenCalled()
+    expect(onOrderDrag).not.toHaveBeenCalled()
   })
 })

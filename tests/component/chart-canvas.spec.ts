@@ -11,6 +11,7 @@ const { chart, construct } = vi.hoisted(() => ({
     setCandles: vi.fn(),
     setVisibleCount: vi.fn(),
     setOverlays: vi.fn(),
+    setOrderLines: vi.fn(),
     setDrawings: vi.fn(),
     setExecutions: vi.fn(),
     setAnalysis: vi.fn(),
@@ -99,38 +100,63 @@ describe('ChartCanvas option wiring', () => {
       pricePrecision: 3,
       tickSize: 0.01,
       overlayDraggable: false,
+      orderDraggable: false,
       showOverlayLabels: true,
       timeframeMinutes: 5,
       reducedMotion: false,
     })
     await wrapper.setProps({ overlayDraggable: true })
-    expect(chart.setOptions).toHaveBeenLastCalledWith({
-      overlayDraggable: true,
-      timeframeMinutes: 5,
-      showOverlayLabels: true,
-      reducedMotion: false,
-    })
+    expect(chart.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        overlayDraggable: true,
+        orderDraggable: false,
+        chartStyle: 'candles',
+        timeZone: 'UTC',
+        showDates: false,
+        timeframeMinutes: 5,
+        showOverlayLabels: true,
+        reducedMotion: false,
+      }),
+    )
     await wrapper.setProps({ timeframeMinutes: 15 })
-    expect(chart.setOptions).toHaveBeenLastCalledWith({
-      overlayDraggable: true,
-      timeframeMinutes: 15,
-      showOverlayLabels: true,
-      reducedMotion: false,
-    })
+    expect(chart.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        overlayDraggable: true,
+        orderDraggable: false,
+        chartStyle: 'candles',
+        timeZone: 'UTC',
+        showDates: false,
+        timeframeMinutes: 15,
+        showOverlayLabels: true,
+        reducedMotion: false,
+      }),
+    )
     await wrapper.setProps({ overlayDraggable: false, pricePrecision: 1, tickSize: 0.1 })
-    expect(chart.setOptions).toHaveBeenLastCalledWith({
-      overlayDraggable: false,
-      timeframeMinutes: 15,
-      showOverlayLabels: true,
-      reducedMotion: false,
-    })
+    expect(chart.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        overlayDraggable: false,
+        orderDraggable: false,
+        chartStyle: 'candles',
+        timeZone: 'UTC',
+        showDates: false,
+        timeframeMinutes: 15,
+        showOverlayLabels: true,
+        reducedMotion: false,
+      }),
+    )
     await wrapper.setProps({ showOverlayLabels: false })
-    expect(chart.setOptions).toHaveBeenLastCalledWith({
-      overlayDraggable: false,
-      timeframeMinutes: 15,
-      showOverlayLabels: false,
-      reducedMotion: false,
-    })
+    expect(chart.setOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        overlayDraggable: false,
+        orderDraggable: false,
+        chartStyle: 'candles',
+        timeZone: 'UTC',
+        showDates: false,
+        timeframeMinutes: 15,
+        showOverlayLabels: false,
+        reducedMotion: false,
+      }),
+    )
     expect(chart.setPrecision).toHaveBeenLastCalledWith(1, 0.1)
   })
 

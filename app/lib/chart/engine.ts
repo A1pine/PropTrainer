@@ -15,6 +15,7 @@ import type {
   ChartCallbacks,
   ChartDrawing,
   ChartOptions,
+  ChartOrderLine,
   ChartOverlayLevels,
   ChartTheme,
   ChartTool,
@@ -23,6 +24,7 @@ import type {
   CrosshairPayload,
   ChartAnalysis,
   ChartExecution,
+  ChartStyle,
   ChartTone,
   AnalysisSeries,
 } from './types'
@@ -34,12 +36,56 @@ const PAD_LEFT = 8
 const EXECUTION_LABEL_GAP = 12
 const EXECUTION_LABEL_HEIGHT = 15
 const EXECUTION_MARKER_RADIUS = 5.5
+const ORDER_HIT_SLOP = 6
+const ORDER_TAG_HEIGHT = 16
+const ORDER_CANCEL_SIZE = 14
+const ORDER_CANCEL_GAP = 2
+const CLICK_SLOP = 4
+
+interface DisplayCache {
+  source: readonly Candle[] | null
+  style: ChartStyle
+  built: number
+  data: Candle[]
+}
 
 type DragState =
   | { kind: 'none' }
-  | { kind: 'pan'; startX: number; startEnd: number }
+  | { kind: 'pan'; startX: number; startY: number; startEnd: number; inside: boolean; distance: number }
   | { kind: 'overlay'; level: keyof ChartOverlayLevels }
+  | { kind: 'order'; id: string; price: number }
   | { kind: 'draw'; anchor: DrawingPoint }
+
+function isValidOrderLine(line: ChartOrderLine): boolean {
+  return (
+    Number.isFinite(line.price) &&
+    Number.isFinite(line.qty) &&
+    line.qty > 0 &&
+    (line.side === 'long' || line.side === 'short') &&
+    (line.kind === 'limit' || line.kind === 'stop')
+  )
+}
+
+function sameOrderLines(a: readonly ChartOrderLine[], b: readonly ChartOrderLine[]): boolean {
+  if (a.length !== b.length) return false
+  for (let index = 0; index < a.length; index += 1) {
+    const left = a[index]!
+    const right = b[index]!
+    if (
+      left.id !== right.id ||
+      left.side !== right.side ||
+      left.kind !== right.kind ||
+      left.price !== right.price ||
+      left.label !== right.label ||
+      left.qty !== right.qty ||
+      Boolean(left.protective) !== Boolean(right.protective) ||
+      (left.draggable !== false) !== (right.draggable !== false)
+    ) {
+      return false
+    }
+  }
+  return true
+}
 
 function isValidExecution(execution: ChartExecution): boolean {
   return (
@@ -63,6 +109,7 @@ export class ChartEngine {
   private viewport: Viewport = { end: 0, span: 72 }
   private follow = true
   private overlays: ChartOverlayLevels = { entry: null, stop: null, target: null }
+  private orderLines: readonly ChartOrderLine[] = []
   private executions: readonly ChartExecution[] = []
   private validExecutions: readonly ChartExecution[] = []
   private drawings: ChartDrawing[] = []
@@ -79,6 +126,9 @@ export class ChartEngine {
   private crosshairDirty = false
   private opts: Required<ChartOptions>
   private priceFormatter: Intl.NumberFormat
+  private dateTimeFormatter: Intl.DateTimeFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC' })
+  private effectiveTimeZone = 'UTC'
+  private displayCache: DisplayCache = { source: null, style: 'candles', built: 0, data: [] }
   private resizeObserver: ResizeObserver | null = null
   private width = 0
   private height = 0
@@ -104,12 +154,18 @@ export class ChartEngine {
       showVolume: options.showVolume ?? true,
       showWatermark: options.showWatermark ?? true,
       overlayDraggable: options.overlayDraggable ?? false,
+      orderDraggable: options.orderDraggable ?? false,
+      pricePickEnabled: options.pricePickEnabled ?? false,
+      chartStyle: options.chartStyle ?? 'candles',
+      timeZone: options.timeZone ?? 'UTC',
+      showDates: options.showDates ?? false,
       showOverlayLabels: options.showOverlayLabels ?? true,
       reducedMotion: options.reducedMotion ?? false,
       pricePrecision: options.pricePrecision ?? 2,
       tickSize: options.tickSize ?? 0.25,
     }
     this.priceFormatter = this.createPriceFormatter()
+    this.dateTimeFormatter = this.createDateTimeFormatter()
     this.attach()
     this.measure()
   }
@@ -119,6 +175,7 @@ export class ChartEngine {
     const previousCount = this.visibleCount
     this.candles = candles
     this.visibleCount = Math.max(0, Math.min(visibleCount, candles.length))
+    if (isNewSeries) this.cancelDrag()
     if (isNewSeries || this.viewport.end === 0) {
       this.follow = true
       this.viewport = { end: Math.max(0, this.visibleCount - 1), span: 72 }
@@ -135,6 +192,7 @@ export class ChartEngine {
     const next = Math.max(0, Math.min(count, this.candles.length))
     if (next === this.visibleCount) return
     const grew = next > this.visibleCount
+    if (next !== this.visibleCount) this.cancelDrag()
     this.visibleCount = next
     if (!grew) this.viewport = clampViewport(this.viewport, Math.max(2, next))
     this.viewport.end = this.follow ? Math.max(0, next - 1) : Math.min(this.viewport.end, Math.max(0, next - 1))
@@ -154,7 +212,6 @@ export class ChartEngine {
     this.invalidateLayout()
     this.requestRender()
   }
-
   setPrecision(pricePrecision: number, tickSize: number) {
     if (pricePrecision === this.opts.pricePrecision && tickSize === this.opts.tickSize) return
     if (pricePrecision !== this.opts.pricePrecision) {
@@ -174,6 +231,18 @@ export class ChartEngine {
       return
     this.overlays = { ...overlays }
     this.invalidateLayout()
+    this.requestRender()
+  }
+
+  setOrderLines(lines: readonly ChartOrderLine[]) {
+    const filtered = lines.filter(isValidOrderLine)
+    if (sameOrderLines(filtered, this.orderLines)) return
+    this.orderLines = filtered.map((line) => ({ ...line }))
+    const drag = this.drag
+    if (drag.kind === 'order') {
+      const active = filtered.find((line) => line.id === drag.id)
+      if (!active || active.draggable === false) this.cancelDrag()
+    }
     this.requestRender()
   }
 
@@ -206,13 +275,22 @@ export class ChartEngine {
 
   setOptions(options: Partial<ChartOptions>) {
     this.setPrecision(options.pricePrecision ?? this.opts.pricePrecision, options.tickSize ?? this.opts.tickSize)
+    const styleChanged = options.chartStyle !== undefined && options.chartStyle !== this.opts.chartStyle
+    const timeZoneChanged = options.timeZone !== undefined && options.timeZone !== this.opts.timeZone
     if (options.showVolume !== undefined && options.showVolume !== this.opts.showVolume) this.invalidateLayout()
     if (options.timeframeMinutes !== undefined && options.timeframeMinutes !== this.opts.timeframeMinutes) {
       this.crosshairDirty = true
     }
+    if (options.showDates !== undefined && options.showDates !== this.opts.showDates) this.crosshairDirty = true
     this.opts = { ...this.opts, ...options }
+    if (timeZoneChanged) {
+      this.dateTimeFormatter = this.createDateTimeFormatter()
+      this.crosshairDirty = true
+    }
+    if (styleChanged) this.invalidateLayout()
     if (this.opts.reducedMotion) this.animateFrom = -1
-    if (!this.opts.overlayDraggable && this.drag.kind === 'overlay') this.drag = { kind: 'none' }
+    if (!this.opts.overlayDraggable && this.drag.kind === 'overlay') this.cancelDrag()
+    if (!this.opts.orderDraggable && this.drag.kind === 'order') this.cancelDrag()
     this.requestRender()
   }
 
@@ -281,6 +359,7 @@ export class ChartEngine {
     this.canvas.removeEventListener('pointerdown', this.onPointerDown)
     this.canvas.removeEventListener('pointermove', this.onPointerMove)
     this.canvas.removeEventListener('pointerup', this.onPointerUp)
+    this.canvas.removeEventListener('pointercancel', this.onPointerCancel)
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave)
     this.canvas.removeEventListener('wheel', this.onWheel)
     this.canvas.removeEventListener('dblclick', this.onDoubleClick)
@@ -291,6 +370,7 @@ export class ChartEngine {
     this.canvas.addEventListener('pointerdown', this.onPointerDown)
     this.canvas.addEventListener('pointermove', this.onPointerMove)
     this.canvas.addEventListener('pointerup', this.onPointerUp)
+    this.canvas.addEventListener('pointercancel', this.onPointerCancel)
     this.canvas.addEventListener('pointerleave', this.onPointerLeave)
     this.canvas.addEventListener('wheel', this.onWheel, { passive: false })
     this.canvas.addEventListener('dblclick', this.onDoubleClick)
@@ -347,8 +427,9 @@ export class ChartEngine {
     const start = Math.max(0, Math.floor(geo.start) - 1)
     let min = Number.POSITIVE_INFINITY
     let max = Number.NEGATIVE_INFINITY
+    const display = this.displayCandles()
     for (let index = start; index <= end; index += 1) {
-      const candle = this.candles[index]
+      const candle = display[index]
       if (!candle) continue
       if (candle.low < min) min = candle.low
       if (candle.high > max) max = candle.high
@@ -421,6 +502,7 @@ export class ChartEngine {
     this.drawOverlays(plot, scale)
     this.drawDrawings(plot, geo, scale)
     if (this.analysis) this.drawAnalysisSeries(plot, geo, scale)
+    this.drawOrderLines(price, scale)
     this.drawExecutions(price, geo, scale)
     if (this.opts.blind && this.opts.showWatermark) this.drawWatermark(price)
     ctx.restore()
@@ -481,7 +563,14 @@ export class ChartEngine {
     start: number,
     end: number,
   ) {
+    const style = this.opts.chartStyle
+    if (style === 'line') {
+      this.drawCloseLine(geo, scale, start, end)
+      return
+    }
+
     const ctx = this.ctx
+    const candles = this.displayCandles()
     const slot = geo.slot
     const width = Math.max(1, Math.min(14, slot * 0.62))
     const now = performance.now()
@@ -490,7 +579,7 @@ export class ChartEngine {
     const eased = 1 - Math.pow(1 - progress, 3)
 
     for (let index = start; index <= end; index += 1) {
-      const candle = this.candles[index]
+      const candle = candles[index]
       if (!candle) continue
       const x = geo.x(index)
       if (x < area.left - width || x > area.right + width) continue
@@ -512,17 +601,31 @@ export class ChartEngine {
       ctx.strokeStyle = color
       ctx.fillStyle = color
       ctx.lineWidth = 1
-      ctx.beginPath()
       const xCenter = Math.round(x) + 0.5
-      ctx.moveTo(xCenter, highY)
-      ctx.lineTo(xCenter, lowY)
-      ctx.stroke()
+      if (style === 'ohlc') {
+        const tick = Math.max(2, Math.min(6, Math.round(width / 2)))
+        ctx.beginPath()
+        ctx.moveTo(xCenter, highY)
+        ctx.lineTo(xCenter, lowY)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(xCenter - tick, openY)
+        ctx.lineTo(xCenter, openY)
+        ctx.moveTo(xCenter, closeY)
+        ctx.lineTo(xCenter + tick, closeY)
+        ctx.stroke()
+      } else {
+        ctx.beginPath()
+        ctx.moveTo(xCenter, highY)
+        ctx.lineTo(xCenter, lowY)
+        ctx.stroke()
 
-      const top = Math.min(openY, closeY)
-      const height = Math.max(1, Math.abs(closeY - openY))
-      ctx.globalAlpha = up ? 0.92 : 0.92
-      ctx.fillRect(Math.round(x - width / 2), Math.round(top), Math.round(width), Math.round(height))
-      ctx.globalAlpha = 1
+        const top = Math.min(openY, closeY)
+        const height = Math.max(1, Math.abs(closeY - openY))
+        ctx.globalAlpha = 0.92
+        ctx.fillRect(Math.round(x - width / 2), Math.round(top), Math.round(width), Math.round(height))
+        ctx.globalAlpha = 1
+      }
 
       if (isLast) {
         ctx.fillStyle = this.theme.clay
@@ -531,7 +634,67 @@ export class ChartEngine {
         ctx.globalAlpha = 1
       }
     }
-    void area
+  }
+
+  private drawCloseLine(
+    geo: ReturnType<typeof createIndexGeometry>,
+    scale: ReturnType<typeof createPriceScale>,
+    start: number,
+    end: number,
+  ) {
+    const candles = this.displayCandles()
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = this.theme.text
+    ctx.globalAlpha = 0.86
+    ctx.lineWidth = 1.4
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    let drawing = false
+    for (let index = Math.max(0, start); index <= end; index += 1) {
+      const candle = candles[index]
+      if (!candle) continue
+      const x = geo.x(index)
+      const y = scale.y(candle.close)
+      if (!drawing) {
+        ctx.moveTo(x, y)
+        drawing = true
+      } else {
+        ctx.lineTo(x, y)
+      }
+    }
+    if (drawing) ctx.stroke()
+    ctx.restore()
+  }
+
+  private displayCandles(): Candle[] {
+    const style = this.opts.chartStyle
+    if (style !== 'heikin-ashi') return this.candles
+    const cache = this.displayCache
+    const target = this.visibleCount
+    if (cache.source !== this.candles || cache.style !== style) {
+      cache.source = this.candles
+      cache.style = style
+      cache.built = 0
+      cache.data = []
+    }
+    if (cache.built > target) {
+      cache.data.length = target
+      cache.built = target
+    }
+    const data = cache.data
+    for (let index = cache.built; index < target; index += 1) {
+      const candle = this.candles[index]
+      if (!candle) break
+      const previous = index > 0 ? data[index - 1] : undefined
+      const close = (candle.open + candle.high + candle.low + candle.close) / 4
+      const open = previous ? (previous.open + previous.close) / 2 : (candle.open + candle.close) / 2
+      const high = Math.max(candle.high, open, close)
+      const low = Math.min(candle.low, open, close)
+      data.push({ time: candle.time, open, high, low, close, volume: candle.volume })
+      cache.built = index + 1
+    }
+    return data
   }
 
   private drawVolume(
@@ -623,6 +786,103 @@ export class ChartEngine {
         ctx.stroke()
       }
     }
+  }
+
+  private drawOrderLines(plot: Rect, scale: ReturnType<typeof createPriceScale>) {
+    if (!this.orderLines.length) return
+    const ctx = this.ctx
+    const height = ORDER_TAG_HEIGHT
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(plot.left, plot.top, plot.width, plot.height)
+    ctx.clip()
+    for (const line of this.orderLines) {
+      const y = scale.y(line.price)
+      // Resting orders never resize the price scale, so off-scale levels are skipped
+      // instead of stretching the plot to fit them.
+      if (!Number.isFinite(y) || y < plot.top || y > plot.bottom) continue
+      const color = line.side === 'long' ? this.theme.bull : this.theme.bear
+      const lineY = Math.max(plot.top + 0.5, Math.min(plot.bottom - 0.5, Math.round(y) + 0.5))
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.globalAlpha = line.protective ? 0.75 : 1
+      ctx.lineWidth = line.protective ? 1 : 1.5
+      ctx.setLineDash(line.kind === 'stop' ? [4, 3] : [])
+      ctx.beginPath()
+      ctx.moveTo(plot.left, lineY)
+      ctx.lineTo(plot.right, lineY)
+      ctx.stroke()
+      ctx.setLineDash([])
+
+      const text = `${line.label} ${line.qty}`
+      ctx.font = `10px ${this.theme.fontMono}`
+      const showCancel = this.canOrderCancel() && line.draggable !== false
+      const reserve = showCancel ? ORDER_CANCEL_SIZE + ORDER_CANCEL_GAP : 0
+      const width = Math.max(24, Math.min(plot.width - 4 - reserve, Math.ceil(ctx.measureText(text).width) + 10))
+      const centerY = Math.max(plot.top + height / 2, Math.min(plot.bottom - height / 2, y))
+      const tagX = Math.max(plot.left + 2 + reserve, plot.right - width - 2)
+      ctx.globalAlpha = 1
+      ctx.fillStyle = this.theme.surface
+      this.roundRect(tagX, centerY - height / 2, width, height, 3)
+      ctx.fill()
+      ctx.strokeStyle = color
+      ctx.lineWidth = 1
+      ctx.stroke()
+      ctx.fillStyle = color
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(text, tagX + 5, centerY, Math.max(1, width - 10))
+
+      if (showCancel) this.drawOrderCancel(this.orderCancelRect(line, plot, centerY), color)
+      ctx.restore()
+    }
+    ctx.restore()
+  }
+
+  private canOrderCancel(): boolean {
+    return (
+      this.opts.orderDraggable &&
+      !this.opts.blind &&
+      this.tool === 'cursor' &&
+      typeof this.callbacks.onOrderCancel === 'function'
+    )
+  }
+
+  private orderCancelRect(line: ChartOrderLine, plot: Rect, centerY: number): Rect {
+    const ctx = this.ctx
+    ctx.font = `10px ${this.theme.fontMono}`
+    const text = `${line.label} ${line.qty}`
+    const reserve = ORDER_CANCEL_SIZE + ORDER_CANCEL_GAP
+    const width = Math.max(24, Math.min(plot.width - 4 - reserve, Math.ceil(ctx.measureText(text).width) + 10))
+    const tagX = Math.max(plot.left + 2 + reserve, plot.right - width - 2)
+    return rect(
+      tagX - ORDER_CANCEL_GAP - ORDER_CANCEL_SIZE,
+      centerY - ORDER_CANCEL_SIZE / 2,
+      ORDER_CANCEL_SIZE,
+      ORDER_CANCEL_SIZE,
+    )
+  }
+
+  private drawOrderCancel(area: Rect, color: string) {
+    const ctx = this.ctx
+    ctx.save()
+    ctx.globalAlpha = 1
+    ctx.fillStyle = this.theme.surface
+    this.roundRect(area.left, area.top, area.width, area.height, 3)
+    ctx.fill()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 1
+    ctx.stroke()
+    const inset = 4
+    const cx = area.left + area.width / 2
+    const cy = area.top + area.height / 2
+    ctx.beginPath()
+    ctx.moveTo(cx - inset, cy - inset)
+    ctx.lineTo(cx + inset, cy + inset)
+    ctx.moveTo(cx + inset, cy - inset)
+    ctx.lineTo(cx - inset, cy + inset)
+    ctx.stroke()
+    ctx.restore()
   }
 
   private drawDrawings(
@@ -908,14 +1168,56 @@ export class ChartEngine {
     ctx.textBaseline = 'top'
     const step = Math.max(1, Math.ceil(80 / geo.slot))
     const end = Math.min(this.visibleCount - 1, Math.floor(this.viewport.end))
+    const daily = this.opts.timeframeMinutes > 1440
     const first = Math.ceil(geo.start / step) * step
+    const ticks: number[] = []
     for (let index = first; index <= geo.start + geo.span; index += step) {
-      if (index < 0 || index > end) continue
+      if (index >= 0 && index <= end) ticks.push(index)
+    }
+
+    // Day boundaries get their own date label even when they fall between ticks,
+    // and any tick too close to it is dropped so the two labels never overlap.
+    const boundaries = new Set<number>()
+    if (this.opts.showDates && !daily && !this.opts.blind) {
+      const from = Math.max(0, Math.ceil(geo.start))
+      const until = Math.min(end, Math.floor(geo.start + geo.span))
+      let previous = from > 0 ? this.formatDate(this.candles[from - 1]?.time ?? 0) : ''
+      for (let index = from; index <= until; index += 1) {
+        const date = this.formatDate(this.candles[index]?.time ?? 0)
+        if (date !== previous) {
+          if (previous !== '') boundaries.add(index)
+          previous = date
+        }
+      }
+    }
+    if (boundaries.size) {
+      const boundaryX = [...boundaries].map((index) => geo.x(index))
+      for (let cursor = ticks.length - 1; cursor >= 0; cursor -= 1) {
+        const tickX = geo.x(ticks[cursor]!)
+        if (boundaryX.some((x) => Math.abs(x - tickX) < 46)) ticks.splice(cursor, 1)
+      }
+    }
+    const labels = [...ticks, ...boundaries].sort((left, right) => left - right)
+
+    let lastLabeledDate = ''
+    for (const index of labels) {
       const x = geo.x(index)
       const offset = index - end
-      const label = this.opts.blind
-        ? formatRelativeBars(offset, this.opts.timeframeMinutes)
-        : this.formatTime(this.candles[index]?.time ?? 0)
+      let label: string
+      if (this.opts.blind) {
+        label = formatRelativeBars(offset, this.opts.timeframeMinutes)
+      } else {
+        const stamp = this.candles[index]?.time ?? 0
+        if (daily) {
+          label = this.formatDate(stamp)
+        } else if (this.opts.showDates) {
+          const date = this.formatDate(stamp)
+          label = date !== lastLabeledDate ? date.slice(5) : this.formatTime(stamp)
+          lastLabeledDate = date
+        } else {
+          label = this.formatTime(stamp)
+        }
+      }
       ctx.fillText(label, x, area.bottom + 6)
     }
     void scale
@@ -958,7 +1260,7 @@ export class ChartEngine {
     const end = Math.min(this.visibleCount - 1, Math.floor(this.viewport.end))
     const timeLabel = this.opts.blind
       ? formatRelativeBars(index - end, this.opts.timeframeMinutes)
-      : this.formatTime(this.candles[index]?.time ?? 0)
+      : this.formatDateTime(this.candles[index]?.time ?? 0)
     const timeWidth = ctx.measureText(timeLabel).width + 14
     ctx.fillStyle = this.theme.text
     this.roundRect(x - timeWidth / 2, plot.bottom + 4, timeWidth, 16, 3)
@@ -1032,13 +1334,70 @@ export class ChartEngine {
     })
   }
 
+  private createDateTimeFormatter() {
+    try {
+      this.effectiveTimeZone = this.opts.timeZone
+      return this.buildDateTimeFormatter(this.opts.timeZone)
+    } catch {
+      this.effectiveTimeZone = 'UTC'
+      return this.buildDateTimeFormatter('UTC')
+    }
+  }
+
+  private buildDateTimeFormatter(timeZone: string) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+  }
+
+  private dateParts(unixSeconds: number): { year: string; month: string; day: string; hour: string; minute: string } {
+    const parts = this.dateTimeFormatter.formatToParts(new Date(unixSeconds * 1000))
+    let year = ''
+    let month = ''
+    let day = ''
+    let hour = ''
+    let minute = ''
+    for (const part of parts) {
+      if (part.type === 'year') year = part.value
+      else if (part.type === 'month') month = part.value
+      else if (part.type === 'day') day = part.value
+      else if (part.type === 'hour') hour = part.value
+      else if (part.type === 'minute') minute = part.value
+    }
+    return { year, month, day, hour, minute }
+  }
+
   private formatPrice(price: number): string {
     return this.priceFormatter.format(price)
   }
 
   private formatTime(unixSeconds: number): string {
-    const date = new Date(unixSeconds * 1000)
-    return `${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}`
+    const { hour, minute } = this.dateParts(unixSeconds)
+    return `${hour}:${minute}`
+  }
+
+  private formatDate(unixSeconds: number): string {
+    const { year, month, day } = this.dateParts(unixSeconds)
+    return `${year}-${month}-${day}`
+  }
+
+  /** Full unblinded stamp with an explicit zone so reviewers never guess the session clock. */
+  private formatDateTime(unixSeconds: number): string {
+    return `${this.formatDate(unixSeconds)} ${this.formatTime(unixSeconds)} ${this.effectiveTimeZone}`
+  }
+
+  private cancelDrag() {
+    if (this.drag.kind === 'none' && !this.draft) return
+    this.drag = { kind: 'none' }
+    this.draft = null
+    this.draftPoint = null
+    this.canvas.style.cursor = 'crosshair'
   }
 
   private pointerPosition(event: PointerEvent): { x: number; y: number } {
@@ -1085,7 +1444,35 @@ export class ChartEngine {
       x: point.x,
       y: point.y,
       relativeLabel: formatRelativeBars(index - end, this.opts.timeframeMinutes),
+      timeLabel: this.opts.blind ? undefined : this.formatDateTime(candle.time),
     })
+  }
+
+  private hitOrderLine(y: number): ChartOrderLine | null {
+    if (!this.opts.orderDraggable) return null
+    const { price, scale } = this.currentLayout()
+    if (y < price.top || y > price.bottom) return null
+    for (const line of this.orderLines) {
+      if (line.draggable === false) continue
+      const lineY = scale.y(line.price)
+      if (lineY >= price.top && lineY <= price.bottom && Math.abs(lineY - y) <= ORDER_HIT_SLOP) return line
+    }
+    return null
+  }
+
+  private hitOrderCancel(x: number, y: number): ChartOrderLine | null {
+    if (!this.canOrderCancel()) return null
+    const { price, scale } = this.currentLayout()
+    if (y < price.top || y > price.bottom) return null
+    for (const line of this.orderLines) {
+      if (line.draggable === false) continue
+      const lineY = scale.y(line.price)
+      if (lineY < price.top || lineY > price.bottom) continue
+      const centerY = Math.max(price.top + ORDER_TAG_HEIGHT / 2, Math.min(price.bottom - ORDER_TAG_HEIGHT / 2, lineY))
+      const area = this.orderCancelRect(line, price, centerY)
+      if (x >= area.left && x <= area.right && y >= area.top && y <= area.bottom) return line
+    }
+    return null
   }
 
   private hitOverlay(y: number): keyof ChartOverlayLevels | null {
@@ -1107,12 +1494,36 @@ export class ChartEngine {
     if (point.x < plot.left || point.x > plot.right) return
 
     if (this.tool === 'cursor') {
+      // The cancel affordance owns its pixels before the line's y-band does.
+      const cancel = this.hitOrderCancel(point.x, point.y)
+      if (cancel) {
+        this.cancelDrag()
+        this.callbacks.onOrderCancel?.(cancel.id)
+        this.requestRender()
+        return
+      }
+      // Working orders sit above the legacy plan lines: a click near both must
+      // grab the live order rather than move the review overlay.
+      const order = this.hitOrderLine(point.y)
+      if (order) {
+        this.drag = { kind: 'order', id: order.id, price: clampPriceToTick(order.price, this.opts.tickSize) }
+        this.canvas.style.cursor = 'grabbing'
+        return
+      }
       const hit = this.hitOverlay(point.y)
       if (hit) {
         this.drag = { kind: 'overlay', level: hit }
         return
       }
-      this.drag = { kind: 'pan', startX: point.x, startEnd: this.viewport.end }
+      const { price } = this.currentLayout()
+      this.drag = {
+        kind: 'pan',
+        startX: point.x,
+        startY: point.y,
+        startEnd: this.viewport.end,
+        inside: point.y >= price.top && point.y <= price.bottom,
+        distance: 0,
+      }
       this.canvas.style.cursor = 'grabbing'
       return
     }
@@ -1138,21 +1549,37 @@ export class ChartEngine {
     const plot = this.plotRect()
     const inside = point.x >= plot.left && point.x <= plot.right && point.y >= plot.top && point.y <= plot.bottom
     this.hover = inside ? point : null
+    if (this.drag.kind === 'none' && this.tool === 'cursor') {
+      this.canvas.style.cursor = this.hitOrderCancel(point.x, point.y) ? 'pointer' : 'crosshair'
+    }
 
     if (this.drag.kind === 'overlay') {
       const scale = this.priceScale()
       const price = clampPriceToTick(scale.price(point.y), this.opts.tickSize)
       this.callbacks.onOverlayDrag?.(this.drag.level, price)
+    } else if (this.drag.kind === 'order') {
+      const scale = this.priceScale()
+      const price = clampPriceToTick(scale.price(point.y), this.opts.tickSize)
+      if (Number.isFinite(price) && price !== this.drag.price) {
+        this.drag.price = price
+        this.callbacks.onOrderDrag?.(this.drag.id, price)
+      }
     } else if (this.drag.kind === 'pan') {
-      const geo = this.indexGeometry()
-      const delta = (point.x - this.drag.startX) / geo.slot
-      const next = clampViewport(
-        { end: this.drag.startEnd - delta, span: this.viewport.span },
-        Math.max(2, this.visibleCount),
+      this.drag.distance = Math.max(
+        this.drag.distance,
+        Math.hypot(point.x - this.drag.startX, point.y - this.drag.startY),
       )
-      this.viewport = next
-      this.follow = false
-      this.emitViewport()
+      if (this.drag.distance >= CLICK_SLOP) {
+        const geo = this.indexGeometry()
+        const delta = (point.x - this.drag.startX) / geo.slot
+        const next = clampViewport(
+          { end: this.drag.startEnd - delta, span: this.viewport.span },
+          Math.max(2, this.visibleCount),
+        )
+        this.viewport = next
+        this.follow = false
+        this.emitViewport()
+      }
     } else if (this.drag.kind === 'draw' && this.draft) {
       const geo = this.indexGeometry()
       const scale = this.priceScale()
@@ -1171,15 +1598,42 @@ export class ChartEngine {
     this.requestRender()
   }
 
-  private onPointerUp = () => {
-    if (this.drag.kind === 'draw' && this.draft) {
+  private onPointerUp = (event: PointerEvent) => {
+    const drag = this.drag
+    if (drag.kind === 'draw' && this.draft) {
       const [first, second] = this.draft.points
       if (first && second && (Math.abs(second.index - first.index) > 0 || Math.abs(second.price - first.price) > 0)) {
         this.callbacks.onDrawingCommit?.({ ...this.draft, points: [first, second] })
       }
       this.draft = null
+    } else if (
+      drag.kind === 'pan' &&
+      drag.inside &&
+      this.opts.pricePickEnabled &&
+      !this.opts.blind &&
+      this.callbacks.onPricePick
+    ) {
+      const point = this.pointerPosition(event)
+      const { price, scale } = this.currentLayout()
+      const distance = Math.max(drag.distance, Math.hypot(point.x - drag.startX, point.y - drag.startY))
+      if (
+        distance < CLICK_SLOP &&
+        point.x >= price.left &&
+        point.x <= price.right &&
+        point.y >= price.top &&
+        point.y <= price.bottom
+      ) {
+        this.callbacks.onPricePick(clampPriceToTick(scale.price(point.y), this.opts.tickSize))
+      }
     }
     this.drag = { kind: 'none' }
+    this.canvas.style.cursor = 'crosshair'
+    this.requestRender()
+  }
+
+  private onPointerCancel = () => {
+    this.drag = { kind: 'none' }
+    this.draft = null
     this.canvas.style.cursor = 'crosshair'
     this.requestRender()
   }
