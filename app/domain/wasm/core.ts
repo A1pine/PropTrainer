@@ -22,6 +22,30 @@ export interface GeneratedMarket {
   metrics: ScenarioMetrics
 }
 
+/**
+ * Aggregation request after the TypeScript layer has validated the bars and
+ * resolved every bar's session-anchored bucket start. Timezone and calendar work
+ * stays in TypeScript; Rust only does the O(n) OHLCV reduce.
+ */
+export interface AggregateInput {
+  bucketStarts: number[]
+  open: number[]
+  high: number[]
+  low: number[]
+  close: number[]
+  volume: number[]
+}
+
+/** Aggregated columns; `time` is the bucket start carried over from the request. */
+export interface AggregateColumns {
+  time: number[]
+  open: number[]
+  high: number[]
+  low: number[]
+  close: number[]
+  volume: number[]
+}
+
 export interface WasmCore {
   generate(input: GenerateInput): GeneratedMarket
   findSwings(candles: readonly Candle[], strength: number): SwingPoint[]
@@ -32,6 +56,8 @@ export interface WasmCore {
     horizonBars: number,
   ): PlanOutcome
   analyze(candles: readonly Candle[], precision?: number): AnalysisReport
+  /** Optional so artifacts that predate `prop_aggregate` keep working. */
+  aggregate?(input: AggregateInput): AggregateColumns
 }
 
 interface WasmExports {
@@ -44,10 +70,55 @@ interface WasmExports {
   prop_find_swings(pointer: number, length: number): number
   prop_simulate_plan(pointer: number, length: number): number
   prop_analyze(pointer: number, length: number): number
+  prop_aggregate?(pointer: number, length: number): number
 }
 
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+const BASE64_CODES = Uint8Array.from(BASE64_ALPHABET, (character) => character.charCodeAt(0))
+
+/**
+ * Encode an f64 column as base64 of little-endian bytes.
+ *
+ * JSON numbers are not lossless across serde_json's fast float parser, and the
+ * exact-roundtrip parser costs more wasm size than the aggregate export itself.
+ * Bytes round-trip every f64 bit-for-bit without pulling a float parser into the
+ * binary. The terminal ABI is internal, so base64 columns stay a private detail
+ * of this wrapper.
+ *
+ * The output is built as one byte buffer and decoded once; concatenating a JS
+ * string per three bytes is several times slower for a 13k-bar tape.
+ */
+function encodeFloats(values: readonly number[]): string {
+  const buffer = new ArrayBuffer(values.length * 8)
+  const view = new DataView(buffer)
+  for (let index = 0; index < values.length; index += 1) {
+    view.setFloat64(index * 8, values[index]!, true)
+  }
+  const bytes = new Uint8Array(buffer)
+  const full = bytes.length - (bytes.length % 3)
+  const encoded = new Uint8Array(((bytes.length + 2) / 3) * 4)
+  let offset = 0
+  for (let index = 0; index < full; index += 3) {
+    const word = (bytes[index]! << 16) | (bytes[index + 1]! << 8) | bytes[index + 2]!
+    encoded[offset] = BASE64_CODES[word >>> 18]!
+    encoded[offset + 1] = BASE64_CODES[(word >>> 12) & 63]!
+    encoded[offset + 2] = BASE64_CODES[(word >>> 6) & 63]!
+    encoded[offset + 3] = BASE64_CODES[word & 63]!
+    offset += 4
+  }
+  if (full < bytes.length) {
+    const first = bytes[full]!
+    const second = bytes[full + 1] ?? 0
+    encoded[offset] = BASE64_CODES[first >>> 2]!
+    encoded[offset + 1] = BASE64_CODES[((first & 3) << 4) | (second >>> 4)]!
+    encoded[offset + 2] = full + 1 < bytes.length ? BASE64_CODES[(second & 15) << 2]! : 61
+    encoded[offset + 3] = 61
+    offset += 4
+  }
+  return decoder.decode(encoded.subarray(0, offset))
+}
 
 let core: WasmCore | null = null
 let lastError: string | null = null
@@ -89,7 +160,7 @@ export function createWasmCore(exports: WasmExports): WasmCore {
     }
   }
 
-  return {
+  const api: WasmCore = {
     generate(input) {
       return call<GeneratedMarket>(exports.prop_generate, input)
     },
@@ -143,6 +214,19 @@ export function createWasmCore(exports: WasmExports): WasmCore {
       })
     },
   }
+  if (typeof exports.prop_aggregate === 'function') {
+    const aggregate = exports.prop_aggregate
+    api.aggregate = (input) =>
+      call<AggregateColumns>(aggregate, {
+        bucketStarts: input.bucketStarts,
+        open: encodeFloats(input.open),
+        high: encodeFloats(input.high),
+        low: encodeFloats(input.low),
+        close: encodeFloats(input.close),
+        volume: encodeFloats(input.volume),
+      })
+  }
+  return api
 }
 
 export function createWasmCoreFromInstance(instance: WebAssembly.Instance): WasmCore {

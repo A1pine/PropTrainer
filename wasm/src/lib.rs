@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::alloc::{alloc, dealloc, Layout};
 
 mod analysis;
+mod terminal;
 
 // ---------------------------------------------------------------------------
 // C ABI plumbing
@@ -794,6 +795,24 @@ pub extern "C" fn prop_analyze(ptr: *const u8, len: usize) -> u32 {
         return 0;
     };
     match analysis::analyze_json(&bytes) {
+        Ok(output) => {
+            write_bytes(output);
+            1
+        }
+        Err(error) => {
+            write_error(&error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn prop_aggregate(ptr: *const u8, len: usize) -> u32 {
+    let Some(bytes) = read_input(ptr, len) else {
+        write_error("empty input");
+        return 0;
+    };
+    match terminal::aggregate_json(&bytes) {
         Ok(output) => {
             write_bytes(output);
             1
