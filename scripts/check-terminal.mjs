@@ -110,6 +110,46 @@ await page.getByRole('button', { name: 'History', exact: true }).first().click()
 await page.waitForTimeout(300)
 check(await page.getByTestId('terminal-history').isVisible(), 'history dock opens')
 
+// Workspace layouts: panes share one replay clock, so switching layouts must
+// never move the cursor or change the account.
+const layoutGroup = page.locator('[role="group"][aria-label="Chart layout"]')
+check(await layoutGroup.isVisible(), 'chart layout switch is visible')
+const clockBeforeLayout = await page
+  .locator('[data-testid="replay-index"]')
+  .innerText()
+  .catch(() => null)
+await layoutGroup.locator('button[aria-pressed]').nth(1).click()
+await page.waitForTimeout(900)
+const paneState = await page.evaluate(() => ({
+  panes: document.querySelectorAll('[data-pane]').length,
+  canvases: document.querySelectorAll('canvas').length,
+  active: document.querySelectorAll('[data-pane][data-active="true"]').length,
+}))
+check(
+  paneState.panes === 2 && paneState.canvases === 2,
+  `two panes render two charts, got ${JSON.stringify(paneState)}`,
+)
+check(paneState.active === 1, `exactly one pane is active, got ${paneState.active}`)
+const clockAfterLayout = await page
+  .locator('[data-testid="replay-index"]')
+  .innerText()
+  .catch(() => null)
+if (clockBeforeLayout && clockAfterLayout) {
+  check(
+    clockBeforeLayout === clockAfterLayout,
+    `layout change keeps the clock (${clockBeforeLayout} -> ${clockAfterLayout})`,
+  )
+}
+await page.reload({ waitUntil: 'networkidle' })
+await page.waitForSelector('canvas')
+await page.waitForTimeout(1500)
+const restored = await page.evaluate(() => document.querySelectorAll('[data-pane]').length)
+check(restored === 2, `saved layout survives a reload, got ${restored}`)
+await page.locator('[data-pane][data-active="true"] button[aria-label="Close pane"]').click()
+await page.waitForTimeout(600)
+const closed = await page.evaluate(() => document.querySelectorAll('[data-pane]').length)
+check(closed === 1, `closing a pane returns to a single chart, got ${closed}`)
+
 const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
 check(overflow <= 0, `no horizontal overflow at 1440, got ${overflow}`)
 
