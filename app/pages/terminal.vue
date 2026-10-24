@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ArrowDownRight, ArrowUpRight, Info, Minus, Plus } from '@lucide/vue'
+import { ArrowDownRight, ArrowUpRight, Info, Minus, Plus, X } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { ChartAnalysis, ChartOrderLine, ChartStyle } from '~/lib/chart/types'
 import type { PropTemplate, SimTimeframe } from '~/domain/sim/types'
 import { timeframeMinutes } from '~/domain/sim/timeframe'
 import { instruments } from '~/domain/instruments/catalog'
+import { LAYOUT_SIZES, MAX_PANES, readLayout, resizePanes, writeLayout, type TerminalPane } from '~/lib/sim/layout'
 
 const { t } = useI18n()
 const terminal = useTerminalStore()
@@ -24,14 +25,55 @@ const priceHintSide = ref<'long' | 'short' | null>(null)
 const priceHintType = ref<'limit' | 'stop' | null>(null)
 const ticketSide = ref<'long' | 'short' | null>(null)
 const dock = ref<'positions' | 'orders' | 'fills' | 'history' | 'rules'>('positions')
-const chartStyle = ref<ChartStyle>('candles')
-const ladderOpen = ref(true)
-const selectedSymbol = computed({
-  get: () => terminal.symbol,
-  set: (value: string) => {
-    void terminal.load(value)
+const chartStyle = computed<ChartStyle>({
+  get: () => panes.value[activePane.value]?.style ?? 'candles',
+  set: (value) => {
+    const pane = panes.value[activePane.value]
+    if (!pane) return
+    pane.style = value
+    persistPanes()
   },
 })
+const ladderOpen = ref(true)
+
+interface PaneChart {
+  fit: () => void
+  focusRange: (from: number, to: number) => void
+}
+
+// Up to three panes share the replay clock. Only the active pane receives
+// order drags and price picks so a stray click never places an order on a
+// background chart.
+const panes = ref<TerminalPane[]>([{ symbol: 'MNQ', timeframe: '15m', style: 'candles' }])
+const activePane = ref(0)
+const wide = ref(false)
+const charts = new Map<number, PaneChart>()
+let media: MediaQueryList | null = null
+
+function setChart(index: number, handle: unknown) {
+  if (handle) charts.set(index, handle as PaneChart)
+  else charts.delete(index)
+}
+
+const visiblePanes = computed(() => {
+  const all = panes.value.map((pane, index) => ({ pane, index }))
+  if (wide.value) return all
+  const current = all[activePane.value]
+  return current ? [current] : all.slice(0, 1)
+})
+
+const paneColumns = computed(() =>
+  visiblePanes.value.length >= 3 ? 'lg:grid-cols-3' : visiblePanes.value.length === 2 ? 'lg:grid-cols-2' : '',
+)
+
+function chooseSymbol(symbol: string) {
+  const pane = panes.value[activePane.value]
+  if (pane && pane.symbol !== symbol) {
+    pane.symbol = symbol
+    persistPanes()
+  }
+  if (symbol !== terminal.symbol) void terminal.load(symbol)
+}
 
 const precision = computed(() => terminal.instrument.pricePrecision)
 const tickSize = computed(() => terminal.instrument.tickSize)
@@ -60,6 +102,7 @@ const styleOptions = computed(() =>
     label: t(`terminal.chart.styles.${value}`),
   })),
 )
+
 const precisions = computed<Record<string, number>>(() =>
   Object.fromEntries(instruments.list().map((spec) => [spec.symbol, spec.pricePrecision])),
 )
@@ -68,10 +111,10 @@ const pointValues = computed<Record<string, number>>(() =>
   Object.fromEntries(instruments.list().map((spec) => [spec.symbol, spec.pointValue])),
 )
 
-const ordersForChart = computed<ChartOrderLine[]>(() => {
+function ordersFor(targetSymbol: string): ChartOrderLine[] {
   const lines: ChartOrderLine[] = []
   for (const order of terminal.workingOrders) {
-    if (order.symbol !== terminal.symbol) continue
+    if (order.symbol !== targetSymbol) continue
     if (order.type === 'market') continue
     const protective = order.role !== 'entry'
     if (order.limitPrice != null) {
@@ -98,7 +141,9 @@ const ordersForChart = computed<ChartOrderLine[]>(() => {
     }
   }
   return lines
-})
+}
+
+const ordersForChart = computed<ChartOrderLine[]>(() => ordersFor(terminal.symbol))
 
 const position = computed(() => terminal.snapshot?.positions.find((item) => item.symbol === terminal.symbol) ?? null)
 
@@ -153,12 +198,6 @@ const riskAnalysis = computed<ChartAnalysis>(() => {
   return { series: [], zones: [], levels, markers: [], profile: [] }
 })
 
-// The chart uses exchange-local labels; the replay clock is already Chicago-based.
-const chartTimeframeMinutes = computed(() => {
-  if (terminal.timeframe === '1D') return 1440
-  return timeframeMinutes(terminal.timeframe) ?? 5
-})
-
 function onOrderDrag(id: string, price: number) {
   const order = terminal.workingOrders.find((item) => item.id === id || `${item.id}:stop` === id)
   if (!order) return
@@ -205,17 +244,101 @@ function closeTicket() {
 }
 
 function focusSymbol(symbol: string) {
-  selectedSymbol.value = symbol
+  chooseSymbol(symbol)
+}
+
+function persistPanes() {
+  writeLayout(panes.value)
+}
+
+function paneCandles(pane: TerminalPane) {
+  return terminal.candlesFor(pane.symbol, pane.timeframe)
+}
+
+function paneTimeframeMinutes(pane: TerminalPane) {
+  return pane.timeframe === '1D' ? 1440 : (timeframeMinutes(pane.timeframe) ?? 5)
+}
+
+function panePrecision(pane: TerminalPane) {
+  return instruments.require(pane.symbol).pricePrecision
+}
+
+function paneTickSize(pane: TerminalPane) {
+  return instruments.require(pane.symbol).tickSize
+}
+
+function paneLabel(pane: TerminalPane) {
+  return `${pane.symbol} ${pane.timeframe}`
+}
+
+function activatePane(index: number) {
+  const pane = panes.value[index]
+  if (!pane || index === activePane.value) return
+  activePane.value = index
+  if (pane.symbol !== terminal.symbol) void terminal.load(pane.symbol)
+  if (pane.timeframe !== terminal.timeframe) terminal.setTimeframe(pane.timeframe)
+}
+
+function setPaneSymbol(index: number, symbol: string) {
+  const pane = panes.value[index]
+  if (!pane || !terminal.symbols.includes(symbol)) return
+  pane.symbol = symbol
+  persistPanes()
+  if (index === activePane.value) void terminal.load(symbol)
+}
+
+function setPaneTimeframe(index: number, value: SimTimeframe) {
+  const pane = panes.value[index]
+  if (!pane) return
+  pane.timeframe = value
+  persistPanes()
+  if (index === activePane.value) terminal.setTimeframe(value)
+}
+
+function setPaneStyle(index: number, value: ChartStyle) {
+  const pane = panes.value[index]
+  if (!pane) return
+  pane.style = value
+  persistPanes()
+}
+
+function fitAll() {
+  for (const handle of charts.values()) handle.fit()
+}
+
+function setPaneCount(size: number) {
+  panes.value = resizePanes(panes.value, size, terminal.symbols, {
+    symbol: terminal.symbol,
+    timeframe: terminal.timeframe,
+    style: chartStyle.value,
+  })
+  if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1
+  persistPanes()
+  void nextTick(() => {
+    for (const handle of charts.values()) handle.fit()
+  })
+}
+
+function removePane(index: number) {
+  if (panes.value.length <= 1) return
+  panes.value.splice(index, 1)
+  if (activePane.value >= panes.value.length) activePane.value = panes.value.length - 1
+  persistPanes()
 }
 
 function focusTrade(symbol: string, entryTime: number, exitTime: number) {
-  if (symbol !== terminal.symbol) selectedSymbol.value = symbol
+  if (symbol !== terminal.symbol) void terminal.load(symbol)
   void nextTick(() => {
-    const candles = terminal.chartCandles
+    const paneIndex = panes.value.findIndex((pane) => pane.symbol === symbol)
+    const index = paneIndex >= 0 ? paneIndex : activePane.value
+    const pane = panes.value[index]
+    if (!pane) return
+    if (index !== activePane.value) activePane.value = index
+    const candles = paneCandles(pane)
     const from = candles.findIndex((candle) => candle.time >= entryTime)
     const to = candles.findIndex((candle) => candle.time >= exitTime)
     if (from < 0) return
-    chart.value?.focusRange(from, to < 0 ? from + 40 : to)
+    charts.get(index)?.focusRange(from, to < 0 ? from + 40 : to)
   })
 }
 
@@ -308,9 +431,31 @@ function configureTemplate(template: PropTemplate) {
 
 function setTimeframe(value: SimTimeframe) {
   terminal.setTimeframe(value)
+  const pane = panes.value[activePane.value]
+  if (pane && pane.timeframe !== value) {
+    pane.timeframe = value
+    persistPanes()
+  }
+}
+
+function syncWide(event?: MediaQueryList | MediaQueryListEvent) {
+  const matches = event ? event.matches : (media?.matches ?? false)
+  wide.value = matches
 }
 
 onMounted(() => {
+  const saved = readLayout((symbol) => terminal.symbols.includes(symbol))
+  if (saved?.length) {
+    panes.value = saved
+    const first = saved[0]!
+    if (first.symbol !== terminal.symbol) void terminal.load(first.symbol)
+    if (first.timeframe !== terminal.timeframe) terminal.setTimeframe(first.timeframe)
+  } else {
+    panes.value = [{ symbol: terminal.symbol, timeframe: terminal.timeframe, style: chartStyle.value }]
+  }
+  media = window.matchMedia('(min-width: 1024px)')
+  syncWide()
+  media.addEventListener('change', syncWide)
   if (!terminal.ready) void terminal.load()
   window.addEventListener('keydown', onKeydown)
 })
@@ -319,6 +464,8 @@ onMounted(() => {
 // instead of stepping bars in the background.
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  media?.removeEventListener('change', syncWide)
+  media = null
   terminal.pause()
   void terminal.flush()
 })
@@ -339,11 +486,12 @@ useHead({ title: 'Trade terminal' })
       <div class="flex items-center gap-2">
         <p class="max-w-[52ch] text-[11px] leading-snug text-ink-3">{{ t('terminal.subtitle') }}</p>
         <Select
-          v-model="selectedSymbol"
+          :model-value="terminal.symbol"
           :options="symbolOptions"
           size="sm"
           class="w-[104px] lg:hidden"
           :aria-label="t('terminal.watchlist.title')"
+          @update:model-value="(value) => value && chooseSymbol(value)"
         />
       </div>
     </header>
@@ -365,7 +513,7 @@ useHead({ title: 'Trade terminal' })
 
     <div class="grid min-h-0 gap-2.5 lg:grid-cols-[212px_minmax(0,1fr)] xl:grid-cols-[212px_minmax(0,1fr)_296px]">
       <aside class="hidden min-h-0 flex-col gap-2.5 lg:flex">
-        <Watchlist :rows="watchRows" @select="(symbol) => (selectedSymbol = symbol)" />
+        <Watchlist :rows="watchRows" @select="chooseSymbol" />
         <div class="rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 p-2.5">
           <p class="label-micro">{{ t('terminal.limits.title') }}</p>
           <ul class="mt-1.5 space-y-1 text-[10.5px] leading-snug text-ink-3">
@@ -395,35 +543,80 @@ useHead({ title: 'Trade terminal' })
                 size="sm"
                 class="w-[104px]"
               />
-              <Button variant="ghost" size="xs" @click="chart?.fit()">{{ t('chart.fit') }}</Button>
+              <div
+                class="hidden items-center gap-0.5 rounded-sm bg-ink/[0.05] p-0.5 lg:flex"
+                role="group"
+                :aria-label="t('terminal.layout.label')"
+              >
+                <button
+                  v-for="size in LAYOUT_SIZES"
+                  :key="size"
+                  type="button"
+                  class="h-5 min-w-5 rounded-sm px-1 font-mono text-[10px] tabular-nums transition-colors"
+                  :class="panes.length === size ? 'bg-surface-2 text-ink shadow-xs' : 'text-ink-3 hover:text-ink-2'"
+                  :aria-pressed="panes.length === size"
+                  :aria-label="t('terminal.layout.count', { count: size })"
+                  @click="setPaneCount(size)"
+                >
+                  {{ size }}
+                </button>
+              </div>
+              <Button variant="ghost" size="xs" @click="fitAll()">{{ t('chart.fit') }}</Button>
               <Button variant="ghost" size="xs" @click="ladderOpen = !ladderOpen">
                 {{ t('terminal.dom.title') }}
               </Button>
             </div>
           </div>
-          <ChartCanvas
-            ref="chart"
-            :candles="terminal.chartCandles"
-            :visible-count="terminal.chartCandles.length"
-            :orders="ordersForChart"
-            :chart-style="chartStyle"
-            :order-draggable="canTrade"
-            :price-pick-enabled="canTrade"
-            :blind="false"
-            :tool="'cursor'"
-            :timeframe-minutes="chartTimeframeMinutes"
-            time-zone="America/Chicago"
-            show-dates
-            :price-precision="precision"
-            :tick-size="tickSize"
-            :analysis="riskAnalysis"
-            :symbol-mask="terminal.symbol"
-            :label="`${terminal.symbol} ${terminal.timeframe}`"
-            class="h-[clamp(300px,44vh,520px)]"
-            @order-drag="onOrderDrag"
-            @order-cancel="cancelFromChart"
-            @price-pick="onPricePick"
-          />
+          <div
+            class="grid grid-cols-1 gap-[length:var(--hairline)] bg-line"
+            :class="paneColumns"
+            :data-panes="visiblePanes.length"
+          >
+            <div
+              v-for="entry in visiblePanes"
+              :key="`${entry.index}:${entry.pane.symbol}`"
+              class="relative bg-surface-2"
+              :class="entry.index === activePane ? 'ring-1 ring-inset ring-clay/50' : ''"
+              :data-pane="entry.index"
+              :data-active="entry.index === activePane"
+              @pointerdown="activatePane(entry.index)"
+            >
+              <button
+                v-if="panes.length > 1"
+                type="button"
+                class="absolute right-1.5 top-1.5 z-10 grid size-5 place-items-center rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/90 text-ink-3 backdrop-blur transition-colors hover:text-ink"
+                :aria-label="t('terminal.layout.remove')"
+                :title="paneLabel(entry.pane)"
+                @click.stop="removePane(entry.index)"
+              >
+                <X class="size-3" aria-hidden="true" />
+              </button>
+              <ChartCanvas
+                :ref="(handle) => setChart(entry.index, handle)"
+                :candles="paneCandles(entry.pane)"
+                :visible-count="paneCandles(entry.pane).length"
+                :orders="ordersFor(entry.pane.symbol)"
+                :chart-style="entry.pane.style"
+                :order-draggable="canTrade && entry.index === activePane"
+                :price-pick-enabled="canTrade && entry.index === activePane"
+                :blind="false"
+                :tool="'cursor'"
+                :timeframe-minutes="paneTimeframeMinutes(entry.pane)"
+                :timeframe-label="entry.pane.timeframe"
+                time-zone="America/Chicago"
+                show-dates
+                :price-precision="panePrecision(entry.pane)"
+                :tick-size="paneTickSize(entry.pane)"
+                :analysis="entry.index === activePane ? riskAnalysis : null"
+                :symbol-mask="entry.pane.symbol"
+                :label="paneLabel(entry.pane)"
+                class="h-[clamp(280px,40vh,480px)]"
+                @order-drag="onOrderDrag"
+                @order-cancel="cancelFromChart"
+                @price-pick="onPricePick"
+              />
+            </div>
+          </div>
           <div class="border-t border-line px-2.5 py-1.5">
             <ReplayBar
               :playing="terminal.playing"

@@ -1441,6 +1441,12 @@
         "line": "Line",
         "heikin-ashi": "Heikin Ashi"
       }
+    },
+    "layout": {
+      "label": "Chart layout",
+      "count": "{count}-pane layout",
+      "single": "Single chart",
+      "remove": "Close pane"
     }
   }
 }

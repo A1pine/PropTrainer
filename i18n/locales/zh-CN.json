@@ -1441,6 +1441,12 @@
         "line": "折线图",
         "heikin-ashi": "平均K线"
       }
+    },
+    "layout": {
+      "label": "图表布局",
+      "count": "{count} 个图表",
+      "single": "单图",
+      "remove": "关闭面板"
     }
   }
 }

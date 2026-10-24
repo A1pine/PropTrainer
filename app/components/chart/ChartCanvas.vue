@@ -26,6 +26,8 @@ const props = withDefaults(
     tool?: ChartTool
     blind?: boolean
     timeframeMinutes?: number
+    /** Optional badge override so session frames can read `1D` instead of `1440m`. */
+    timeframeLabel?: string
     pricePrecision?: number
     tickSize?: number
     overlayDraggable?: boolean
@@ -47,6 +49,7 @@ const props = withDefaults(
     tool: 'cursor',
     blind: true,
     timeframeMinutes: 5,
+    timeframeLabel: undefined,
     pricePrecision: 2,
     tickSize: 0.25,
     overlayDraggable: false,
@@ -284,7 +287,7 @@ defineExpose({
       <span
         class="rounded-sm border-[length:var(--hairline)] border-line bg-surface-2/80 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-ink-3 backdrop-blur"
       >
-        {{ symbolMask }} · {{ timeframeMinutes }}m
+        {{ symbolMask }} · {{ timeframeLabel ?? `${timeframeMinutes}m` }}
       </span>
       <slot name="badge" />
     </div>
