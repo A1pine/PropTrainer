@@ -10,7 +10,7 @@ import { chromium } from 'playwright'
  *   bun run audit:theme
  */
 const base = process.env.BASE_URL ?? 'http://localhost:3000'
-const routes = ['/', '/trainer', '/analysis', '/settings']
+const routes = ['/', '/trainer', '/terminal', '/analysis', '/settings']
 const browser = await chromium.launch({ channel: 'chrome' })
 
 const failures = []
@@ -63,7 +63,7 @@ async function audit(mode) {
 
   for (const route of routes) {
     await page.goto(base + route, { waitUntil: 'networkidle' })
-    await page.waitForTimeout(route === '/trainer' ? 1200 : 500)
+    await page.waitForTimeout(route === '/trainer' || route === '/terminal' ? 1500 : 500)
     const samples = await page.evaluate(() => {
       const parse = (value) => {
         const match = value.match(/rgba?\(([^)]+)\)/)

@@ -28,7 +28,8 @@
     "data:fetch": "node scripts/fetch-yahoo.mjs",
     "bench:ui": "node scripts/bench-ui.mjs",
     "bench:compute": "bun scripts/bench-compute.ts",
-    "check:analysis": "bun scripts/check-analysis.mjs"
+    "check:analysis": "bun scripts/check-analysis.mjs",
+    "check:terminal": "bun scripts/check-terminal.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",
