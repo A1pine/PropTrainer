@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "encoding": "gzip of the original UTF-8 JSON bytes, without alteration",
+  "checksum": "SHA-256 of the decompressed bytes",
+  "baselineCommit": "7efe627",
+  "baselineComputeLocation": "Baseline worktree profile_output; not the earlier exploratory main-worktree run",
+  "artifacts": [
+    {
+      "file": "terminal-compute-baseline.json.gz",
+      "bytes": 51491,
+      "sha256": "4d92b03678b01fb3a4971e3ef749fa57f961f88e0c5e8b4ba9fc8ce9f8401173",
+      "compressedBytes": 14127,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-compute-stress-baseline.json.gz",
+      "bytes": 163609,
+      "sha256": "87b554489778a922534d97f0e880c8f39e22385b740c267228142d4ca926a0b2",
+      "compressedBytes": 44538,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-compute-final.json.gz",
+      "bytes": 53903,
+      "sha256": "8b60dd97f13ee3cc2f85e85c6c5609d3092e7657b7a77446672a8282dd46af9e",
+      "compressedBytes": 11695,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-compute-stress-final.json.gz",
+      "bytes": 174618,
+      "sha256": "5ec310e81a875301548b82574a59f22145b790e352a52d35c02a17ff4121fcde",
+      "compressedBytes": 29836,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-compute-scale-final.json.gz",
+      "bytes": 333541,
+      "sha256": "e584ce3badcc0c93eae51a9e7be8e844ddee1727e218fddf4e9d2ffd04b40d92",
+      "compressedBytes": 54895,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-ui-baseline-sameharness.json.gz",
+      "bytes": 384572,
+      "sha256": "dd8ddf7df85b882d7f2c406a0912416b4155af9a1c7eaa6ffc1f080756d4648c",
+      "compressedBytes": 20120,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-ui-final.json.gz",
+      "bytes": 354632,
+      "sha256": "b1ef559b50d1809dbbe09f5bd9adca8e52dbdb4d67ffdc41a9587d0c7e011b17",
+      "compressedBytes": 19677,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-ui-stress-baseline-sameharness.json.gz",
+      "bytes": 716225,
+      "sha256": "09ede0cd5376cd01f0fc7aa1e02c67851999605bdd5c862604e4a6e866db3fb7",
+      "compressedBytes": 37332,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-ui-stress-final.json.gz",
+      "bytes": 710927,
+      "sha256": "f67f5b2f5bf70fbd0f440f894fa44e510ecf2795cb733beafd82f77acbed8c31",
+      "compressedBytes": 36669,
+      "role": "superseded exploratory evidence; not used in the final comparison"
+    },
+    {
+      "file": "terminal-compute-baseline-serial.json.gz",
+      "role": "computeBaseline",
+      "bytes": 118150,
+      "sha256": "527a01b637625dc562061f1c6e36b9bf63c83f2b84894c9226eb30fc2391fd86",
+      "compressedBytes": 30874
+    },
+    {
+      "file": "terminal-compute-stress-baseline-serial.json.gz",
+      "role": "computeStressBaseline",
+      "bytes": 230736,
+      "sha256": "c6da9c8d390cba428101c0a7f2f4fe856be06c1ca72451f93f9901f8e968d1bf",
+      "compressedBytes": 61189
+    },
+    {
+      "file": "terminal-compute-final-serial.json.gz",
+      "role": "computeOptimized",
+      "bytes": 120732,
+      "sha256": "9d4159322740fd4081d3ebbbc7952fdaeedd3a4bd2bb116beb0add56204483e4",
+      "compressedBytes": 28697
+    },
+    {
+      "file": "terminal-compute-stress-final-serial.json.gz",
+      "role": "computeStressOptimized",
+      "bytes": 241863,
+      "sha256": "94f6e894fbb0c467cc932c66f4a9fd48b39e904417726f4bccbc869665bed107",
+      "compressedBytes": 45056
+    },
+    {
+      "file": "terminal-compute-scale-final-serial.json.gz",
+      "role": "computeScaleOptimized",
+      "bytes": 401010,
+      "sha256": "42e9faf1837dff4159285d7820813f78759fe6e9cc56f2d93fb1952316bee77d",
+      "compressedBytes": 67939
+    },
+    {
+      "file": "terminal-ui-baseline-verified.json.gz",
+      "role": "browserBaseline",
+      "bytes": 1035695,
+      "sha256": "c6518b61cfaace028ad1b6e862a3d65303b1696d8ff17500bac467b65f1e21f9",
+      "compressedBytes": 162612
+    },
+    {
+      "file": "terminal-ui-verified.json.gz",
+      "role": "browserOptimized",
+      "bytes": 1051556,
+      "sha256": "008283a5a6c9d45623951bf79bfacb3c8c4195590e96873d9f23bb7406d0709d",
+      "compressedBytes": 165382
+    },
+    {
+      "file": "terminal-ui-stress-baseline-verified.json.gz",
+      "role": "browserStressBaseline",
+      "bytes": 1366445,
+      "sha256": "bfa84de0074c25df5c987c743b0420283a739664e48bc8ed474d123c7b11665e",
+      "compressedBytes": 180464
+    },
+    {
+      "file": "terminal-ui-stress-verified.json.gz",
+      "role": "browserStressOptimized",
+      "bytes": 1374469,
+      "sha256": "02f65a953d372e6b51e333e1d17d43123c5e07bfc4dbc70fa49d026caf4fec37",
+      "compressedBytes": 181969
+    },
+    {
+      "file": "terminal-ui-baseline-confirmation.json.gz",
+      "role": "browserBaselineConfirmation",
+      "bytes": 1037526,
+      "sha256": "81357307701abe4c6f02870af40d93d79d3eea95374556b113b97eb5cb7030c9",
+      "compressedBytes": 162898
+    },
+    {
+      "file": "terminal-ui-verified2.json.gz",
+      "role": "browserOptimizedConfirmation",
+      "bytes": 1050858,
+      "sha256": "97acfca88e0664f7d68e3fc2b74daaaf319e553a1fd39f3ccdb547b52325862e",
+      "compressedBytes": 165397
+    }
+  ]
+}

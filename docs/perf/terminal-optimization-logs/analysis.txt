@@ -1,0 +1,2 @@
+$ bun scripts/check-analysis.mjs
+Exam analysis check passed: framework gates, keyboard isolation, visible-bar stepping, daily/PK, layout and WASM recovery.

@@ -1,0 +1,2 @@
+$ bun scripts/check-terminal.mjs
+Terminal check passed (65 checks).

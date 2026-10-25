@@ -1,5 +1,10 @@
 # Replay terminal performance and verification
 
+> **Historical acceptance snapshot (commit `44e950e`).** The terminal was optimized afterwards; see
+> [terminal-optimization.md](terminal-optimization.md) for the same-harness before/after comparison, the current
+> benchmark numbers, and the measurement boundaries. The counts and timings below describe the acceptance build,
+> not the current tree.
+
 The terminal aggregates 5-minute tapes for display and steps pinned instruments through one shared replay clock.
 This page separates the acceptance run from historical microbenchmarks: the current replay-step and chart-frame
 numbers come from a fresh production build, while the aggregation table remains a labelled prior measurement.

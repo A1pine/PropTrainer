@@ -1,0 +1,13 @@
+$ bun scripts/audit-theme.mjs
+ok   light /: 109 text nodes pass
+ok   light /trainer: 60 text nodes pass
+ok   light /terminal: 217 text nodes pass
+ok   light /analysis: 105 text nodes pass
+ok   light /settings: 119 text nodes pass
+ok   dark /: 109 text nodes pass
+ok   dark /trainer: 60 text nodes pass
+ok   dark /terminal: 217 text nodes pass
+ok   dark /analysis: 105 text nodes pass
+ok   dark /settings: 119 text nodes pass
+
+Theme audit passed.

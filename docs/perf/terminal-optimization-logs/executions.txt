@@ -1,0 +1,7 @@
+$ bun scripts/check-executions.mjs
+ok   drill: long result and canvas agree with simulator fills
+ok   drill: same-bar-short result and canvas agree with simulator fills
+ok   drill: no-fill result and canvas agree with simulator fills
+ok   drill: next sample and no-trade result clear prior fills
+ok   trainer: every broker trade shown, including manual/same-bar exits; no blind markers
+Execution result regression passed.

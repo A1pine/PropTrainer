@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running unittests src/lib.rs (target/debug/deps/prop_core-ef718b9204fadbfd)
+
+running 10 tests
+test terminal::tests::accepts_empty_input ... ok
+test terminal::tests::rejects_non_finite_values ... ok
+test terminal::tests::rejects_invalid_base64 ... ok
+test terminal::tests::rejects_mismatched_columns ... ok
+test terminal::tests::preserves_exact_float_bits ... ok
+test terminal::tests::rejects_decreasing_buckets ... ok
+test terminal::tests::reduces_adjacent_bars_into_their_bucket ... ok
+test analysis::tests::timestamp_column_must_match_ohlcv_length ... ok
+test analysis::tests::regular_timestamps_match_explicit_timestamps_and_direct_analysis ... ok
+test analysis::tests::actual_timestamps_override_uniform_reconstruction_across_gaps ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

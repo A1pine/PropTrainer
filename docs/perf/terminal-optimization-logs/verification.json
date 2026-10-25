@@ -1,0 +1,106 @@
+{
+  "baseUrl": "http://127.0.0.1:4173",
+  "note": "Serial quality checks against the existing provenance-verified production build; timings are test runtimes, not performance measurements.",
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": ["bun", "run", "typecheck"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:02:43.325227+00:00",
+      "durationSeconds": 4.101,
+      "exitCode": 0,
+      "log": "typecheck.txt",
+      "sha256": "e1dbd0c4849ee8b3e9f685b0555e3565af0e752488df72eab16019758bcd420a"
+    },
+    {
+      "name": "tests",
+      "command": ["bun", "run", "test"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:02:47.426770+00:00",
+      "durationSeconds": 1.669,
+      "exitCode": 0,
+      "log": "tests.txt",
+      "sha256": "f04b322cd4c6650d9556591620fa18c00797722182c581305bf7c219ed8309b7"
+    },
+    {
+      "name": "rust",
+      "command": ["cargo", "test"],
+      "cwd": "wasm",
+      "startedAt": "2026-10-25T09:02:49.096237+00:00",
+      "durationSeconds": 0.103,
+      "exitCode": 0,
+      "log": "rust.txt",
+      "sha256": "b6c25b749779b8a13024272d2c6fec4b8bd582f873fcebb1896f98ae9589a608"
+    },
+    {
+      "name": "terminal",
+      "command": ["bun", "run", "check:terminal"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:02:49.199106+00:00",
+      "durationSeconds": 21.434,
+      "exitCode": 0,
+      "log": "terminal.txt",
+      "sha256": "293b840eae323b18188944c3e13168affab898999a0340ce6c068d73570d4217"
+    },
+    {
+      "name": "smoke",
+      "command": ["bun", "run", "smoke"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:03:10.633174+00:00",
+      "durationSeconds": 18.2,
+      "exitCode": 0,
+      "log": "smoke.txt",
+      "sha256": "302264d2962b76f4d04f455d6f7c6a8e4eddc6c591d3685da3b0638ac8ac721d"
+    },
+    {
+      "name": "theme",
+      "command": ["bun", "run", "audit:theme"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:03:28.833146+00:00",
+      "durationSeconds": 18.95,
+      "exitCode": 0,
+      "log": "theme.txt",
+      "sha256": "2d668f2a7cd39928a7cf97885fead873eced1db5958728a4d93d9aa08c279154"
+    },
+    {
+      "name": "wasm",
+      "command": ["bun", "run", "check:wasm"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:03:47.783990+00:00",
+      "durationSeconds": 1.408,
+      "exitCode": 0,
+      "log": "wasm.txt",
+      "sha256": "e012525c585b50aad5274395f1376b7461e438557acdbf25376bc5f68f12a927"
+    },
+    {
+      "name": "analysis",
+      "command": ["bun", "run", "check:analysis"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:03:49.191775+00:00",
+      "durationSeconds": 7.779,
+      "exitCode": 0,
+      "log": "analysis.txt",
+      "sha256": "83a6694ca5690ff1b5f8f25bbbc000b56759e23e0923045258d6f99f7446a33b"
+    },
+    {
+      "name": "executions",
+      "command": ["bun", "run", "check:executions"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:03:56.970826+00:00",
+      "durationSeconds": 5.491,
+      "exitCode": 0,
+      "log": "executions.txt",
+      "sha256": "74178bfc5e5d99317e402d938508938e0ec5b998db5a87451fcd38003964c66b"
+    },
+    {
+      "name": "format",
+      "command": ["bun", "run", "format:check"],
+      "cwd": ".",
+      "startedAt": "2026-10-25T09:11:37.464113+00:00",
+      "durationSeconds": 2.335,
+      "exitCode": 0,
+      "log": "format.txt",
+      "sha256": "1d66faad74f5e8709353f7288592866bd3a9095da1174a916e7aa632949971e2"
+    }
+  ]
+}

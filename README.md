@@ -112,6 +112,7 @@ See [`docs/perf/wasm.md`](docs/perf/wasm.md) for the artifact history and
 bun run bench:compute --check    # 710-bar public wrappers, validation and cached windows
 bun run bench:ui --check         # production localhost:4173, synthetic + installed local pack
 bun run bench:terminal           # replay-step and multi-pane chart responsiveness
+bun run bench:terminal:compute   # real-engine long-history CPU and snapshot probe
 bun run bench:timeframes         # aggregation parity, latency and artifact budgets
 ```
 
@@ -317,8 +318,9 @@ failure can leave the latest state unsaved. Display/ATM/hotkey preferences use l
 opt-in and remappable (see below); there is no full per-module hotkey catalogue, docking, workspace import/export
 or cloud sync.
 
-See [implementation, scoped parity and evidence map](docs/design/trading-terminal.md) and
-[performance and acceptance evidence](docs/perf/terminal.md). The final production run passed 829 tests,
+See [implementation, scoped parity and evidence map](docs/design/trading-terminal.md),
+[performance and acceptance evidence](docs/perf/terminal.md), and the
+[same-harness optimization report](docs/perf/terminal-optimization.md). The final validation passed 866 tests,
 65 browser checks, five theme routes, the WASM loading checks and the replay responsiveness budget; the measured
 limits (headless single-machine, 5-minute OHLCV, no depth/tape) are recorded there.
 

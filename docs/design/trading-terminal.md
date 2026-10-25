@@ -203,7 +203,7 @@ Analysis and Stats; More contains Daily, PK, Guide and Settings.
 `TerminalChartPane.vue` exposes candlestick/OHLC/line/Heikin-Ashi rendering, opt-in TA, trend lines and horizontal
 lines. TA starts off and reuses visible-prefix EMA/VWAP/Bollinger, price-action, ICT and OHLCV-flow helpers with
 independent controls. This is a fixed local toolset, not the complete Tradovate indicator/drawing catalogue.
-Drawings are component-local, clear on symbol/timeframe changes, and are not saved with the layout. Drawing
+Drawings are component-local, clear on symbol/timeframe changes and attempt replacement (bar indexes restart), and are not saved with the layout. Drawing
 mode suppresses chart order actions. There are no tick/range/Renko, TPO, footprint or heatmap charts.
 
 Cursor mode supports click-to-price, tick-rounded order amendments and cancellation. The ladder's center price

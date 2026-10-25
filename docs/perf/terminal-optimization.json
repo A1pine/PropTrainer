@@ -1,0 +1,339 @@
+{
+  "schemaVersion": 2,
+  "kind": "terminal-performance-comparison",
+  "baselineCommit": "7efe627",
+  "baselineNote": "Baseline app tree at 7efe627 in a separate worktree. The compute harness and perf-evidence helper were copied there untracked. Browser harness ran from the main checkout against port 4174 with PERF_APP_ROOT pointing to the baseline checkout.",
+  "optimizedNote": "Current production tree on port 4173 after the durability fixes. App source, harness, and build hashes are identical before and after each run; HTTP entry asset bytes match the declared build. All final timed runs are serial. Earlier concurrent exploratory compute runs are excluded.",
+  "provenance": {
+    "baselineSourceSha256": "0ebd7b298f567c7036f3e48d4e17104a8d5c06a40b0f6872fdac356aa7d43eec",
+    "optimizedSourceSha256": "d566ccee9984f6587d42dec3e728adeef5d33304decb446194447d64232b46ed",
+    "baselineBuildSha256": "51a7e6d4303557e745f9bbdf24abf884ce8c4194ec7d06819d64ad4fbc29f9ab",
+    "optimizedBuildSha256": "6a17cec2adc0cef08098066f97290ec3aa8962163696e4d79010e9fea54270af",
+    "browserHarnessSha256": "aaebd4a58f32af83abbd310578b06004132cf8d256cedaadbfe8caa95e8d061d",
+    "computeHarnessSha256": "abc6ad240f540c2d9b8ad10f09d88bcd1e351b13331ffda7b30350a15fe5ddfa"
+  },
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "logicalCores": 15,
+    "memoryBytes": 25769803776,
+    "browser": "Chrome 155.0.8059.85 headless",
+    "viewport": {
+      "width": 1440,
+      "height": 1000,
+      "deviceScaleFactor": 2
+    },
+    "build": "production-local"
+  },
+  "compute": {
+    "normal": {
+      "steps": 1200,
+      "trades": 595,
+      "orders": 1190,
+      "stateSha256": "202caee0c231c72e9dfbc633383ff57b8336809c3fd7b72210055011dbf65604",
+      "optimized": {
+        "setupMs": 42.9986,
+        "stepP50Ms": 0.051,
+        "stepP95Ms": 0.1228,
+        "snapshotP50Ms": 0.1122,
+        "snapshotP95Ms": 0.1657,
+        "checkpointP50Ms": 0.1094,
+        "checkpointP95Ms": 0.1531,
+        "accountP50Ms": 0.0005,
+        "accountP95Ms": 0.0013,
+        "restoreP50Ms": 11.2313,
+        "restoreP95Ms": 12.486
+      },
+      "baseline": {
+        "setupMs": 33.3328,
+        "stepP50Ms": 15.0356,
+        "stepP95Ms": 31.293,
+        "snapshotP50Ms": 3.343,
+        "snapshotP95Ms": 3.8705,
+        "checkpointP50Ms": 3.4026,
+        "checkpointP95Ms": 3.7577,
+        "accountP50Ms": 0.01,
+        "accountP95Ms": 0.0154,
+        "restoreP50Ms": 14.8981,
+        "restoreP95Ms": 15.9613
+      }
+    },
+    "stress": {
+      "steps": 5000,
+      "trades": 2481,
+      "orders": 4962,
+      "stateSha256": "ad933c9d834c81277300d7be5788b627082de9f6e91feb0f5925ea1bf0c0222a",
+      "optimized": {
+        "setupMs": 73.3794,
+        "stepP50Ms": 0.0436,
+        "stepP95Ms": 0.0571,
+        "snapshotP50Ms": 0.302,
+        "snapshotP95Ms": 0.6639,
+        "checkpointP50Ms": 0.2802,
+        "checkpointP95Ms": 0.35,
+        "accountP50Ms": 0.0006,
+        "accountP95Ms": 0.001,
+        "restoreP50Ms": 37.4731,
+        "restoreP95Ms": 40.0382
+      },
+      "baseline": {
+        "setupMs": 86.5574,
+        "stepP50Ms": 56.3252,
+        "stepP95Ms": 106.2503,
+        "snapshotP50Ms": 11.721,
+        "snapshotP95Ms": 12.2003,
+        "checkpointP50Ms": 11.8848,
+        "checkpointP95Ms": 13.0315,
+        "accountP50Ms": 0.0304,
+        "accountP95Ms": 0.0366,
+        "restoreP50Ms": 51.9758,
+        "restoreP95Ms": 54.0005
+      }
+    },
+    "scale": {
+      "steps": 10000,
+      "trades": 4963,
+      "orders": 9926,
+      "stateSha256": "c3b9a2af9b94656f960eaa3fda16e49448d98d6322662fe94de91a6e72f1f803",
+      "optimized": {
+        "setupMs": 138.6021,
+        "stepP50Ms": 0.0454,
+        "stepP95Ms": 0.0589,
+        "snapshotP50Ms": 0.5381,
+        "snapshotP95Ms": 1.1041,
+        "checkpointP50Ms": 0.5025,
+        "checkpointP95Ms": 0.8854,
+        "accountP50Ms": 0.0006,
+        "accountP95Ms": 0.0013,
+        "restoreP50Ms": 77.3323,
+        "restoreP95Ms": 102.5253
+      }
+    }
+  },
+  "browser": {
+    "normal": {
+      "baseline": {
+        "coldP95Ms": 177.7,
+        "hotP95Ms": 30.8,
+        "drawP95Ms": 1.7,
+        "maxBudgetedCallbackMs": 3.1,
+        "pooledResponseP50Ms": 29.8,
+        "pooledResponseP95Ms": 30.6,
+        "syncP95Ms": 0.6,
+        "scenarios": [
+          {
+            "id": "single-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 30.6,
+            "syncP95Ms": 0.6,
+            "drawP95Ms": 1.4
+          },
+          {
+            "id": "three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 30.6,
+            "syncP95Ms": 0.6,
+            "drawP95Ms": 1.7
+          },
+          {
+            "id": "single-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 30.8,
+            "syncP95Ms": 0.6,
+            "drawP95Ms": 1.5
+          }
+        ],
+        "checksPass": true
+      },
+      "optimized": {
+        "coldP95Ms": 369.1,
+        "hotP95Ms": 30.4,
+        "drawP95Ms": 1.9,
+        "maxBudgetedCallbackMs": 3.2,
+        "pooledResponseP50Ms": 29.8,
+        "pooledResponseP95Ms": 30.3,
+        "syncP95Ms": 0.3,
+        "syncWorstScenarioP95Ms": 0.4,
+        "scenarios": [
+          {
+            "id": "single-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 30.3,
+            "syncP95Ms": 0.4,
+            "drawP95Ms": 1.4
+          },
+          {
+            "id": "three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 30.1,
+            "syncP95Ms": 0.3,
+            "drawP95Ms": 1.9
+          },
+          {
+            "id": "single-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 30.4,
+            "syncP95Ms": 0.3,
+            "drawP95Ms": 1.6
+          }
+        ],
+        "checksPass": true
+      }
+    },
+    "confirmation": {
+      "baseline": {
+        "coldP95Ms": 204.6,
+        "hotP95Ms": 31.9,
+        "drawP95Ms": 1.9,
+        "maxBudgetedCallbackMs": 1.8,
+        "pooledResponseP50Ms": 29.8,
+        "pooledResponseP95Ms": 31.8,
+        "syncP95Ms": 0.6,
+        "scenarios": [
+          {
+            "id": "single-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 31.2,
+            "syncP95Ms": 0.6,
+            "drawP95Ms": 1.4
+          },
+          {
+            "id": "three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 31.8,
+            "syncP95Ms": 0.6,
+            "drawP95Ms": 1.9
+          },
+          {
+            "id": "single-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 31.9,
+            "syncP95Ms": 0.5,
+            "drawP95Ms": 1.4
+          }
+        ],
+        "checksPass": true
+      },
+      "optimized": {
+        "coldP95Ms": 178.9,
+        "hotP95Ms": 31.9,
+        "drawP95Ms": 2,
+        "maxBudgetedCallbackMs": 1.5,
+        "pooledResponseP50Ms": 29.9,
+        "pooledResponseP95Ms": 31.4,
+        "syncP95Ms": 0.3,
+        "scenarios": [
+          {
+            "id": "single-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 31.9,
+            "syncP95Ms": 0.3,
+            "drawP95Ms": 1.5
+          },
+          {
+            "id": "three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 31.2,
+            "syncP95Ms": 0.3,
+            "drawP95Ms": 2
+          },
+          {
+            "id": "single-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 31.4,
+            "syncP95Ms": 0.3,
+            "drawP95Ms": 1.5
+          }
+        ],
+        "checksPass": true
+      }
+    },
+    "stress": {
+      "workload": "1200 late bars, 1000 real round trips, 16 resting limits, one open contract, three 5m panes; TA off then on on successive bars",
+      "baseline": {
+        "setupTotalMs": 51205.8148,
+        "storeSetupMs": 50452,
+        "responsePooledP95Ms": 58.2,
+        "syncPooledP95Ms": 45.5,
+        "scenarios": [
+          {
+            "id": "late-three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 54.3,
+            "syncP95Ms": 45.5,
+            "drawP95Ms": 0.7
+          },
+          {
+            "id": "late-three-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 59.3,
+            "syncP95Ms": 45.5,
+            "drawP95Ms": 0.8
+          }
+        ],
+        "flushMs": 14.3,
+        "flushTotalMs": 59,
+        "restoreDrawCallbackMs": 144.2,
+        "coldP95Ms": 189,
+        "budgeted": false,
+        "assertionsPass": true
+      },
+      "optimized": {
+        "setupTotalMs": 900.8865,
+        "storeSetupMs": 284.1,
+        "responsePooledP95Ms": 31.1,
+        "syncPooledP95Ms": 0.5,
+        "scenarios": [
+          {
+            "id": "late-three-pane-ta-off",
+            "samples": 30,
+            "responseP95Ms": 31.3,
+            "syncP95Ms": 0.5,
+            "drawP95Ms": 1.2
+          },
+          {
+            "id": "late-three-pane-ta-on",
+            "samples": 30,
+            "responseP95Ms": 30.9,
+            "syncP95Ms": 0.5,
+            "drawP95Ms": 1.2
+          }
+        ],
+        "flushMs": 12.9,
+        "flushTotalMs": 13.4,
+        "restoreDrawCallbackMs": 127.5,
+        "coldP95Ms": 167.8,
+        "budgeted": false,
+        "assertionsPass": true
+      }
+    }
+  },
+  "budgets": {
+    "hotP95Ms": 50,
+    "chartCallbackCpuMs": 16.7,
+    "coldP95Ms": 1500,
+    "result": "pass",
+    "scope": "normal scenarios and toolbar transitions, not the exploratory stress workload"
+  },
+  "artifacts": {
+    "computeBaseline": "docs/perf/terminal-optimization-raw/terminal-compute-baseline-serial.json.gz",
+    "computeStressBaseline": "docs/perf/terminal-optimization-raw/terminal-compute-stress-baseline-serial.json.gz",
+    "computeOptimized": "docs/perf/terminal-optimization-raw/terminal-compute-final-serial.json.gz",
+    "computeStressOptimized": "docs/perf/terminal-optimization-raw/terminal-compute-stress-final-serial.json.gz",
+    "computeScaleOptimized": "docs/perf/terminal-optimization-raw/terminal-compute-scale-final-serial.json.gz",
+    "browserBaseline": "docs/perf/terminal-optimization-raw/terminal-ui-baseline-verified.json.gz",
+    "browserOptimized": "docs/perf/terminal-optimization-raw/terminal-ui-verified.json.gz",
+    "browserStressBaseline": "docs/perf/terminal-optimization-raw/terminal-ui-stress-baseline-verified.json.gz",
+    "browserStressOptimized": "docs/perf/terminal-optimization-raw/terminal-ui-stress-verified.json.gz",
+    "browserBaselineConfirmation": "docs/perf/terminal-optimization-raw/terminal-ui-baseline-confirmation.json.gz",
+    "browserOptimizedConfirmation": "docs/perf/terminal-optimization-raw/terminal-ui-verified2.json.gz"
+  },
+  "limitations": [
+    "DOM click to next RAF after matching draw callbacks, not physical input or compositor paint. Typed copies do not imply the whole UI is hundreds of times faster.",
+    "Cold open uses fresh contexts but warm OS/disk caches. First optimized run P95 369.1ms versus baseline 177.7ms; confirmation 178.9ms versus 204.6ms; stress run 167.8ms versus 189.0ms. No cold-start improvement claimed; retain all runs.",
+    "Run order was optimized normal, baseline normal, baseline stress, optimized stress, serial compute probes, baseline confirmation, optimized confirmation. No randomization or statistical significance claimed.",
+    "Synchronous handler CPU excludes Vue microtasks and IndexedDB completion. Flush includes deferred export and awaited commit; restore ends at a draw callback, not paint.",
+    "Heap uses CDP without forced GC and is not a leak verdict; no network/device/hosted SLA claims."
+  ]
+}

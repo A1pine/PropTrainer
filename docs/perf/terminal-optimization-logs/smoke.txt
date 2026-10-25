@@ -1,0 +1,21 @@
+$ bun scripts/smoke.mjs
+ok   lobby renders
+ok   trainer: symbol is masked
+ok   trainer: contract symbol is hidden
+ok   trainer: exchange is hidden
+ok   trainer: thesis is optional
+ok   trainer: plan step
+ok   trainer: live step
+ok   trainer: symbol stays hidden while live
+ok   trainer: review
+ok   drill: graded result
+ok   daily: result unlocked
+ok   daily: reference board
+ok   analysis: confluence report
+ok   analysis: wasm core active
+ok   analysis: ICT panel
+ok   settings: dark theme applied
+ok   settings: reduced motion applied
+ok   settings: reduced motion keeps the page mounted
+
+Smoke test passed with no console errors.

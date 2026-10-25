@@ -1,0 +1,5 @@
+$ bun scripts/check-wasm-load.mjs
+ok   trainer starts and advances a bar while the WASM download is held
+ok   idle warm-up requested one core; releasing the download
+ok   analysis has a real report and reuses the core across navigation
+ok   direct analysis retains its SSR preload and fetches the core once

@@ -1,0 +1,13 @@
+$ vitest run
+
+ RUN  v5.0.5 /Users/tanxuning/Learning/prop_trainer
+
+
+ Test Files  43 passed (43)
+      Tests  866 passed (866)
+   Start at  17:02:47
+   Duration  1.47s (tests 39%, import 29%, environment 21%, transform 7%, setup 2%, worker 2%)
+
+    Isolate  43 workers spawned · ~133ms startup each (spawn + environment, per file)
+             at least ~276ms faster with isolate: false — reuses workers across files instead of one per file
+
