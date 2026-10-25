@@ -33,7 +33,8 @@
     "bench:terminal:compute": "bun scripts/bench-terminal-compute.ts",
     "check:analysis": "bun scripts/check-analysis.mjs",
     "check:terminal": "bun scripts/check-terminal.mjs",
-    "check:accounts": "bun scripts/check-accounts.mjs"
+    "check:accounts": "bun scripts/check-accounts.mjs",
+    "check:learning": "bun scripts/check-learning.mjs"
   },
   "dependencies": {
     "@lucide/vue": "^1.59.0",

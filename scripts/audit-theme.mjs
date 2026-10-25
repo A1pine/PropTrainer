@@ -10,7 +10,15 @@ import { chromium } from 'playwright'
  *   bun run audit:theme
  */
 const base = process.env.BASE_URL ?? 'http://localhost:3000'
-const routes = ['/', '/trainer', '/terminal', '/analysis', '/settings']
+const routes = [
+  '/',
+  '/trainer',
+  '/terminal',
+  '/analysis',
+  '/learn',
+  '/learn/ict-2022-concept/workspace-guide',
+  '/settings',
+]
 const browser = await chromium.launch({ channel: 'chrome' })
 
 const failures = []
