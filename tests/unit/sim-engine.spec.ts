@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { instruments } from '~/domain/instruments/catalog'
 import type { InstrumentSpec } from '~/domain/instruments/types'
 import { SimEngine } from '~/domain/sim/engine'
@@ -552,6 +552,31 @@ describe('explicit session accounting and persistence', () => {
     expect(copy.exportState()).toEqual(engine.exportState())
   })
 
+  it('keeps flat ledger rows and order fields caller-owned after spread copies', () => {
+    const engine = setup()
+    send(engine, { bracket: { stopLoss: 95, targets: [{ price: 105, qty: 1 }] } })
+    engine.onBar(bar(1, 100, 104, 99, 103))
+    engine.flatten(SPEC.symbol)
+    const expected = engine.exportState()
+
+    const snapshot = engine.snapshot()
+    snapshot.fills[0]!.price = 1
+    snapshot.trades[0]!.pnl = 1
+    snapshot.orders[0]!.qty = 99
+    snapshot.orders[0]!.tag = 'mutated'
+    snapshot.events[0]!.message = 'mutated'
+
+    const state = engine.exportState()
+    state.fills[0]!.qty = 99
+    state.trades[0]!.exitPrice = 1
+    state.orders[0]!.limitPrice = 1
+    state.events[0]!.message = 'mutated'
+
+    expect(engine.exportState()).toEqual(expected)
+    expect(state.fills[0]!.price).toBe(expected.fills[0]!.price)
+    expect(state.orders[0]!.qty).toBe(expected.orders[0]!.qty)
+  })
+
   it('books scheduled close fees to the prior ledger before EOD trailing, preserves GTC and is idempotent', () => {
     const engine = setup({
       drawdown: { mode: 'trailing-eod', amount: 100, basis: 'balance', floorCap: null, includeUnrealized: true },
@@ -657,5 +682,39 @@ describe('explicit session accounting and persistence', () => {
     const state = engine.exportState()
     corrupt(state)
     expect(() => SimEngine.fromState(state, [SPEC])).toThrow()
+  })
+})
+
+describe('snapshot copy isolation', () => {
+  it('advances without building a snapshot', () => {
+    const engine = setup()
+    const spy = vi.spyOn(engine, 'snapshot')
+
+    engine.advance(bar(1, 100, 101, 99, 100))
+
+    expect(spy).not.toHaveBeenCalled()
+    expect(engine.currentBar).toBe(1)
+  })
+
+  it('returns flat rows that callers can mutate without reaching engine state', () => {
+    const engine = setup()
+    send(engine, {
+      bracket: { stopLoss: 98, targets: [{ price: 104, qty: 1 }] },
+    })
+    engine.onBar(bar(1, 100, 105, 95, 104))
+    const snapshot = engine.snapshot()
+    const fillId = snapshot.fills[0]!.id
+    const tradeId = snapshot.trades[0]!.id
+
+    snapshot.fills[0]!.price = 999
+    snapshot.trades[0]!.pnl = 999
+    snapshot.events.push({ ...snapshot.events[0]!, message: 'mutated' })
+    snapshot.orders[0]!.qty = 99
+
+    const fresh = engine.snapshot()
+    expect(fresh.fills.find((fill) => fill.id === fillId)?.price).not.toBe(999)
+    expect(fresh.trades.find((trade) => trade.id === tradeId)?.pnl).not.toBe(999)
+    expect(fresh.events.some((event) => event.message === 'mutated')).toBe(false)
+    expect(fresh.orders[0]!.qty).not.toBe(99)
   })
 })

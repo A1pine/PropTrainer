@@ -159,6 +159,13 @@ export class RiskEngine {
   get floor(): number {
     return this.data.floor
   }
+  /** Scalar reads for the engine's hot path; unlike `state`, these do not clone the ledger. */
+  get startBalance(): number {
+    return this.data.startBalance
+  }
+  get dayStartEquity(): number {
+    return this.data.dayStartEquity
+  }
   get day(): SimDayLedger {
     return {
       ...(this.data.days.find((day) => day.key === this.data.currentDay) ?? {

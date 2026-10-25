@@ -99,13 +99,13 @@ describe('ReplaySession clock and revealed marks', () => {
     const initialCursor = replay.cursor
     const mesMark = replay.engine.mark('MES')!
     const orderId = submit(replay, { side: 'long', type: 'limit', qty: 1, limitPrice: mesMark.price + 10 }, 'MES')
-    const onBar = vi.spyOn(replay.engine, 'onBar')
+    const advance = vi.spyOn(replay.engine, 'advance')
 
     replay.step()
 
     expect(replay.cursor).toBe(initialCursor + 1)
     expect(replay.time).toBe(OPEN + 261 * REPLAY_BASE_SECONDS)
-    expect(onBar).toHaveBeenCalledExactlyOnceWith({
+    expect(advance).toHaveBeenCalledExactlyOnceWith({
       symbol: 'MNQ',
       candle: replay.market.tapes[1]!.candles[260],
       index: 260,
@@ -115,13 +115,13 @@ describe('ReplaySession clock and revealed marks', () => {
     expect(replay.engine.snapshot().orders.find((order) => order.id === orderId)?.status).toBe('working')
     expect(replay.engine.snapshot().fills).toEqual([])
 
-    onBar.mockClear()
+    advance.mockClear()
     replay.step()
 
     expect(replay.cursor).toBe(initialCursor + 2)
     expect(replay.time).toBe(OPEN + 262 * REPLAY_BASE_SECONDS)
     expect(
-      onBar.mock.calls.map(([context]) => ({
+      advance.mock.calls.map(([context]) => ({
         symbol: context.symbol,
         index: context.index,
         time: context.candle.time,
@@ -295,7 +295,7 @@ describe('ReplaySession session boundaries and exhaustion', () => {
   it('clamps at tape exhaustion, marks ended, and does not invent a session close mid-session', () => {
     const replay = session(run([tape('MNQ', 300)], 298))
     submit(replay, { side: 'long', type: 'market', qty: 1 })
-    const onBar = vi.spyOn(replay.engine, 'onBar')
+    const advance = vi.spyOn(replay.engine, 'advance')
     const closeSession = vi.spyOn(replay.engine, 'closeSession')
     expect(replay.ended).toBe(false)
 
@@ -304,7 +304,7 @@ describe('ReplaySession session boundaries and exhaustion', () => {
     expect(replay.cursor).toBe(replay.market.timeline.length)
     expect(replay.time).toBe(replay.market.timeline.at(-1))
     expect(replay.ended).toBe(true)
-    expect(onBar).toHaveBeenCalledTimes(1)
+    expect(advance).toHaveBeenCalledTimes(1)
     expect(closeSession).not.toHaveBeenCalled()
     expect(replay.engine.position('MNQ')).not.toBeNull()
     const checkpoint = replay.checkpoint()
@@ -313,7 +313,7 @@ describe('ReplaySession session boundaries and exhaustion', () => {
       replay.step(count)
       expect(replay.checkpoint()).toEqual(checkpoint)
     }
-    expect(onBar).toHaveBeenCalledTimes(1)
+    expect(advance).toHaveBeenCalledTimes(1)
   })
 })
 

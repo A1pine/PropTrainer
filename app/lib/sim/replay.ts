@@ -115,7 +115,7 @@ export class ReplaySession {
       for (const tape of this.market.tapes) {
         const index = revealedCount(tape.candles, time) - 1
         const candle = tape.candles[index]
-        if (candle?.time === time) this.engine.onBar({ symbol: tape.symbol, candle, index })
+        if (candle?.time === time) this.engine.advance({ symbol: tape.symbol, candle, index })
       }
       this._cursor += 1
       if (time + REPLAY_BASE_SECONDS >= sessionClose(tradingDayKey(time))) {

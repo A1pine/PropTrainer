@@ -1,6 +1,7 @@
 import { assertValidInstrument, type InstrumentSpec } from '~/domain/instruments/types'
 import type { Candle } from '~/domain/market/types'
 import { cloneTemplate } from './presets'
+import { copyOrders, copyRows } from './copy'
 import { RiskEngine, validateTemplate } from './risk'
 import { isMarketOpen, parseDayKey, sessionClose, tradingDayKey } from './session'
 import type {
@@ -87,6 +88,8 @@ export class SimEngine {
   private time: number
   private positions = new Map<string, SimPosition>()
   private orders = new Map<string, SimOrder>()
+  // Matching only needs orders that can still trade; history stays in `orders`.
+  private readonly liveOrders = new Map<string, SimOrder>()
   private marks = new Map<string, SimMark>()
   private fills: SimFill[] = []
   private trades: SimTrade[] = []
@@ -162,7 +165,12 @@ export class SimEngine {
     this.risk.prime(this.time)
   }
 
-  onBar(context: SimBarContext): SimSnapshot {
+  /**
+   * Apply one revealed bar without materializing a UI snapshot. Replay owns the
+   * clock and reads the snapshot once per shared step, so building one for every
+   * instrument here would deep-clone the whole ledger up to eight times a step.
+   */
+  advance(context: SimBarContext): void {
     this.validateContext(context)
     const { symbol, candle, index } = context
     const previous = this.marks.get(symbol)
@@ -171,7 +179,7 @@ export class SimEngine {
     this.time = candle.time
     this.bar = index
     this.halted = false
-    this.logRisk(this.risk.roll(this.time, this.account().equity))
+    this.logRisk(this.risk.roll(this.time, this.equity()))
     this.expireOrders(this.time)
     const path =
       candle.close >= candle.open
@@ -196,6 +204,11 @@ export class SimEngine {
     this.marks.set(symbol, { price: candle.close, time: this.time, bar: index })
     // A terminal transition has already liquidated at its live crossing price.
     this.evaluateRisk()
+  }
+
+  /** Public snapshot-returning entry point retained for callers and tests. */
+  onBar(context: SimBarContext): SimSnapshot {
+    this.advance(context)
     return this.snapshot()
   }
 
@@ -221,6 +234,7 @@ export class SimEngine {
         assert(!error, error ?? '')
       }
       this.orders.set(order.id, order)
+      this.track(order)
       this.counters.order += 1
       this.event('submitted', `${order.side} ${order.qty} ${order.type} ${symbol}`, symbol, order.id)
       if (order.type === 'market' && order.status === 'working') {
@@ -293,8 +307,8 @@ export class SimEngine {
   }
 
   cancelAll(symbol?: string): void {
-    for (const order of this.orders.values())
-      if (live(order) && (!symbol || order.symbol === symbol)) {
+    for (const order of [...this.liveOrders.values()])
+      if (!symbol || order.symbol === symbol) {
         this.endOrder(order, 'cancelled', 'cancelled')
       }
   }
@@ -338,15 +352,16 @@ export class SimEngine {
     if (this.closedSessions.includes(key)) return this.snapshot()
     const late = this.time > time
     this.time = Math.max(this.time, time)
-    for (const order of this.orders.values())
+    for (const order of [...this.liveOrders.values()]) {
       if (live(order)) {
         const expired =
           (order.tif === 'gtd' && order.expiresAt! <= time) ||
           (order.tif === 'day' && sessionClose(tradingDayKey(order.createdTime)) <= time)
         if (expired) this.endOrder(order, 'expired', 'session-end')
       }
-    for (const order of this.orders.values())
-      if (live(order) && order.tif !== 'day' && order.releaseAt !== null && order.releaseAt <= time) {
+    }
+    for (const order of [...this.liveOrders.values()])
+      if (order.tif !== 'day' && order.releaseAt !== null && order.releaseAt <= time) {
         order.status = 'working'
         this.event('released', 'Order released at the session boundary', order.symbol, order.id)
       }
@@ -365,7 +380,8 @@ export class SimEngine {
     return this.snapshot()
   }
 
-  account(): SimAccount {
+  /** Mark-to-market valuation only; no order scan, ledger copy or reservation work. */
+  private valuation(): { unrealized: number; margin: number; contracts: number } {
     let unrealized = 0
     let margin = 0
     let contracts = 0
@@ -376,20 +392,38 @@ export class SimEngine {
       margin += position.qty * spec.intradayMargin
       contracts += position.qty
     }
-    const equity = money(this.balance + unrealized)
-    const pending = this.reservations()
-    const state = this.risk.state
+    return { unrealized, margin, contracts }
+  }
+
+  private equity(): number {
+    return money(this.balance + this.valuation().unrealized)
+  }
+
+  /** The subset of account state risk needs at every path level. */
+  private riskView(): { equity: number; unrealized: number; openContracts: number } {
+    const value = this.valuation()
     return {
-      startBalance: state.startBalance,
+      equity: money(this.balance + value.unrealized),
+      unrealized: money(value.unrealized),
+      openContracts: value.contracts,
+    }
+  }
+
+  account(): SimAccount {
+    const value = this.valuation()
+    const equity = money(this.balance + value.unrealized)
+    const pending = this.reservations()
+    return {
+      startBalance: this.risk.startBalance,
       balance: this.balance,
       equity,
-      realizedPnl: money(this.balance - state.startBalance),
-      unrealizedPnl: money(unrealized),
+      realizedPnl: money(this.balance - this.risk.startBalance),
+      unrealizedPnl: money(value.unrealized),
       fees: this.fees,
-      dayPnl: money(equity - state.dayStartEquity),
-      openContracts: contracts,
-      marginUsed: money(margin),
-      buyingPower: money(Math.max(0, equity - margin - pending.margin - pending.fees)),
+      dayPnl: money(equity - this.risk.dayStartEquity),
+      openContracts: value.contracts,
+      marginUsed: money(value.margin),
+      buyingPower: money(Math.max(0, equity - value.margin - pending.margin - pending.fees)),
     }
   }
 
@@ -398,9 +432,9 @@ export class SimEngine {
     return {
       account,
       positions: clone([...this.positions.values()]),
-      orders: clone([...this.orders.values()]),
-      fills: clone(this.fills),
-      trades: clone(this.trades),
+      orders: copyOrders(this.orders.values()),
+      fills: copyRows(this.fills),
+      trades: copyRows(this.trades),
       risk: this.risk.state,
       ruleStatuses: this.risk.ruleStatuses(account.openContracts, account.marginUsed),
       consistency: this.risk.consistency(),
@@ -408,7 +442,7 @@ export class SimEngine {
       bar: this.bar,
       time: this.time,
       status: this.status,
-      events: clone(this.events),
+      events: copyRows(this.events),
     }
   }
 
@@ -424,11 +458,11 @@ export class SimEngine {
       time: this.time,
       risk: this.risk.state,
       positions: clone([...this.positions.values()]),
-      orders: clone([...this.orders.values()]),
+      orders: copyOrders(this.orders.values()),
       marks: clone(Object.fromEntries(this.marks)),
-      fills: clone(this.fills),
-      trades: clone(this.trades),
-      events: clone(this.events),
+      fills: copyRows(this.fills),
+      trades: copyRows(this.trades),
+      events: copyRows(this.events),
       counters: { ...this.counters },
       closedSessions: [...this.closedSessions],
     }
@@ -613,12 +647,17 @@ export class SimEngine {
     }
   }
 
+  private track(order: SimOrder): void {
+    if (live(order)) this.liveOrders.set(order.id, order)
+    else this.liveOrders.delete(order.id)
+  }
+
   private reservations(exclude?: string): { qty: number; margin: number; fees: number } {
     let qty = 0,
       margin = 0,
       fees = 0
-    for (const order of this.orders.values())
-      if (live(order) && !order.reduceOnly && order.id !== exclude) {
+    for (const order of this.liveOrders.values())
+      if (!order.reduceOnly && order.id !== exclude) {
         const spec = this.instruments.get(order.symbol)!
         qty += order.qty
         margin += order.qty * spec.intradayMargin
@@ -651,7 +690,7 @@ export class SimEngine {
     this.advanceProtection(symbol, price)
     if (this.evaluateRisk()) return
     for (;;) {
-      const eligible = [...this.orders.values()].filter(
+      const eligible = [...this.liveOrders.values()].filter(
         (order) =>
           order.symbol === symbol &&
           order.status === 'working' &&
@@ -692,7 +731,7 @@ export class SimEngine {
   }
 
   private orderLevels(symbol: string): number[] {
-    return [...this.orders.values()]
+    return [...this.liveOrders.values()]
       .filter(
         (order) =>
           order.symbol === symbol &&
@@ -726,6 +765,7 @@ export class SimEngine {
     // Retire the executing leg BEFORE resizing siblings; a filled target must
     // never consume the remaining allocation a second time.
     order.status = 'filled'
+    this.liveOrders.delete(order.id)
     order.filledQty = qty
     order.filledPrice = price
     order.filledBar = this.marks.get(order.symbol)!.bar
@@ -862,7 +902,7 @@ export class SimEngine {
       role,
       reason,
     })
-    this.risk.recordFill(this.time, cashDelta, this.account().equity, complete, dayKey)
+    this.risk.recordFill(this.time, cashDelta, this.equity(), complete, dayKey)
   }
 
   private forceClose(position: SimPosition, reason: SimExitReason, dayKey?: string): void {
@@ -918,13 +958,14 @@ export class SimEngine {
     this.counters.order += 1
     Object.assign(order, { role, parentId: position.id, ocoId: position.id })
     this.orders.set(order.id, order)
+    this.track(order)
     return order
   }
 
   private syncExits(symbol: string): void {
     const position = this.positions.get(symbol)
-    for (const order of this.orders.values())
-      if (live(order) && order.symbol === symbol && order.reduceOnly) {
+    for (const order of [...this.liveOrders.values()])
+      if (order.symbol === symbol && order.reduceOnly) {
         if (!position || position.side === order.side) this.endOrder(order, 'cancelled', 'Position closed')
         else order.qty = order.role === 'stop' ? position.qty : Math.min(order.qty, position.qty)
       }
@@ -946,14 +987,12 @@ export class SimEngine {
   }
 
   private stopFor(position: SimPosition): SimOrder | undefined {
-    return [...this.orders.values()].find(
-      (order) => live(order) && order.parentId === position.id && order.role === 'stop',
-    )
+    return [...this.liveOrders.values()].find((order) => order.parentId === position.id && order.role === 'stop')
   }
 
   private advanceProtection(symbol: string, price: number): void {
     const spec = this.instruments.get(symbol)!
-    for (const order of this.orders.values())
+    for (const order of this.liveOrders.values())
       if (order.symbol === symbol && order.status === 'working' && trailing(order) && !order.triggered) {
         const anchor = order.side === 'long' ? Math.min(order.trailAnchor!, price) : Math.max(order.trailAnchor!, price)
         order.trailAnchor = anchor
@@ -995,15 +1034,15 @@ export class SimEngine {
   private evaluateRisk(dayKey?: string): boolean {
     let transition = false
     for (;;) {
-      const account = this.account()
+      const view = this.riskView()
       const events = this.risk.update(
         {
-          equity: account.equity,
+          equity: view.equity,
           balance: this.balance,
-          unrealized: account.unrealizedPnl,
+          unrealized: view.unrealized,
           time: this.time,
           bar: this.bar,
-          openContracts: account.openContracts,
+          openContracts: view.openContracts,
         },
         dayKey,
       )
@@ -1025,7 +1064,7 @@ export class SimEngine {
     if (!position) return []
     const price = this.marks.get(symbol)!.price
     const slope = position.qty * this.instruments.get(symbol)!.pointValue * sign(position.side)
-    const equity = this.account().equity
+    const equity = this.equity()
     return this.risk
       .equityThresholds()
       .map((threshold) => price + (threshold - equity) / slope)
@@ -1037,7 +1076,7 @@ export class SimEngine {
   }
 
   private expireOrders(time: number): void {
-    for (const order of this.orders.values())
+    for (const order of [...this.liveOrders.values()]) {
       if (live(order)) {
         const expired =
           (order.tif === 'gtd' && order.expiresAt! <= time) ||
@@ -1048,6 +1087,7 @@ export class SimEngine {
           this.event('released', 'Order released', order.symbol, order.id)
         }
       }
+    }
   }
 
   private removeLeg(order: SimOrder): void {
@@ -1060,6 +1100,7 @@ export class SimEngine {
   private endOrder(order: SimOrder, status: 'cancelled' | 'expired' | 'rejected', reason: string): void {
     if (!live(order)) return
     order.status = status
+    this.liveOrders.delete(order.id)
     order.reason = reason
     order.cancelledBar = this.marks.get(order.symbol)?.bar ?? this.bar
     this.removeLeg(order)
@@ -1186,6 +1227,7 @@ export class SimEngine {
           'Invalid protective order',
         )
       this.orders.set(order.id, clone(order))
+      this.track(this.orders.get(order.id)!)
     }
     const positionIds = new Set<string>()
     for (const position of state.positions) {
