@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { cpus, platform, arch, release, totalmem } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { performance } from 'node:perf_hooks'
 import { chromium } from 'playwright'
+import { captureEvidence, verifyEvidence } from './perf-evidence.mjs'
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const BASE_URL = (process.env.BASE_URL ?? 'http://127.0.0.1:4173').replace(/\/+$/, '')
@@ -29,6 +31,18 @@ const COLD_SAMPLES = intEnv('PERF_COLD_SAMPLES', intEnv('COLD_SAMPLES', 30))
 const READY_TIMEOUT = intEnv('PERF_READY_TIMEOUT', 30_000, 1000)
 const SAMPLE_TIMEOUT = intEnv('PERF_SAMPLE_TIMEOUT', 10_000, 1000)
 const IDLE_TIMEOUT = intEnv('PERF_IDLE_TIMEOUT', 5_000, 1000)
+const SEED = process.env.PERF_SEED ?? 'terminal-bench-v1'
+assert.ok(SEED.length > 0, 'PERF_SEED must not be empty')
+const seedHash = createHash('sha256').update(SEED).digest('hex')
+const UUID_PREFIX = `${seedHash.slice(0, 8)}-${seedHash.slice(8, 12)}-4${seedHash.slice(12, 15)}-8${seedHash.slice(15, 18)}`
+const STRESS = process.env.PERF_STRESS === '1'
+const HISTORY_TRADES = intEnv('PERF_HISTORY_TRADES', 1000, 1000)
+const WORKING_ORDERS = intEnv('PERF_WORKING_ORDERS', 16, 16)
+const LATE_CURSOR = intEnv('PERF_LATE_CURSOR', 1200, 1200)
+// TA-off and TA-on each take one warmup plus SAMPLES steps, then a flush
+// step. Verify a successor for every landed bar to avoid session liquidation.
+const STRESS_RESERVED_STEPS = 2 * (SAMPLES + 1) + 1
+const STRESS_TAIL_BARS = 3 * SAMPLES
 const HEADLESS = process.env.HEADLESS !== '0'
 const OUTPUT = resolve(ROOT, process.env.PERF_OUTPUT ?? 'profile_output/terminal-ui.json')
 const SELECTORS = {
@@ -127,6 +141,37 @@ const report = {
     selectors: SELECTORS,
     settings: { ...SETTINGS },
     budgets: BUDGETS,
+    deterministic: {
+      seed: SEED,
+      uuidPrefix: UUID_PREFIX,
+      algorithm:
+        'SHA-256(seed) UUID prefix plus a monotonically increasing 48-bit sequence; sessionStorage cursor survives reload',
+      scope: 'crypto.randomUUID overridden before app code in each fresh context; all contexts start the same sequence',
+      excludes:
+        'wall-clock timestamps, browser scheduling, GC timing, and engine or instrument accounting are not overridden',
+    },
+    stress: {
+      enabled: STRESS,
+      historyTrades: HISTORY_TRADES,
+      workingOrders: WORKING_ORDERS,
+      lateCursor: LATE_CURSOR,
+      reservedSteps: STRESS_RESERVED_STEPS,
+      minimumWarmupBars: 260,
+      minimumTailBars: STRESS_TAIL_BARS,
+      sampleScenarios: ['late-three-pane-ta-off', 'late-three-pane-ta-on'],
+      restoreChecks: [
+        'run id, template id, cursor, replay/engine clock, and storage status',
+        'all account fields including balances, P&L, fees, contracts, margin, and buying power',
+        'order, working-order, fill, and closed-trade counts',
+        'open position symbol, side, and quantity',
+        'three persisted 5m panes and one active pane',
+        'chart analysis reset after reload (TA is component-local, not persisted)',
+        'every pane canvas drew the restored cursor',
+      ],
+      workload: `actual terminal.newAttempt({ template: practiceClone, reuseTapes: true }); ${HISTORY_TRADES} market submit/flatten round trips at five per bar through store.submit and store.flatten; ${WORKING_ORDERS} resting GTC limit orders placed 6%+ away from the mark; one open market contract`,
+      lateCursorMeaning: 'minimum bars advanced after the initial >=260-bar warmup',
+      budgeted: false,
+    },
   },
   boundaries: {
     coldStart: 'page performance time origin (navigation start)',
@@ -167,12 +212,39 @@ const report = {
   hot: [],
   controls: [],
   longTasks: [],
+  stress: STRESS
+    ? {
+        setup: null,
+        hot: [],
+        flush: null,
+        restore: null,
+        heap: { samples: [], deltas: null },
+        longTasks: [],
+        assertions: null,
+        note: null,
+        budgeted: false,
+        boundaries: {
+          hot: 'same DOM-click, synchronous-handler, chart RAF callback CPU, and next-RAF coverage boundaries as the default scenarios; storageStatus === "saved" is awaited between samples, not included as an end condition. Checkpoint CPU may still overlap a response window; a separate step+flush measures persistence completion',
+          history:
+            'every closed trade and resting order is created through the real store engine in a pinned practice attempt; this exposes actual history-dependent snapshot and checkpoint costs without assuming a specific clone implementation',
+          setup:
+            'separate wall time for actual store actions, initial checkpoint, layout and TA setup; not part of hot/restore budgets',
+          flush:
+            'real toolbar step capture -> awaited terminal.flush() in the same evaluate task; separate from hot RAF latency; includes queued IndexedDB work but not a rewrite of immutable tapes',
+          restore:
+            'new document performance time origin -> RAF poll observing ready store, expected cursor/run ID, restored pane count, and every pane canvas drawn at that cursor; not DOMContentLoaded; TA is expected off after reload',
+          heap: 'CDP Runtime.getHeapUsage at phase boundaries; no explicit GC; observed JS heap can include garbage and instrumentation, excludes full browser/process memory and is not a leak verdict',
+        },
+      }
+    : null,
   checks: null,
   finishedAt: null,
   durationMs: null,
 }
 
 let browser = null
+let productionTree = false
+let evidenceBefore = null
 const started = performance.now()
 
 function attachErrors(page) {
@@ -221,6 +293,34 @@ async function openContext() {
     locale: 'en-US',
   })
   await addSyntheticSettings(context)
+  await context.addInitScript(
+    ({ prefix, hash }) => {
+      const key = `propdesk.bench.uuid-sequence:${hash}`
+      // Every fresh context starts the same sequence; reloads continue their
+      // tab-local sequence without changing engine accounting/event IDs.
+      let sequence = 0
+      try {
+        const saved = Number(sessionStorage.getItem(key))
+        if (Number.isSafeInteger(saved) && saved >= 0) sequence = saved
+      } catch {
+        // about:blank and opaque origins have no storage.
+      }
+      Object.defineProperty(crypto, 'randomUUID', {
+        configurable: true,
+        value: () => {
+          sequence += 1
+          if (sequence > 0xffffffffffff) throw new Error('Benchmark UUID sequence exhausted')
+          try {
+            sessionStorage.setItem(key, String(sequence))
+          } catch {
+            // The current document still has a deterministic, collision-free sequence.
+          }
+          return `${prefix}-${sequence.toString(16).padStart(12, '0')}`
+        },
+      })
+    },
+    { prefix: UUID_PREFIX, hash: seedHash },
+  )
   await context.addInitScript(() => {
     const bench = (window.__bench = {
       createdAt: performance.now(),
@@ -241,7 +341,25 @@ async function openContext() {
       analysisReadyAt: null,
       idleProbeLastDraw: undefined,
       idleProbeFrames: 0,
+      navigation: { createdAt: performance.now(), domContentLoadedAt: null },
+      restore: null,
     })
+
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener(
+          'DOMContentLoaded',
+          () => {
+            bench.navigation.domContentLoadedAt = performance.now()
+          },
+          { once: true },
+        )
+      } else {
+        bench.navigation.domContentLoadedAt = performance.now()
+      }
+    } catch {
+      // Navigation timing is evidence, not a requirement.
+    }
 
     const token = (canvas) => {
       let value = bench.canvasToken.get(canvas)
@@ -281,6 +399,9 @@ async function openContext() {
         playing: !!store?.playing,
         ended: !!store?.ended,
         cursor: store?.cursor ?? null,
+        time: store?.replayTime ?? null,
+        engineTime: store?.snapshot?.time ?? null,
+        symbol: store?.symbol ?? null,
         timeframe: store?.timeframe ?? null,
         source: store?.source ?? null,
         paneCount: panes.length,
@@ -291,12 +412,42 @@ async function openContext() {
             ?.getAttribute('aria-pressed') === 'true',
         analysisStatus:
           document.querySelector('[data-pane][data-active="true"] [data-status]')?.getAttribute('data-status') ?? null,
+        paneAnalysis: panes.map((pane) => ({
+          active: pane.getAttribute('data-active') === 'true',
+          symbol: pane.getAttribute('data-symbol'),
+          analysisEnabled:
+            pane.querySelector('[data-testid="analysis-toggle"]')?.getAttribute('aria-pressed') === 'true',
+          analysisStatus: pane.querySelector('[data-status]')?.getAttribute('data-status') ?? null,
+        })),
+        runId: store?.run?.id ?? null,
+        templateId: store?.templateId ?? null,
+        storageStatus: store?.storageStatus ?? null,
+        storageError: store?.storageError ?? null,
+        restoreBlocked: store?.restoreBlocked ?? false,
+        counts: store
+          ? {
+              orders: store.orders.length,
+              workingOrders: store.workingOrders.length,
+              fills: store.fills.length,
+              trades: store.trades.length,
+            }
+          : null,
+        position: store?.position
+          ? { symbol: store.position.symbol, side: store.position.side, qty: store.position.qty }
+          : null,
         account: store?.account
           ? {
               startBalance: store.account.startBalance,
               balance: store.account.balance,
               equity: store.account.equity,
               status: store.account.status,
+              openContracts: store.account.openContracts,
+              marginUsed: store.account.marginUsed,
+              realizedPnl: store.account.realizedPnl,
+              unrealizedPnl: store.account.unrealizedPnl,
+              fees: store.account.fees,
+              dayPnl: store.account.dayPnl,
+              buyingPower: store.account.buyingPower,
             }
           : null,
         canvases: canvases.map((canvas) => {
@@ -315,6 +466,71 @@ async function openContext() {
           return entry
         }),
       }
+    }
+
+    // Restore evidence is armed only for the reload that follows a checkpoint
+    // flush, so cold-start and hot runs keep their original instrumentation.
+    const armRestoreWatcher = (expectation) => {
+      if (bench.restore) return
+      const watch = {
+        done: false,
+        error: null,
+        startedAt: performance.now(),
+        readyAt: null,
+        drawAt: null,
+        cursorAtDraw: null,
+        state: null,
+      }
+      bench.restore = watch
+      const probe = () => {
+        try {
+          const state = bench.snapshot(false)
+          const restored =
+            state.ready &&
+            !state.loading &&
+            !state.restoreBlocked &&
+            state.runId === expectation.runId &&
+            state.cursor === expectation.cursor &&
+            state.time === expectation.time &&
+            state.engineTime === expectation.engineTime &&
+            !!state.account
+          if (watch.readyAt == null && restored) watch.readyAt = performance.now()
+          const drawn =
+            restored &&
+            state.paneCount === expectation.paneCount &&
+            state.activePaneCount === 1 &&
+            state.symbol === expectation.symbol &&
+            state.canvases.length === expectation.canvasCount &&
+            state.canvases.length > 0 &&
+            state.paneAnalysis.every((pane, index) => pane.symbol === expectation.layout[index]?.symbol) &&
+            state.canvases.every(
+              (canvas) =>
+                canvas.width > 0 &&
+                canvas.height > 0 &&
+                canvas.lastDrawAt != null &&
+                canvas.lastDrawCursor === state.cursor,
+            )
+          if (watch.readyAt != null && drawn) {
+            watch.drawAt = performance.now()
+            watch.cursorAtDraw = state.cursor
+            watch.state = state
+            watch.done = true
+            return
+          }
+          requestAnimationFrame(probe)
+        } catch (error) {
+          watch.error = String(error)
+          watch.done = true
+        }
+      }
+      requestAnimationFrame(probe)
+    }
+
+    try {
+      const expected = sessionStorage.getItem('propdesk.bench.restore-expect')
+      if (expected) armRestoreWatcher(JSON.parse(expected))
+    } catch (error) {
+      bench.restore = { done: true, error: `cannot arm restore watcher: ${String(error)}` }
     }
 
     try {
@@ -730,6 +946,9 @@ async function measureStep(page, label, expectedCursor, expectedAnalysis = false
     timeframe: result.state.timeframe,
     analysisEnabled: result.state.analysisEnabled,
     analysisStatus: result.state.analysisStatus,
+    paneAnalysis: result.state.paneAnalysis,
+    counts: result.state.counts,
+    position: result.state.position,
     eventStart: result.event.start,
     presentedAt: result.presentedAt,
     frameIds: result.frameIds,
@@ -952,6 +1171,713 @@ async function runStepScenario(page, { id, description, setup, expectedTa, expec
   return scenario
 }
 
+async function waitPanesAtCursor(page, label) {
+  try {
+    await page.waitForFunction(
+      () => {
+        const state = window.__bench.snapshot(false)
+        if (!state.store || !state.ready || !state.canvases.length) return false
+        return state.canvases.every((canvas) => canvas.lastDrawAt != null && canvas.lastDrawCursor === state.cursor)
+      },
+      null,
+      { timeout: READY_TIMEOUT, polling: 'raf' },
+    )
+  } catch (error) {
+    throw new Error(`${label}: panes did not present the current cursor: ${error.message}`)
+  }
+}
+
+async function waitSaved(page, label) {
+  try {
+    await page.waitForFunction(
+      () => {
+        const store = window.__bench.readStore()
+        return !!store && store.storageStatus === 'saved'
+      },
+      null,
+      { timeout: SAMPLE_TIMEOUT, polling: 'raf' },
+    )
+  } catch (error) {
+    throw new Error(`${label}: checkpoint did not reach saved status: ${error.message}`)
+  }
+}
+
+async function readLayout(page) {
+  return page.evaluate(() => {
+    try {
+      return JSON.parse(localStorage.getItem('propdesk.terminal.layout.v1') ?? 'null')
+    } catch {
+      return null
+    }
+  })
+}
+
+async function activatePane(page, index) {
+  const pane = page.locator(`[data-pane="${index}"]`)
+  if ((await pane.getAttribute('data-active')) === 'true') return
+  await pane.locator('[data-testid="chart-tool-cursor"]').click({ timeout: SAMPLE_TIMEOUT })
+  await page.waitForFunction(
+    (target) => document.querySelector(`[data-pane="${target}"]`)?.getAttribute('data-active') === 'true',
+    index,
+    { timeout: SAMPLE_TIMEOUT, polling: 'raf' },
+  )
+}
+
+async function disableActiveAnalysis(page) {
+  const toggle = page.locator('[data-pane][data-active="true"] [data-testid="analysis-toggle"]')
+  if ((await toggle.count()) === 0) return false
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') return false
+  await toggle.click({ timeout: SAMPLE_TIMEOUT })
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[data-pane][data-active="true"] [data-testid="analysis-toggle"]')
+        ?.getAttribute('aria-pressed') === 'false',
+    null,
+    { timeout: SAMPLE_TIMEOUT, polling: 'raf' },
+  )
+  return true
+}
+
+// Only real store actions create history. Setup stays outside measured windows.
+async function prepareStressWorkload(page) {
+  const wallStart = performance.now()
+  const workload = await page.evaluate(
+    async ({ targetTrades, targetOrders, lateBars, reservedSteps, tailBars }) => {
+      const setupStart = performance.now()
+      const store = window.__bench.readStore()
+      if (!store) throw new Error('terminal Pinia store is not mounted')
+      if (!store.ready) throw new Error('terminal is not ready before the stress attempt')
+      if (store.playing) throw new Error('pause the replay before building the stress attempt')
+      const before = {
+        runId: store.run.id,
+        cursor: store.cursor,
+        templateId: store.templateId,
+        trades: store.trades.length,
+        startBalance: store.account.startBalance,
+        startIndex: store.run.startIndex,
+        totalBars: store.totalBars,
+      }
+      // Obtain the app's preset rather than fabricating accounting or snapshots.
+      await store.setTemplate('practice')
+      if (store.templateId !== 'practice') throw new Error('could not obtain the practice preset')
+      const presetRunId = store.run.id
+      const practice = JSON.parse(JSON.stringify(store.template))
+      await store.newAttempt({ template: practice, source: 'synthetic', reuseTapes: true })
+      if (!store.ready) throw new Error('practice attempt did not become ready')
+      if (store.templateId !== 'practice') throw new Error(`template is ${store.templateId}, expected practice`)
+      if (store.run.id === before.runId || store.run.id === presetRunId) {
+        throw new Error(`newAttempt did not create a fresh run: ${store.error ?? 'unchanged run id'}`)
+      }
+      if (store.storageStatus !== 'saved') throw new Error(`practice checkpoint not saved: ${store.storageError}`)
+      if (store.trades.length !== 0 || store.orders.length !== 0 || store.account.openContracts !== 0) {
+        throw new Error('practice attempt did not start empty and flat')
+      }
+      if (!store.run.tapes.every((tape) => tape.source === 'synthetic')) {
+        throw new Error('stress attempt must reuse only synthetic tapes')
+      }
+      const startCursor = store.cursor
+      if (startCursor < 260) throw new Error(`insufficient warmup: ${startCursor} bars`)
+      const timeline = [...new Set(store.run.tapes.flatMap((tape) => tape.candles.map((candle) => candle.time)))].sort(
+        (a, b) => a - b,
+      )
+      const minCursor = startCursor + lateBars
+      const lastUsable = Math.min(timeline.length - reservedSteps - 2, timeline.length - tailBars)
+      if (lastUsable < minCursor) {
+        throw new Error(
+          `synthetic tape too short: ${timeline.length} bars, start ${startCursor}, late ${lateBars}, reserved ${reservedSteps}`,
+        )
+      }
+      const perBar = 5
+      let roundTrips = 0
+      let steps = 0
+      let skipped = 0
+      while (roundTrips < targetTrades) {
+        if (store.ended) throw new Error('replay ended while generating stress history')
+        if (!store.canTrade) {
+          // The replay landed on a session-closing bar; the next bar reopens.
+          if (skipped >= 5) throw new Error('cannot trade for five consecutive history bars')
+          const cursorBefore = store.cursor
+          store.stepBars(1)
+          steps += 1
+          skipped += 1
+          if (store.cursor !== cursorBefore + 1) throw new Error('history skip did not advance one bar')
+          if (store.cursor > minCursor) throw new Error('history skip consumed the late window')
+          continue
+        }
+        skipped = 0
+        const entry = store.submit({ side: 'long', type: 'market', qty: 1, tif: 'gtc' })
+        if (!entry.ok) throw new Error(`stress entry rejected: ${entry.error}`)
+        const exit = store.flatten()
+        if (!exit.ok) throw new Error(`stress flatten rejected: ${exit.error}`)
+        roundTrips += 1
+        if (roundTrips % perBar === 0 && roundTrips < targetTrades) {
+          const cursorBefore = store.cursor
+          store.stepBars(1)
+          steps += 1
+          if (store.cursor !== cursorBefore + 1) throw new Error('history step did not advance one bar')
+          if (store.cursor > minCursor) throw new Error('history consumed the late window')
+        }
+      }
+      if (store.trades.length !== targetTrades) {
+        throw new Error(`history produced ${store.trades.length} trades, expected ${targetTrades}`)
+      }
+      if (!store.trades.every((trade) => trade.entryPrice === trade.exitPrice && trade.grossPnl === 0)) {
+        throw new Error('same-bar market/flatten history did not preserve zero gross P&L')
+      }
+      const expectedFees = Number((targetTrades * store.instrument.feePerContract).toFixed(2))
+      if (Math.abs(store.account.balance - (store.account.startBalance - expectedFees)) > 0.01) {
+        throw new Error('round-trip history balance does not match pinned instrument fees')
+      }
+      // Walk the late window until a run of bars is free of every session-close
+      // and data-gap boundary: a 15:55 bar would force-close the open position.
+      let target = null
+      for (let candidate = Math.max(store.cursor, minCursor); candidate <= lastUsable; candidate += 1) {
+        let contiguous = true
+        // The entry bar and every landing bar must be followed by another 5m
+        // bar: a session-closing bar (15:55) would force-close the open
+        // position when the replay steps onto it.
+        for (let index = candidate - 1; index <= candidate + reservedSteps; index += 1) {
+          if (timeline[index + 1] - timeline[index] !== 300) {
+            contiguous = false
+            break
+          }
+        }
+        if (contiguous) {
+          target = candidate
+          break
+        }
+      }
+      if (target == null) throw new Error('no session-contiguous late window fits the reserved steps')
+      if (target > store.cursor) {
+        store.stepBars(target - store.cursor)
+        steps += 1
+        if (store.cursor !== target) throw new Error(`late jump stopped at ${store.cursor}, expected ${target}`)
+      }
+      if (!store.canTrade) throw new Error('late window begins at a non-tradable bar')
+      const spec = store.instrument
+      const mark = store.mark
+      if (!spec || !mark) throw new Error('no instrument or mark at the stress cursor')
+      const tick = spec.tickSize
+      const precision = spec.pricePrecision
+      const roundTick = (price) => Number((Math.round(price / tick) * tick).toFixed(precision))
+      const baseDistance = Math.max(tick * 400, mark.price * 0.06)
+      const stepDistance = Math.max(tick * 200, mark.price * 0.02)
+      const restingOrders = []
+      for (let index = 0; index < targetOrders; index += 1) {
+        const side = index % 2 === 0 ? 'long' : 'short'
+        const level = Math.floor(index / 2) + 1
+        const distance = baseDistance + (level - 1) * stepDistance
+        const price = roundTick(side === 'long' ? mark.price - distance : mark.price + distance)
+        if (!Number.isFinite(price) || price <= 0) throw new Error(`resting order price is invalid: ${price}`)
+        const placed = store.submit({
+          side,
+          type: 'limit',
+          qty: 1,
+          limitPrice: price,
+          tif: 'gtc',
+        })
+        if (!placed.ok) throw new Error(`resting order ${index + 1} rejected: ${placed.error}`)
+        restingOrders.push({
+          side,
+          qty: 1,
+          price,
+          distanceFromMark: Number(Math.abs(price - mark.price).toFixed(precision)),
+        })
+      }
+      const entry = store.submit({ side: 'long', type: 'market', qty: 1, tif: 'gtc' })
+      if (!entry.ok) throw new Error(`open position rejected: ${entry.error}`)
+      if (store.workingOrders.length !== targetOrders) {
+        throw new Error(`expected ${targetOrders} working orders, found ${store.workingOrders.length}`)
+      }
+      if (!store.position || store.position.side !== 'long' || store.position.qty !== 1) {
+        throw new Error('stress workload did not leave one long contract open')
+      }
+      if (store.trades.length !== targetTrades) throw new Error('resting/entry orders changed the trade count')
+      if (store.orders.length !== targetTrades * 2 + targetOrders + 1) {
+        throw new Error('history/working/open order counts do not reconcile')
+      }
+      if (
+        !store.workingOrders.every((order) => order.type === 'limit' && order.status === 'working' && !order.reduceOnly)
+      ) {
+        throw new Error('resting limits are not all working entry orders')
+      }
+      const account = store.account
+      return {
+        setupMs: performance.now() - setupStart,
+        before,
+        runId: store.run.id,
+        seed: store.run.seed,
+        symbol: store.symbol,
+        templateId: store.templateId,
+        template: practice,
+        expectedHistoryFees: expectedFees,
+        startCursor,
+        cursor: store.cursor,
+        advancedBars: store.cursor - startCursor,
+        totalBars: store.totalBars,
+        remainingBars: store.totalBars - store.cursor,
+        window: { from: store.cursor, reservedSteps, contiguous: true },
+        roundTrips,
+        historySteps: steps,
+        commands: roundTrips * 2 + targetOrders + 1,
+        trades: store.trades.length,
+        orders: store.orders.length,
+        fills: store.fills.length,
+        workingOrders: store.workingOrders.length,
+        position: {
+          symbol: store.position.symbol,
+          side: store.position.side,
+          qty: store.position.qty,
+          avgPrice: store.position.avgPrice,
+        },
+        account: {
+          startBalance: account.startBalance,
+          balance: account.balance,
+          equity: account.equity,
+          openContracts: account.openContracts,
+          marginUsed: account.marginUsed,
+        },
+        mark: mark.price,
+        restingOrders,
+      }
+    },
+    {
+      targetTrades: HISTORY_TRADES,
+      targetOrders: WORKING_ORDERS,
+      lateBars: LATE_CURSOR,
+      reservedSteps: STRESS_RESERVED_STEPS,
+      tailBars: STRESS_TAIL_BARS,
+    },
+  )
+  assert.equal(workload.templateId, 'practice', 'stress workload did not pin the practice template')
+  assert.ok(
+    workload.advancedBars >= LATE_CURSOR,
+    `stress workload advanced ${workload.advancedBars} bars, need ${LATE_CURSOR}`,
+  )
+  assert.equal(workload.trades, HISTORY_TRADES, `stress workload produced ${workload.trades} trades`)
+  assert.equal(workload.roundTrips, HISTORY_TRADES, `stress workload ran ${workload.roundTrips} round trips`)
+  assert.equal(workload.workingOrders, WORKING_ORDERS, `stress workload left ${workload.workingOrders} working orders`)
+  assert.equal(workload.position.qty, 1, 'stress workload lost the open contract')
+  assert.equal(workload.position.side, 'long', 'stress workload position is not long')
+  assert.ok(workload.startCursor >= 260, 'stress workload has fewer than 260 warmup bars')
+  assert.ok(
+    workload.remainingBars >= Math.max(STRESS_RESERVED_STEPS + 1, STRESS_TAIL_BARS),
+    'stress workload left too few bars to finish',
+  )
+  assert.ok(
+    workload.restingOrders.every((order) => order.distanceFromMark >= workload.mark * 0.05),
+    'a resting order is closer than 5% to the mark',
+  )
+  workload.wallMs = performance.now() - wallStart
+  return workload
+}
+
+async function setupStressPanes(page, expectedTa) {
+  const wallStart = performance.now()
+  if ((await page.locator(SELECTORS.pane).count()) !== 3) {
+    await (await layoutButton(page, 3)).click({ timeout: SAMPLE_TIMEOUT })
+  }
+  await page.waitForFunction(() => window.__bench.snapshot(false).paneCount === 3, null, {
+    timeout: READY_TIMEOUT,
+    polling: 'raf',
+  })
+  for (let index = 0; index < 3; index += 1) {
+    await activatePane(page, index)
+    // The timeframe picker is in the shared toolbar and edits the active pane.
+    await page.locator(SELECTORS.timeframe5m).first().click({ timeout: SAMPLE_TIMEOUT })
+    const toggle = page.locator(`[data-pane="${index}"] ${SELECTORS.analysisToggle}`)
+    assert.equal(await toggle.count(), 1, `stress pane ${index} has no TA toggle`)
+    if (((await toggle.getAttribute('aria-pressed')) === 'true') !== expectedTa) {
+      // Setup only: dispatch the button's own DOM click. With a thousand
+      // historical rows mounted, Playwright's pointer sequence lands on the
+      // icon and the pane can re-render between pointerdown and click, which
+      // makes this setup flaky without exercising a different code path.
+      await toggle.evaluate((element) => element.click())
+    }
+    try {
+      await page.waitForFunction(
+        ({ index: target, expected }) => {
+          const pane = document.querySelector(`[data-pane="${target}"]`)
+          if (!pane) return false
+          const enabled = pane.querySelector('[data-testid="analysis-toggle"]')?.getAttribute('aria-pressed') === 'true'
+          const status = pane.querySelector('[data-status]')?.getAttribute('data-status') ?? null
+          return enabled === expected && (expected ? status === 'ready' : status == null)
+        },
+        { index, expected: expectedTa },
+        { timeout: READY_TIMEOUT, polling: 'raf' },
+      )
+    } catch (cause) {
+      const diagnostic = await page.evaluate((target) => {
+        const pane = document.querySelector(`[data-pane="${target}"]`)
+        return {
+          pane: Boolean(pane),
+          enabled: pane?.querySelector('[data-testid="analysis-toggle"]')?.getAttribute('aria-pressed') ?? null,
+          status: pane?.querySelector('[data-status]')?.getAttribute('data-status') ?? null,
+          text: pane?.querySelector('[data-status]')?.textContent?.trim() ?? null,
+          title: pane?.querySelector('[data-status]')?.getAttribute('title') ?? null,
+        }
+      }, index)
+      throw new Error(`pane ${index} TA state not ready: ${JSON.stringify(diagnostic)}`, { cause })
+    }
+  }
+  // Return to the traded symbol: store.position is scoped to the active symbol.
+  await activatePane(page, 0)
+  await waitPanesAtCursor(page, 'stress TA setup')
+  await waitIdle(page, 'stress TA setup')
+  const state = await snapshot(page)
+  const layout = await readLayout(page)
+  assert.equal(state.paneCount, 3, 'stress setup did not keep three panes')
+  assert.equal(state.timeframe, '5m', 'stress panes did not reach the 5m timeframe')
+  assert.equal(layout?.length, 3, 'stress layout was not persisted with three panes')
+  assert.deepEqual(
+    layout.map((pane) => pane.timeframe),
+    ['5m', '5m', '5m'],
+    'stress panes are not all 5m',
+  )
+  assert.equal(state.paneAnalysis.length, 3, 'stress setup lost a pane analysis state')
+  assert.ok(
+    state.paneAnalysis.every(
+      (pane) =>
+        pane.analysisEnabled === expectedTa &&
+        (expectedTa ? pane.analysisStatus === 'ready' : pane.analysisStatus == null),
+    ),
+    `TA state does not match ${expectedTa ? 'on/ready' : 'off'} on every stress pane`,
+  )
+  assert.equal(state.activePaneCount, 1, 'stress setup requires exactly one active pane')
+  const wasm = await page.evaluate(() => ({
+    instantiateCalls: window.__bench.wasm.instantiateCalls,
+    errors: window.__bench.wasm.errors,
+  }))
+  if (expectedTa) {
+    assert.ok(wasm.instantiateCalls > 0, 'TA ready but the shared WASM core was never instantiated')
+  }
+  assert.equal(wasm.errors.length, 0, `TA WASM errors: ${wasm.errors.join(' | ')}`)
+  return { ...state, layout, wasm, wallMs: performance.now() - wallStart }
+}
+
+async function runStressScenario(page, { id, description, workload, expectedTa }) {
+  assert(report.stress, 'stress report is not initialized')
+  await waitIdle(page, `${id} setup`)
+  const before = await snapshot(page)
+  if (!before.store || !before.ready) throw new Error(`${id}: terminal not ready before stress scenario`)
+  if (before.playing) throw new Error(`${id}: terminal is playing before stress scenario`)
+  assert.equal(before.paneCount, 3, `${id}: stress scenario requires three panes`)
+  assert.equal(before.timeframe, '5m', `${id}: stress scenario requires the 5m timeframe`)
+  assert.equal(before.counts.trades, workload.trades, `${id}: closed-trade count changed before the scenario`)
+  assert.equal(before.counts.workingOrders, workload.workingOrders, `${id}: working orders changed before the scenario`)
+  assert.equal(before.account.openContracts, 1, `${id}: stress scenario requires one open contract`)
+  assert.equal(before.symbol, workload.symbol, `${id}: active symbol changed from the traded symbol`)
+  const paneStateMatches = (panes) =>
+    panes.length === 3 &&
+    panes.every(
+      (pane) =>
+        pane.analysisEnabled === expectedTa &&
+        (expectedTa ? pane.analysisStatus === 'ready' : pane.analysisStatus == null),
+    )
+  assert.ok(paneStateMatches(before.paneAnalysis), `${id}: TA state does not match every pane`)
+  const checkSample = (sample, label) => {
+    assert.equal(sample.drawCanvasCount, before.canvases.length, `${label}: not every pane canvas was redrawn`)
+    assert.ok(paneStateMatches(sample.paneAnalysis), `${label}: TA state does not match every pane`)
+    assert.deepEqual(sample.counts, before.counts, `${label}: trade/order/fill counts changed`)
+    assert.deepEqual(sample.position, before.position, `${label}: open position changed`)
+    assert.equal(sample.accountAfter.openContracts, 1, `${label}: open contract disappeared`)
+    assert.equal(sample.accountAfter.balance, before.account.balance, `${label}: realized balance changed`)
+    assert.equal(sample.analysisEnabled, expectedTa, `${label}: active pane TA state changed`)
+  }
+  const warmup = await measureStep(page, `${id} warmup`, before.cursor + 1, expectedTa)
+  checkSample(warmup, `${id} warmup`)
+  await waitSaved(page, `${id} warmup save`)
+  const samples = []
+  let nextCursor = warmup.cursorAfter
+  for (let index = 1; index <= SAMPLES; index += 1) {
+    const sample = await measureStep(page, `${id} sample ${index}`, nextCursor + 1, expectedTa)
+    checkSample(sample, `${id} sample ${index}`)
+    sample.index = index
+    samples.push(sample)
+    nextCursor = sample.cursorAfter
+    await waitSaved(page, `${id} sample ${index} save`)
+  }
+  const scenario = {
+    id,
+    description,
+    paneCount: 3,
+    timeframe: '5m',
+    ta: expectedTa,
+    analysisStatus: expectedTa ? 'ready' : null,
+    warmup,
+    samples,
+    stats: {
+      response: stats(samples.map((sample) => sample.responseMs)),
+      syncWork: stats(samples.map((sample) => sample.syncWorkMs)),
+      drawCpu: stats(samples.map((sample) => sample.drawCpuMs)),
+      drawMaxCallback: stats(samples.map((sample) => sample.drawMaxCallbackMs)),
+      drawFrames: stats(samples.map((sample) => sample.drawFrames)),
+      drawClear: stats(samples.map((sample) => sample.drawClearMs)),
+    },
+  }
+  report.stress.hot.push(scenario)
+  console.error(
+    `${id}: n=${samples.length} response P95=${scenario.stats.response.p95.toFixed(2)}ms sync P95=${scenario.stats.syncWork.p95.toFixed(2)}ms draw P95=${scenario.stats.drawCpu.p95.toFixed(2)}ms`,
+  )
+  return scenario
+}
+
+// One real toolbar step, then an awaited terminal.flush(); the flush is kept
+// out of the hot RAF window and is the only place the full save is timed.
+async function flushCheckpointAndPrepareRestore(page) {
+  const eventId = nextEventId()
+  const wallStart = performance.now()
+  const result = await page.evaluate(async (id) => {
+    const bench = window.__bench
+    const store = bench.readStore()
+    if (!store?.ready) throw new Error('terminal not ready before the flush step')
+    const button = document.querySelector('[data-testid="replay-bar"] > button:nth-child(2)')
+    if (!(button instanceof HTMLButtonElement) || !button.isConnected || button.disabled) {
+      throw new Error('step button is not a connected, enabled button')
+    }
+    const before = bench.snapshot(false)
+    bench.pendingEventId = id
+    const clickStart = performance.now()
+    button.click()
+    const clickEnd = performance.now()
+    const event = bench.events[id]
+    if (!event) throw new Error('flush step did not dispatch a click event')
+    event.end = clickEnd
+    event.handlerMs = clickEnd - event.start
+    event.handlerEndKind = 'dom-click-return'
+    const afterClick = bench.snapshot(false)
+    const flushStart = performance.now()
+    await store.flush()
+    const flushEnd = performance.now()
+    const afterFlush = bench.snapshot(false)
+    return {
+      eventStart: event.start,
+      clickStart,
+      clickEnd,
+      syncWorkMs: event.handlerMs,
+      flushMs: flushEnd - flushStart,
+      totalMs: flushEnd - event.start,
+      cursorBefore: before.cursor,
+      cursorAfter: afterFlush.cursor,
+      before,
+      afterClick,
+      afterFlush,
+      storageStatus: store.storageStatus,
+      storageError: store.storageError,
+    }
+  }, eventId)
+  assert.ok(result.eventStart > 0, 'flush click timestamp was not captured')
+  assert.ok(Number.isFinite(result.syncWorkMs) && result.syncWorkMs >= 0, 'flush click handler duration is invalid')
+  assert.equal(result.cursorAfter, result.cursorBefore + 1, 'flush step did not advance exactly one bar')
+  assert.equal(result.afterClick.cursor, result.cursorAfter, 'flush click did not advance the replay')
+  assert.deepEqual(result.afterFlush.counts, result.before.counts, 'flush step changed trade/order/fill counts')
+  assert.deepEqual(result.afterFlush.position, result.before.position, 'flush step changed the open position')
+  assert.equal(result.afterFlush.runId, result.before.runId, 'flush step changed the run')
+  assert.equal(result.afterFlush.account.balance, result.before.account.balance, 'flush step changed realized balance')
+  assert.equal(result.afterFlush.account.openContracts, 1, 'flush step closed the open contract')
+  assert.equal(result.afterFlush.templateId, 'practice', 'flush step left the practice template')
+  assert.equal(result.storageStatus, 'saved', `flush did not reach saved status: ${result.storageError ?? 'unknown'}`)
+  assert.ok(Number.isFinite(result.flushMs) && result.flushMs > 0, 'flush did not report a positive duration')
+  const layout = await readLayout(page)
+  assert.equal(layout?.length, 3, 'flush step lost the persisted three-pane layout')
+  const expectation = {
+    runId: result.afterFlush.runId,
+    templateId: result.afterFlush.templateId,
+    cursor: result.afterFlush.cursor,
+    time: result.afterFlush.time,
+    engineTime: result.afterFlush.engineTime,
+    symbol: result.afterFlush.symbol,
+    paneCount: result.afterFlush.paneCount,
+    account: result.afterFlush.account,
+    counts: result.afterFlush.counts,
+    position: result.afterFlush.position,
+    canvasCount: result.afterFlush.canvases.length,
+    layout,
+    writtenAt: Date.now(),
+  }
+  await page.evaluate(
+    (value) => sessionStorage.setItem('propdesk.bench.restore-expect', JSON.stringify(value)),
+    expectation,
+  )
+  return { ...result, eventId, expectation, wallMs: performance.now() - wallStart }
+}
+
+async function measureRestore(page, expectation) {
+  const reloadStart = performance.now()
+  await page.reload({ waitUntil: 'commit', timeout: READY_TIMEOUT })
+  const commitMs = performance.now() - reloadStart
+  try {
+    await page.waitForFunction(() => window.__bench?.restore?.done === true, null, {
+      timeout: READY_TIMEOUT,
+      polling: 'raf',
+    })
+  } catch (error) {
+    const state = await page
+      .evaluate(() => {
+        const store = window.__bench?.readStore?.()
+        return {
+          watch: window.__bench?.restore ?? null,
+          ready: store?.ready ?? null,
+          restoreBlocked: store?.restoreBlocked ?? null,
+          storageError: store?.storageError ?? null,
+          runId: store?.run?.id ?? null,
+          cursor: store?.cursor ?? null,
+        }
+      })
+      .catch(() => null)
+    throw new Error(`restore did not finish: ${error.message}; state=${JSON.stringify(state)}`)
+  }
+  const result = await page.evaluate(() => ({
+    navigation: window.__bench.navigation,
+    restore: window.__bench.restore,
+    state: window.__bench.snapshot(true),
+    paneSymbols: [...document.querySelectorAll('[data-pane]')].map((pane) => pane.getAttribute('data-symbol')),
+    layout: (() => {
+      try {
+        return JSON.parse(localStorage.getItem('propdesk.terminal.layout.v1') ?? 'null')
+      } catch {
+        return null
+      }
+    })(),
+    wasm: window.__bench.wasm,
+  }))
+  const watch = result.restore
+  const state = result.state
+  if (watch.error) throw new Error(`restore watcher failed: ${watch.error}`)
+  const checks = []
+  const check = (ok, message, detail = null) => checks.push({ ok: !!ok, message, detail })
+  const same = (label, actual, expected) => {
+    const ok = JSON.stringify(actual) === JSON.stringify(expected)
+    check(ok, `${label} mismatch`, ok ? null : { actual, expected })
+  }
+  check(
+    watch.startedAt != null && watch.startedAt - result.navigation.createdAt < 250,
+    'restore watcher did not arm near navigation start',
+    { startedAt: watch.startedAt, navigation: result.navigation },
+  )
+  check(watch.readyAt != null && watch.drawAt != null, 'restore never observed ready and drawn panes')
+  check(watch.readyAt <= watch.drawAt, 'restore drew before the store was ready')
+  check(!!watch.state, 'restore did not capture state at draw time')
+  check(state.runId === expectation.runId, 'restored run id changed', {
+    actual: state.runId,
+    expected: expectation.runId,
+  })
+  check(state.cursor === expectation.cursor, 'restored cursor changed', {
+    actual: state.cursor,
+    expected: expectation.cursor,
+  })
+  check(state.time === expectation.time, 'restored clock changed', {
+    actual: state.time,
+    expected: expectation.time,
+  })
+  same('engine clock', state.engineTime, expectation.engineTime)
+  same('active symbol', state.symbol, expectation.symbol)
+  same('template id', state.templateId, expectation.templateId)
+  check(state.storageStatus === 'saved', `restored storage status is ${state.storageStatus}`)
+  check(state.restoreBlocked === false, 'restore was blocked')
+  check(state.ready && !state.loading && !state.playing, 'restored store is not ready and paused')
+  check(state.activePaneCount === 1, 'restore requires exactly one active pane')
+  check(state.timeframe === '5m', 'restored active timeframe is not 5m')
+  same('account', state.account, expectation.account)
+  same('closed-trade count', state.counts?.trades, expectation.counts.trades)
+  same('working-order count', state.counts?.workingOrders, expectation.counts.workingOrders)
+  same('order count', state.counts?.orders, expectation.counts.orders)
+  same('fill count', state.counts?.fills, expectation.counts.fills)
+  same('position', state.position, expectation.position)
+  check(state.paneCount === expectation.paneCount && state.paneCount === 3, 'restored pane count changed', {
+    actual: state.paneCount,
+    expected: expectation.paneCount,
+  })
+  check(
+    state.paneAnalysis.length === 3 && state.paneAnalysis.every((pane) => !pane.analysisEnabled),
+    'TA was not reset after reload',
+  )
+  check(
+    state.paneAnalysis.every((pane) => pane.analysisStatus == null),
+    'TA status leaked across reload',
+  )
+  check(
+    Array.isArray(result.layout) &&
+      result.layout.length === 3 &&
+      result.layout.every((pane) => pane.timeframe === '5m'),
+    'layout did not restore three 5m panes',
+  )
+  same('persisted layout', result.layout, expectation.layout)
+  same(
+    'pane symbols',
+    result.paneSymbols,
+    expectation.layout.map((pane) => pane.symbol),
+  )
+  check(
+    state.canvases.length === expectation.canvasCount &&
+      state.canvases.every((canvas) => canvas.lastDrawAt != null && canvas.lastDrawCursor === state.cursor),
+    'restored panes did not draw the restored cursor',
+    { canvases: state.canvases.length, expected: expectation.canvasCount },
+  )
+  check(watch.cursorAtDraw === expectation.cursor, 'restore watcher completed at a different cursor', {
+    actual: watch.cursorAtDraw,
+    expected: expectation.cursor,
+  })
+  same('draw-time account', watch.state?.account, expectation.account)
+  same('draw-time counts', watch.state?.counts, expectation.counts)
+  same('draw-time position', watch.state?.position, expectation.position)
+  check(result.wasm.errors.length === 0, 'WASM initialization failed after reload', result.wasm.errors)
+  const failed = checks.filter((entry) => !entry.ok)
+  if (failed.length) {
+    throw new Error(
+      `restore checks failed: ${failed.map((entry) => `${entry.message} ${JSON.stringify(entry.detail)}`).join(' | ')}`,
+    )
+  }
+  return {
+    ...result,
+    commitMs,
+    pass: true,
+    checks,
+    metrics: {
+      navigationStartToWatcherMs: watch.startedAt,
+      instrumentationToWatcherMs: watch.startedAt - result.navigation.createdAt,
+      navigationStartToDomContentLoadedMs: result.navigation.domContentLoadedAt,
+      navigationStartToReadyMs: watch.readyAt,
+      navigationStartToDrawMs: watch.drawAt,
+      readyToDrawMs: watch.drawAt - watch.readyAt,
+      domContentLoadedToDrawMs:
+        result.navigation.domContentLoadedAt != null ? watch.drawAt - result.navigation.domContentLoadedAt : null,
+    },
+  }
+}
+
+async function heapSample(cdp, label, note) {
+  const [runtime, performanceMetrics] = await Promise.all([
+    cdp.send('Runtime.getHeapUsage'),
+    cdp.send('Performance.getMetrics'),
+  ])
+  const metrics = Object.fromEntries(performanceMetrics.metrics.map((metric) => [metric.name, metric.value]))
+  assert.ok(Number.isFinite(runtime.usedSize) && runtime.usedSize >= 0, `${label}: invalid observed JS heap used`)
+  assert.ok(
+    Number.isFinite(runtime.totalSize) && runtime.totalSize >= runtime.usedSize,
+    `${label}: invalid observed JS heap size`,
+  )
+  return {
+    label,
+    note,
+    at: performance.now(),
+    jsHeapUsedBytes: Math.round(runtime.usedSize),
+    jsHeapTotalBytes: Math.round(runtime.totalSize),
+    embedderHeapUsedBytes: Number.isFinite(runtime.embedderHeapUsedSize)
+      ? Math.round(runtime.embedderHeapUsedSize)
+      : null,
+    metrics: {
+      JSHeapUsedSize: metrics.JSHeapUsedSize ?? null,
+      JSHeapTotalSize: metrics.JSHeapTotalSize ?? null,
+      Nodes: metrics.Nodes ?? null,
+      Documents: metrics.Documents ?? null,
+      LayoutCount: metrics.LayoutCount ?? null,
+      RecalcStyleCount: metrics.RecalcStyleCount ?? null,
+    },
+  }
+}
+
 async function coldSample(index) {
   const context = await openContext()
   const page = await context.newPage()
@@ -990,6 +1916,8 @@ async function coldSample(index) {
 }
 
 async function run() {
+  productionTree = existsSync(resolve(process.env.PERF_APP_ROOT ?? ROOT, '.output'))
+  evidenceBefore = captureEvidence(ROOT, 'scripts/bench-terminal.mjs', productionTree)
   browser = await chromium.launch({
     channel: process.env.BROWSER_CHANNEL ?? 'chrome',
     headless: HEADLESS,
@@ -1146,8 +2074,102 @@ async function run() {
       expectedTimeframe: '5m',
     })
 
+    const longTaskBaseline = await page.evaluate(() => window.__bench.longTasks.length)
     assertNoPageErrors(errors, 'hot run')
-    report.longTasks = await page.evaluate(() => window.__bench.longTasks)
+
+    if (STRESS) {
+      const stress = report.stress
+      assert(stress, 'stress report is not initialized')
+      const cdp = await context.newCDPSession(page)
+      await cdp.send('Performance.enable')
+      stress.heap.samples.push(
+        await heapSample(cdp, 'hot-baseline', 'after the default hot scenarios and before the stress attempt'),
+      )
+      const setupStart = performance.now()
+      console.error('stress: building the late workload through the real store engine')
+      await disableActiveAnalysis(page)
+      const workload = await prepareStressWorkload(page)
+      stress.setup = workload
+      await waitPanesAtCursor(page, 'stress workload')
+      await waitSaved(page, 'stress workload checkpoint')
+      workload.savedAfterSetup = await page.evaluate(() => window.__bench.readStore().storageStatus)
+      workload.panes = []
+      for (const expectedTa of [false, true]) {
+        const panes = await setupStressPanes(page, expectedTa)
+        workload.panes.push({
+          ta: expectedTa,
+          paneCount: panes.paneCount,
+          timeframe: panes.timeframe,
+          layout: panes.layout,
+          paneAnalysis: panes.paneAnalysis,
+          wasm: panes.wasm,
+          wallMs: panes.wallMs,
+        })
+        assert.equal(panes.counts.trades, workload.trades, 'pane setup changed the trade count')
+        assert.equal(panes.counts.workingOrders, workload.workingOrders, 'pane setup changed working orders')
+        assert.equal(panes.account.openContracts, 1, 'pane setup closed the open contract')
+        if (!expectedTa) {
+          workload.initialSetupWallMs = performance.now() - setupStart
+          stress.heap.samples.push(
+            await heapSample(
+              cdp,
+              'stress-ready',
+              'three 5m panes, TA off, and the late history are mounted; before any stress step',
+            ),
+          )
+        }
+        const scenario = await runStressScenario(page, {
+          id: `late-three-pane-ta-${expectedTa ? 'on' : 'off'}`,
+          description: `late timeline with ${HISTORY_TRADES} real round trips and ${WORKING_ORDERS} resting limits; three 5m panes, TA ${expectedTa ? 'on' : 'off'}, one open contract; real replay toolbar step`,
+          workload,
+          expectedTa,
+        })
+        assert.equal(scenario.samples.length, SAMPLES, `stress scenario collected ${scenario.samples.length} samples`)
+      }
+      workload.setupTotalMs = workload.initialSetupWallMs + workload.panes[1].wallMs
+      console.error('stress: timed step + awaited full checkpoint flush')
+      const flush = await flushCheckpointAndPrepareRestore(page)
+      stress.flush = flush
+      await waitIdle(page, 'stress flush')
+      stress.heap.samples.push(await heapSample(cdp, 'pre-restore', 'after the timed flush and before the reload'))
+      const longTasks = await page.evaluate(() => window.__bench.longTasks)
+      report.longTasks = longTasks.slice(0, longTaskBaseline)
+      stress.longTasks = longTasks.slice(longTaskBaseline)
+      const restore = await measureRestore(page, flush.expectation)
+      stress.restore = restore
+      stress.restoreLongTasks = await page.evaluate(() => window.__bench.longTasks)
+      stress.heap.samples.push(
+        await heapSample(
+          cdp,
+          'post-restore',
+          'new document after the reload; the previous renderer context may still be unreclaimed',
+        ),
+      )
+      assertNoPageErrors(errors, 'stress restore')
+      stress.assertions = {
+        pass: true,
+        setup: {
+          practiceTemplate: workload.templateId === 'practice',
+          roundTrips: workload.roundTrips === HISTORY_TRADES,
+          closedTrades: workload.trades === HISTORY_TRADES,
+          restingOrders: workload.workingOrders === WORKING_ORDERS,
+          openPosition: workload.position.qty === 1 && workload.position.side === 'long',
+          lateCursor: workload.advancedBars >= LATE_CURSOR,
+          contiguousWindow: workload.window.contiguous === true,
+        },
+        hot: {
+          scenarios: stress.hot.length,
+          samples: stress.hot.reduce((sum, item) => sum + item.samples.length, 0),
+        },
+        flush: {
+          storageStatus: flush.storageStatus,
+          advancedOneBar: flush.cursorAfter === flush.cursorBefore + 1,
+        },
+        restore: restore.checks,
+      }
+    } else {
+      report.longTasks = await page.evaluate(() => window.__bench.longTasks)
+    }
     report.hotErrors = errors
   } finally {
     await context.close()
@@ -1244,7 +2266,115 @@ async function finalize() {
   }
   report.finishedAt = new Date().toISOString()
   report.durationMs = performance.now() - started
+  if (STRESS) {
+    const stress = report.stress
+    assert(stress, 'PERF_STRESS=1 did not initialize the stress report')
+    assert(stress.setup, 'PERF_STRESS=1 collected no stress setup')
+    assert(stress.hot.length > 0, 'PERF_STRESS=1 collected no stress hot scenarios')
+    assert(stress.flush, 'PERF_STRESS=1 collected no flush measurement')
+    assert(stress.restore?.pass === true, 'PERF_STRESS=1 restore checks did not pass')
+    const stressSamples = stress.hot.flatMap((scenario) => scenario.samples)
+    assert.deepEqual(
+      stress.hot.map((scenario) => scenario.id),
+      report.config.stress.sampleScenarios,
+      'missing stress scenario',
+    )
+    assert.deepEqual(
+      stress.hot.map((scenario) => scenario.ta),
+      [false, true],
+      'stress TA-off/on coverage changed',
+    )
+    assert.ok(
+      stress.hot.every((scenario) => scenario.samples.length === SAMPLES),
+      'stress scenario sample count changed',
+    )
+    assert.equal(
+      stressSamples.length,
+      2 * SAMPLES,
+      `expected ${2 * SAMPLES} stress samples, got ${stressSamples.length}`,
+    )
+    assert.equal(stress.setup.templateId, 'practice', `stress setup used template ${stress.setup.templateId}`)
+    assert.equal(stress.setup.roundTrips, HISTORY_TRADES, `stress setup ran ${stress.setup.roundTrips} round trips`)
+    assert.equal(stress.setup.trades, HISTORY_TRADES, `stress setup produced ${stress.setup.trades} trades`)
+    assert.equal(stress.setup.workingOrders, WORKING_ORDERS, `stress setup left ${stress.setup.workingOrders} orders`)
+    assert.equal(stress.setup.position.qty, 1, 'stress setup lost the open contract')
+    assert.ok(stress.setup.advancedBars >= LATE_CURSOR, `stress setup advanced only ${stress.setup.advancedBars} bars`)
+    assert.ok(
+      stress.setup.remainingBars >= Math.max(STRESS_RESERVED_STEPS + 1, STRESS_TAIL_BARS),
+      `stress setup left only ${stress.setup.remainingBars} bars before sampling`,
+    )
+    assert.equal(stress.heap.samples.length, 4, `expected four heap samples, got ${stress.heap.samples.length}`)
+    assert.deepEqual(
+      stress.heap.samples.map((sample) => sample.label),
+      ['hot-baseline', 'stress-ready', 'pre-restore', 'post-restore'],
+      'heap sample labels are out of order',
+    )
+    stress.summary = {
+      hot: {
+        response: stats(stressSamples.map((sample) => sample.responseMs)),
+        syncWork: stats(stressSamples.map((sample) => sample.syncWorkMs)),
+        drawCpu: stats(stressSamples.map((sample) => sample.drawCpuMs)),
+        drawMaxCallback: stats(stressSamples.map((sample) => sample.drawMaxCallbackMs)),
+        drawClear: stats(stressSamples.map((sample) => sample.drawClearMs)),
+        drawFrames: stats(stressSamples.map((sample) => sample.drawFrames)),
+      },
+      flush: {
+        syncWorkMs: stress.flush.syncWorkMs,
+        flushMs: stress.flush.flushMs,
+        totalMs: stress.flush.totalMs,
+        cursorBefore: stress.flush.cursorBefore,
+        cursorAfter: stress.flush.cursorAfter,
+        storageStatus: stress.flush.storageStatus,
+      },
+      restore: stress.restore.metrics,
+    }
+    stress.heap.deltas = stress.heap.samples.slice(1).map((sample, index) => {
+      const prior = stress.heap.samples[index]
+      return {
+        from: prior.label,
+        to: sample.label,
+        jsHeapUsedBytes: sample.jsHeapUsedBytes - prior.jsHeapUsedBytes,
+        jsHeapTotalBytes: sample.jsHeapTotalBytes - prior.jsHeapTotalBytes,
+        nodes:
+          sample.metrics.Nodes != null && prior.metrics.Nodes != null
+            ? sample.metrics.Nodes - prior.metrics.Nodes
+            : null,
+        documents:
+          sample.metrics.Documents != null && prior.metrics.Documents != null
+            ? sample.metrics.Documents - prior.metrics.Documents
+            : null,
+      }
+    })
+    stress.note =
+      'Exploratory, unbudgeted stress evidence. Default scenario ids, viewport, selectors, measurement boundaries and budget checks are unchanged. History is generated by the real store, so syncWork observes its actual snapshot path without assuming a clone implementation. TA-off and TA-on use successive bars, not paired identical market states. Between stress samples storageStatus === "saved" is awaited; checkpoint CPU may still overlap the same sample response, so flush is not subtracted from hot latency. The separate flush observation is one real toolbar step followed by awaited terminal.flush(), including deferred export and IndexedDB commit but not immutable tape creation. Restore measures navigation start -> ready/drawn restored state, not DOMContentLoaded. Heap observations include instrumentation and potentially uncollected garbage, without forced GC or an absolute memory budget; reload deltas are not retained-memory or leak verdicts.'
+    stress.assertions = { ...stress.assertions, pass: true }
+    stress.budgeted = false
+    console.error(
+      `stress: hot response P95=${stress.summary.hot.response.p95.toFixed(2)}ms sync P95=${stress.summary.hot.syncWork.p95.toFixed(2)}ms draw P95=${stress.summary.hot.drawCpu.p95.toFixed(2)}ms flush=${stress.summary.flush.flushMs.toFixed(2)}ms restore draw=${stress.summary.restore.navigationStartToDrawMs.toFixed(2)}ms (unbudgeted)`,
+    )
+  }
   delete report.__eventSeq
+  // Hash the measured app, harness and production build before and after the
+  // run; all file reads happen outside the timed samples above.
+  const evidenceAfter = captureEvidence(ROOT, 'scripts/bench-terminal.mjs', productionTree)
+  verifyEvidence(evidenceBefore, evidenceAfter)
+  const servedAssets = []
+  if (report.environment.buildMode === 'production' && evidenceAfter.build) {
+    for (const url of report.environment.page.scripts.filter((value) => value.includes('/_nuxt/'))) {
+      const assetPath = `public${decodeURIComponent(new URL(url).pathname)}`
+      const expected = evidenceAfter.build.files.find((item) => item.file === assetPath)
+      assert.ok(expected, `Served asset is absent from the measured build: ${assetPath}`)
+      const response = await fetch(url)
+      assert.ok(response.ok, `Cannot verify served asset: ${url}`)
+      const digest = createHash('sha256')
+        .update(Buffer.from(await response.arrayBuffer()))
+        .digest('hex')
+      assert.equal(digest, expected.sha256, `Server does not serve the measured build: ${url}`)
+      servedAssets.push({ url, sha256: digest })
+    }
+    assert.ok(servedAssets.length, 'No production entry asset verified')
+  }
+  report.evidence = { before: evidenceBefore, after: evidenceAfter, servedAssets, verified: true }
   mkdirSync(dirname(OUTPUT), { recursive: true })
   writeFileSync(OUTPUT, `${JSON.stringify(report, null, 2)}\n`)
   return checks

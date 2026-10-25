@@ -30,6 +30,7 @@
     "bench:compute": "bun scripts/bench-compute.ts",
     "bench:timeframes": "bun scripts/bench-timeframes.ts",
     "bench:terminal": "node scripts/bench-terminal.mjs",
+    "bench:terminal:compute": "bun scripts/bench-terminal-compute.ts",
     "check:analysis": "bun scripts/check-analysis.mjs",
     "check:terminal": "bun scripts/check-terminal.mjs"
   },
