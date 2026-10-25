@@ -502,7 +502,14 @@ await page.waitForFunction(() => {
   return store?.restoreBlocked && !store.loading
 })
 check(await page.getByTestId('storage-warning').isVisible(), 'retry cannot silently replace a corrupt saved account')
-check(await page.getByTestId('ticket-submit').first().isDisabled(), 'restore-blocked account cannot place an order')
+const blockedState = await page.evaluate(() => {
+  const store = document.querySelector('#__nuxt').__vue_app__.config.globalProperties.$pinia._s.get('terminal')
+  return !store.ready && !store.canTrade && !store.submit({ side: 'long', type: 'market', qty: 1 }).ok
+})
+check(
+  blockedState && (await page.getByTestId('ticket-submit').count()) === 0,
+  'restore-blocked account has no ticket and rejects order submission',
+)
 
 check(errors.length === 0, `no console errors, got: ${errors.slice(0, 3).join(' | ')}`)
 

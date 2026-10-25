@@ -51,6 +51,34 @@ const ladderOpen = ref(true)
 // after hydration instead of during setup.
 const hotkeys = ref<HotkeySettings>(fallbackHotkeys())
 const hotkeysOpen = ref(false)
+const accountsOpen = ref(false)
+
+function onAccountsOpen(open: boolean) {
+  accountsOpen.value = open
+  if (open) {
+    terminal.pause()
+    closeTicket()
+  }
+}
+
+watch(
+  () => terminal.activeAccountId,
+  async () => {
+    closeTicket()
+    const available = panes.value.filter((pane) => terminal.symbols.includes(pane.symbol))
+    panes.value = available.length
+      ? available
+      : [{ symbol: terminal.symbol, timeframe: terminal.timeframe, style: 'candles' }]
+    activePane.value = Math.min(activePane.value, panes.value.length - 1)
+    const active = panes.value[activePane.value]
+    if (active) {
+      terminal.selectSymbol(active.symbol)
+      terminal.setTimeframe(active.timeframe)
+    }
+    await nextTick()
+    fitAll()
+  },
+)
 
 interface PaneChart {
   fit: () => void
@@ -444,7 +472,7 @@ function onKeydown(event: KeyboardEvent) {
   }
   if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
   // A shortcut must never fire while the hotkey editor owns the keyboard.
-  if (hotkeysOpen.value) return
+  if (hotkeysOpen.value || accountsOpen.value || terminal.accountBusy) return
   // A shortcut must never fire while a popover, menu or dialog owns the keys.
   if (target?.closest('[role="dialog"],[role="listbox"],[role="menu"]')) return
   const action = matchHotkey(event, hotkeys.value, {
@@ -511,7 +539,7 @@ function exitAll() {
 }
 
 async function freshAttempt(template?: PropTemplate) {
-  if (terminal.loading || !window.confirm(t('terminal.rules.resetConfirm'))) return
+  if (terminal.loading || terminal.accountBusy || !window.confirm(t('terminal.rules.resetConfirm'))) return
   closeTicket()
   await terminal.newAttempt({ template, reuseTapes: true })
   if (terminal.error) toasts.error(t('terminal.errors.rejected'), terminal.error)
@@ -622,6 +650,18 @@ useHead({ title: 'Trade terminal' })
       </div>
     </header>
 
+    <AccountManager
+      :accounts="terminal.accountList"
+      :active-id="terminal.activeAccountId"
+      :busy="terminal.loading || terminal.accountBusy"
+      :error="terminal.accountError"
+      @create="terminal.createAccount"
+      @select="terminal.switchAccount"
+      @rename="terminal.renameAccount"
+      @remove="terminal.deleteAccount"
+      @open-change="onAccountsOpen"
+    />
+
     <div class="flex flex-wrap items-center justify-between gap-2 text-[10.5px] text-ink-3">
       <span role="status" :data-storage="terminal.storageStatus">{{
         t(`terminal.storage.${terminal.storageStatus}`)
@@ -647,7 +687,7 @@ useHead({ title: 'Trade terminal' })
         <Button
           variant="outline"
           size="xs"
-          :disabled="terminal.loading"
+          :disabled="terminal.loading || terminal.accountBusy"
           @click="terminal.restoreBlocked ? retryRestore() : terminal.retrySave()"
         >
           {{ t('terminal.storage.retry') }}
@@ -691,7 +731,11 @@ useHead({ title: 'Trade terminal' })
       :buying-power="terminal.account?.buyingPower"
     />
 
-    <div class="grid min-h-0 gap-2.5 lg:grid-cols-[212px_minmax(0,1fr)] xl:grid-cols-[212px_minmax(0,1fr)_296px]">
+    <div
+      v-if="terminal.run"
+      :key="terminal.activeAccountId ?? 'empty'"
+      class="grid min-h-0 gap-2.5 lg:grid-cols-[212px_minmax(0,1fr)] xl:grid-cols-[212px_minmax(0,1fr)_296px]"
+    >
       <aside class="hidden min-h-0 flex-col gap-2.5 lg:flex">
         <Watchlist :rows="watchRows" @select="chooseSymbol" />
         <div class="rounded-lg border-[length:var(--hairline)] border-line bg-surface-2 p-2.5">
@@ -915,6 +959,7 @@ useHead({ title: 'Trade terminal' })
             >
           </div>
           <OrderTicket
+            :key="terminal.activeAccountId ?? 'empty'"
             :mark="mark"
             :precision="precision"
             :tick-size="tickSize"
@@ -958,7 +1003,7 @@ useHead({ title: 'Trade terminal' })
       </aside>
     </div>
 
-    <div v-if="!ticketOpen" class="sticky bottom-2 z-20 grid grid-cols-2 gap-2 xl:hidden">
+    <div v-if="terminal.run && !ticketOpen" class="sticky bottom-2 z-20 grid grid-cols-2 gap-2 xl:hidden">
       <Button variant="bull" size="md" class="shadow-lg" aria-keyshortcuts="B" @click="openTicket('long')">
         {{ t('terminal.ticket.buy') }} · {{ terminal.symbol }}
       </Button>
@@ -989,6 +1034,7 @@ useHead({ title: 'Trade terminal' })
           </button>
         </div>
         <OrderTicket
+          :key="terminal.activeAccountId ?? 'empty'"
           :mark="mark"
           :precision="precision"
           :tick-size="tickSize"
