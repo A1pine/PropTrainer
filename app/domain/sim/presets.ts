@@ -47,6 +47,25 @@ export const PROP_TEMPLATES: readonly PropTemplate[] = [
     source: 'Generic 100K evaluation example, retrieved 2026-10',
   },
   {
+    id: 'eval-25k',
+    label: '25K Evaluation',
+    accountSize: 25_000,
+    profitTarget: 1_500,
+    drawdown: {
+      mode: 'trailing-eod',
+      amount: 1_500,
+      basis: 'balance',
+      floorCap: 25_000,
+      includeUnrealized: true,
+    },
+    dailyLoss: { amount: 500, action: 'flatten-lock' },
+    maxContracts: 25,
+    maxTradesPerDay: 0,
+    minTradingDays: 5,
+    consistency: { maxBestDayRatio: 0.55, gate: 'pass' },
+    source: 'Generic 25K evaluation example — Prop Desk simulator preset',
+  },
+  {
     id: 'funded-50k',
     label: '50K Funded',
     accountSize: 50_000,
@@ -85,6 +104,15 @@ export const PROP_TEMPLATES: readonly PropTemplate[] = [
     source: 'Prop Desk simulator preset',
   },
 ]
+
+export const ACCOUNT_SIZES = [25_000, 50_000, 100_000] as const
+export type AccountSize = (typeof ACCOUNT_SIZES)[number]
+
+export function accountTemplate(size: AccountSize): PropTemplate {
+  const template = templateById(`eval-${size / 1_000}k`)
+  if (!template || !ACCOUNT_SIZES.includes(size)) throw new Error('Unsupported account size')
+  return cloneTemplate(template)
+}
 
 export const DEFAULT_TEMPLATE_ID = 'eval-50k'
 

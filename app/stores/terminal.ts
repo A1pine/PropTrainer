@@ -1,6 +1,7 @@
 import { instruments } from '~/domain/instruments/catalog'
 import type { Candle } from '~/domain/market/types'
-import { PROP_TEMPLATES, templateById } from '~/domain/sim/presets'
+import { accountTemplate, type AccountSize, PROP_TEMPLATES, templateById } from '~/domain/sim/presets'
+import type { ReplayAccount } from '~/lib/sim/accounts'
 import { aggregateCandles, isTimeframeAvailable } from '~/domain/sim/timeframe'
 import { isMarketOpen } from '~/domain/sim/session'
 import { roundTowardBreach } from '~/domain/sim/risk'
@@ -41,6 +42,9 @@ export const useTerminalStore = defineStore('terminal', () => {
   const storageStatus = ref<'idle' | 'saving' | 'saved' | 'unavailable'>('idle')
   const storageError = ref<string | null>(null)
   const restoreBlocked = ref(false)
+  const accounts = shallowRef<ReplayAccount[]>([])
+  const accountBusy = ref(false)
+  const accountError = ref<string | null>(null)
   const run = shallowRef<ReplayRun | null>(null)
   const session = shallowRef<ReplaySession | null>(null)
   const snapshot = shallowRef<SimSnapshot | null>(null)
@@ -64,7 +68,29 @@ export const useTerminalStore = defineStore('terminal', () => {
   // full revealed history. Cleared whenever a run is installed.
   const candleMemo = new Map<string, CandleMemo>()
 
-  const ready = computed(() => session.value !== null && !loading.value)
+  const ready = computed(() => session.value !== null && !loading.value && !accountBusy.value)
+  const activeAccountId = computed(() => run.value?.id ?? null)
+  let draftAccountName: string | undefined
+  const accountList = computed(() => {
+    const current = snapshot.value
+    const currentRun = run.value
+    if (!current || !currentRun) return accounts.value
+    const saved = accounts.value.find((item) => item.id === currentRun.id)
+    const active: ReplayAccount = {
+      id: currentRun.id,
+      name:
+        saved?.name ?? draftAccountName ?? `${current.account.startBalance / 1_000}K · ${currentRun.id.slice(0, 8)}`,
+      createdAt: currentRun.createdAt,
+      updatedAt: saved?.updatedAt ?? currentRun.createdAt,
+      accountSize: current.account.startBalance,
+      balance: current.account.balance,
+      equity: current.account.equity,
+      status: current.status,
+      breach: current.risk.breach,
+      cursor: cursor.value,
+    }
+    return saved ? accounts.value.map((item) => (item.id === active.id ? active : item)) : [...accounts.value, active]
+  })
   const specs = computed(() => run.value?.instruments ?? instruments.list())
   const symbols = computed(
     () => run.value?.tapes.map((tape) => tape.symbol) ?? instruments.list().map((item) => item.symbol),
@@ -198,21 +224,33 @@ export const useTerminalStore = defineStore('terminal', () => {
     return cause instanceof Error ? cause.message : 'Replay operation failed'
   }
 
-  async function createCheckpoint(nextRun: ReplayRun, checkpoint: ReplayCheckpoint): Promise<void> {
-    if (!repository) return
+  async function refreshAccounts(): Promise<void> {
+    if (repository) accounts.value = (await repository.catalog()).accounts
+  }
+
+  async function createCheckpoint(nextRun: ReplayRun, checkpoint: ReplayCheckpoint): Promise<boolean> {
+    if (!repository) return false
     storageStatus.value = 'saving'
-    const job = saves.then(() => repository!.create(nextRun, checkpoint))
+    const name = draftAccountName
+    const job = saves.then(() => repository!.create(nextRun, checkpoint, name))
     saves = job.catch(() => {})
     try {
       await job
       persistedRuns.add(nextRun.id)
+      try {
+        await refreshAccounts()
+      } catch (cause) {
+        accountError.value = failure(cause)
+      }
       if (run.value?.id === nextRun.id) {
         storageStatus.value = 'saved'
         storageError.value = null
       }
+      return true
     } catch (cause) {
       storageStatus.value = 'unavailable'
       storageError.value = failure(cause)
+      return false
     }
   }
 
@@ -284,6 +322,25 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
+  function clearSession(): void {
+    pause()
+    candleMemo.clear()
+    session.value = null
+    run.value = null
+    snapshot.value = null
+    cursor.value = 0
+    draftAccountName = undefined
+  }
+
+  async function beforeAccountChange(): Promise<void> {
+    pause()
+    await flush()
+    if (session.value && (storageStatus.value === 'unavailable' || !persistedRuns.has(session.value.run.id))) {
+      throw new Error('Save the current account before changing accounts.')
+    }
+    if (!repository) throw new Error('Replay storage unavailable')
+  }
+
   function install(next: ReplaySession): void {
     candleMemo.clear()
     session.value = markRaw(next)
@@ -301,6 +358,9 @@ export const useTerminalStore = defineStore('terminal', () => {
       restorePreferences()
       try {
         repository = createReplayRepository()
+        const catalog = await repository.catalog()
+        if (disposed) return
+        accounts.value = catalog.accounts
         const saved = await repository.load()
         if (disposed) return
         if (saved) {
@@ -310,8 +370,13 @@ export const useTerminalStore = defineStore('terminal', () => {
           storageError.value = null
           restoreBlocked.value = false
           sourceMode.value = saved.run.tapes[0]?.source ?? 'synthetic'
-        } else {
+        } else if (!catalog.initialized) {
           await newAttempt()
+        } else {
+          clearSession()
+          restoreBlocked.value = false
+          storageStatus.value = 'saved'
+          storageError.value = null
         }
       } catch (cause) {
         // Never silently reset a failed account or overwrite unreadable history.
@@ -335,30 +400,56 @@ export const useTerminalStore = defineStore('terminal', () => {
   }
 
   async function retrySave(): Promise<void> {
-    if (!session.value || restoreBlocked.value || loading.value) return
-    await flush()
-    if (persistedRuns.has(session.value.run.id)) {
-      queueCheckpoint()
+    if (!session.value || restoreBlocked.value || loading.value || accountBusy.value) return
+    const active = session.value
+    // Reserve the same lock as account transitions before yielding. Otherwise a
+    // switch can pass flush() before this retry enqueues its replacement write.
+    accountBusy.value = true
+    pause()
+    accountError.value = null
+    try {
       await flush()
-    } else {
-      await createCheckpoint(session.value.run, session.value.checkpoint())
+      if (disposed) return
+      if (persistedRuns.has(active.run.id)) {
+        queueCheckpoint()
+        await flush()
+      } else {
+        await createCheckpoint(active.run, active.checkpoint())
+      }
+    } catch (cause) {
+      storageStatus.value = 'unavailable'
+      storageError.value = failure(cause)
+    } finally {
+      accountBusy.value = false
     }
   }
 
   async function newAttempt(
-    options: { template?: PropTemplate; source?: 'local' | 'synthetic'; startTime?: number; reuseTapes?: boolean } = {},
+    options: {
+      template?: PropTemplate
+      source?: 'local' | 'synthetic'
+      startTime?: number
+      reuseTapes?: boolean
+      name?: string
+    } = {},
   ): Promise<void> {
+    if (accountBusy.value || disposed) return
+    accountBusy.value = true
     pause()
     const token = ++generation
     loading.value = true
     error.value = null
+    accountError.value = null
     dataNotice.value = null
-    await flush()
     const nextTemplate = options.template ?? template.value
     const nextSource = options.source ?? sourceMode.value
     const id = crypto.randomUUID()
     const seed = options.reuseTapes && run.value ? run.value.seed : id
     try {
+      await beforeAccountChange()
+      if (options.name !== undefined && (!options.name.trim() || options.name.trim().length > 60)) {
+        throw new Error('Account name must be between 1 and 60 characters.')
+      }
       let tapes: ReplayTape[] = []
       if (options.reuseTapes && run.value) {
         tapes = run.value.tapes
@@ -400,14 +491,120 @@ export const useTerminalStore = defineStore('terminal', () => {
       }
       const next = new ReplaySession(nextRun, nextTemplate)
       if (token !== generation || disposed) return
-      install(next)
+      const previousName = draftAccountName
+      draftAccountName = options.name?.trim()
+      // Never replace an existing session with an account that failed to persist.
+      // The initial offline session remains usable with the existing retry UI.
+      if (session.value || options.name !== undefined) {
+        const previousStatus = storageStatus.value
+        const previousError = storageError.value
+        const created = await createCheckpoint(next.run, next.checkpoint())
+        if (!created) {
+          draftAccountName = previousName
+          const cause = storageError.value ?? 'Account was not created'
+          storageStatus.value = previousStatus
+          storageError.value = previousError
+          throw new Error(cause)
+        }
+        if (disposed) return
+        install(next)
+        storageStatus.value = 'saved'
+        storageError.value = null
+      } else {
+        install(next)
+        await createCheckpoint(next.run, next.checkpoint())
+      }
       sourceMode.value = nextSource
       restoreBlocked.value = false
-      await createCheckpoint(next.run, next.checkpoint())
     } catch (cause) {
-      if (token === generation) error.value = failure(cause)
+      if (token === generation) {
+        error.value = failure(cause)
+        accountError.value = failure(cause)
+      }
     } finally {
       if (token === generation) loading.value = false
+      accountBusy.value = false
+    }
+  }
+
+  async function createAccount(input: { name: string; size: AccountSize }): Promise<void> {
+    if (accountBusy.value || loading.value) return
+    try {
+      const template = accountTemplate(input.size)
+      await newAttempt({ template, name: input.name })
+    } catch (cause) {
+      accountError.value = failure(cause)
+    }
+  }
+
+  async function switchAccount(id: string): Promise<void> {
+    if (accountBusy.value || loading.value || id === run.value?.id) return
+    accountBusy.value = true
+    accountError.value = null
+    try {
+      await beforeAccountChange()
+      const saved = await repository!.load(id)
+      if (!saved) throw new Error('Replay attempt not found')
+      const next = ReplaySession.restore(saved)
+      if (disposed) return
+      await repository!.activate(id)
+      install(next)
+      draftAccountName = undefined
+      persistedRuns.add(id)
+      sourceMode.value = saved.run.tapes[0]?.source ?? 'synthetic'
+      restoreBlocked.value = false
+      storageStatus.value = 'saved'
+      storageError.value = null
+      error.value = null
+      dataNotice.value = null
+      await refreshAccounts()
+    } catch (cause) {
+      accountError.value = failure(cause)
+    } finally {
+      accountBusy.value = false
+    }
+  }
+
+  async function renameAccount(id: string, name: string): Promise<void> {
+    if (accountBusy.value || loading.value) return
+    accountBusy.value = true
+    accountError.value = null
+    try {
+      await beforeAccountChange()
+      await repository!.rename(id, name)
+      await refreshAccounts()
+    } catch (cause) {
+      accountError.value = failure(cause)
+    } finally {
+      accountBusy.value = false
+    }
+  }
+
+  async function deleteAccount(id: string): Promise<void> {
+    if (accountBusy.value || loading.value) return
+    accountBusy.value = true
+    accountError.value = null
+    pause()
+    try {
+      // Settle writers before deletion, but allow it after a failed save so an
+      // inactive account can free quota without discarding the current session.
+      await flush()
+      if (!repository) throw new Error('Replay storage unavailable')
+      await repository.remove(id)
+      persistedRuns.delete(id)
+      if (id === run.value?.id) {
+        clearSession()
+        storageStatus.value = 'saved'
+        storageError.value = null
+        restoreBlocked.value = false
+        error.value = null
+        dataNotice.value = null
+      }
+      await refreshAccounts()
+    } catch (cause) {
+      accountError.value = failure(cause)
+    } finally {
+      accountBusy.value = false
     }
   }
 
@@ -550,6 +747,14 @@ export const useTerminalStore = defineStore('terminal', () => {
     storageStatus,
     storageError,
     restoreBlocked,
+    accountList,
+    activeAccountId,
+    accountBusy,
+    accountError,
+    createAccount,
+    switchAccount,
+    renameAccount,
+    deleteAccount,
     run,
     baseCandles,
     cursor,
