@@ -100,6 +100,7 @@ bun run check:wasm     # proves the core never blocks first paint and loads once
 bun run check:executions # result-page fill markers, same-bar exits and blind masking
 bun run check:analysis   # exam overlay toggles, keyboard isolation, failure recovery and layout
 bun run check:terminal   # replay terminal orders, chart trading, prop lines and mobile layout
+bun run check:accounts   # independent accounts, legacy IndexedDB migration and mobile management
 bun scripts/bench-timeframes.ts # 13k-bar aggregation parity and P95 against the 10 ms budget
 ```
 
@@ -312,17 +313,28 @@ power, floor/cushion and rule status. Charts draw conditional breach and daily-l
 not the account's dollar floor. Per-symbol breach prices hold other symbols' marks fixed; balance-only drawdown
 has no drawdown price line. Execution and prop-rule transitions are TypeScript, not WASM.
 
-**Persistence and controls.** IndexedDB `propdesk-replay-v1` stores pinned runs and checkpoints. A valid restore
-resumes the same account; failed restore sets `restoreBlocked`, exposes Retry and never silently resets it. Save
-failure can leave the latest state unsaved. Display/ATM/hotkey preferences use localStorage. Six local hotkeys are
+**Independent accounts.** The account selector creates named **25K / 50K / 100K** simulated accounts, including
+multiple accounts of the same size. Each keeps its own pinned tape, replay clock, positions, orders, fills, fees,
+P&L and rule ledger. Switch, rename and confirmed delete are available in the account dialog. A **Blown account**
+label persists across switches and reloads; a daily lock has a separate label and is not treated as a blown account.
+Changing rules or starting a new attempt creates another account, without erasing the old one.
+
+**Persistence and controls.** IndexedDB `propdesk-replay-v1` stores pinned runs, checkpoints and small account
+summaries. Legacy accounts migrate without changing their tapes or ledgers. Switching pauses playback and drains
+pending saves before loading the destination; a failed save blocks the transition and exposes Retry. A failed
+restore sets `restoreBlocked` and never silently resets the account. Deleting the selected account leaves no
+selection; deleting the last account stays empty even after reload. Storage is **local to this browser/origin**,
+not cloud backup, and clearing site data deletes it. Save failure can leave the latest state unsaved. Display/ATM/hotkey
+preferences remain shared in localStorage. Six local hotkeys are
 opt-in and remappable (see below); there is no full per-module hotkey catalogue, docking, workspace import/export
 or cloud sync.
 
 See [implementation, scoped parity and evidence map](docs/design/trading-terminal.md),
-[performance and acceptance evidence](docs/perf/terminal.md), and the
-[same-harness optimization report](docs/perf/terminal-optimization.md). The final validation passed 866 tests,
-65 browser checks, five theme routes, the WASM loading checks and the replay responsiveness budget; the measured
-limits (headless single-machine, 5-minute OHLCV, no depth/tape) are recorded there.
+[account lifecycle and migration](docs/design/terminal-accounts.md),
+[historical performance and acceptance evidence](docs/perf/terminal.md), and the
+[same-harness optimization report](docs/perf/terminal-optimization.md). The performance report records its own
+validated revision and sample sizes; newer account checks are separate. Measurement limits (headless single-machine,
+5-minute OHLCV, no depth/tape) are recorded there.
 
 ### Chart engine
 
@@ -388,6 +400,8 @@ The unit and component suites cover:
 - shallow scenario state, newest-start-wins, visible-swing reuse, decision-time grading and session accounting,
 - fill normalization across session gaps, same-bar round trips, no-fill plans and invalid bar coordinates,
 - replay no-lookahead/determinism, sparse shared clocks, scheduled closes and corrupt-checkpoint/retry handling,
+- independent account creation/switching/rename/deletion, atomic legacy migration, retry/transition locking,
+  quota recovery, persistent blown labels and intentional empty-state reloads,
 - six order types, TIF/release, same-ID amendments, reservations, partial targets, OCO and ATM,
 - prop peak basis vs breach monitor, fee-aware transitions, finalized-day gates and conditional price rounding,
 - timeframe aggregation parity (TS ↔ WASM), custom intervals, DST and weekly-session filtering,
@@ -403,7 +417,8 @@ Visual QA: `bun run screenshot` writes desktop and mobile captures to `screensho
   execution/risk already run in TypeScript; the analysis lab and optional TA helpers are unavailable.
 - Scenarios are synthetic by default, or sampled from an optional local pack; neither proves a real trading edge.
 - The trainer permits one position/working entry at a time. The terminal supports multiple symbols and working
-  orders, with one net position per symbol in one simulated account.
+  orders, with one net position per symbol in each independent simulated account. Only the selected account
+  advances or receives orders; grouped routing and concurrent multi-tab editing are not supported.
 - Terminal bar paths, weekly calendar and frozen-other-mark risk prices are approximations. No live quotes,
   order-book depth, tick-based charts, full workspaces or licensed prop-firm rulebooks are provided.
 - Reference plans are fixed strategy baselines; they are not a ranking of real traders.

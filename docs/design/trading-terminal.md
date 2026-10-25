@@ -14,7 +14,7 @@ terminal, not a wholesale 1:1 Tradovate claim. Final production/browser acceptan
 | Execution      | A declared bar-path simulator, not exchange matching or historical tick replay.                                                          |
 | Quotes         | Last revealed close, change from the preceding revealed base bar, and that base bar's volume. No bid/ask quotes or session-volume claim. |
 | DOM            | Price ladder, order entry and own orders only; no fabricated book depth.                                                                 |
-| Account        | One simulated account, multiple symbols and working orders, one net position per symbol.                                                 |
+| Account        | Independent local 25K/50K/100K simulated accounts; one selected at a time, with multiple symbols and one net position per symbol.        |
 | Existing exams | `/trainer`, `/drill`, `/daily` and `/pk` retain their separate blind flow and grading.                                                   |
 
 Parity statuses in section 8 mean:
@@ -175,7 +175,7 @@ floor is an account-bar metric, not a price line. Off-scale values remain availa
 
 ### Generic presets, not licensed firm rules
 
-`app/domain/sim/presets.ts` ships `50K Evaluation`, `100K Evaluation`, `50K Funded` and `Practice (no limits)`.
+`app/domain/sim/presets.ts` ships `25K Evaluation`, `50K Evaluation`, `100K Evaluation`, `50K Funded` and `Practice (no limits)`. The account creation dialog offers the three evaluation sizes.
 The evaluation examples use 55% pass-consistency and the funded example 40% payout-consistency as **local
 illustrative parameters**, not current Topstep or other firm's rules. Their source strings are descriptive
 metadata, not licenses or independently verified rulebook versions. Practice still has a finite floor, contract
@@ -231,7 +231,8 @@ app/domain/sim/
   engine.ts, risk.ts      TypeScript execution and rule state transitions
 app/lib/sim/
   tape.ts, replay.ts      pinned tapes, shared timeline and ReplaySession
-  persistence.ts         IndexedDB run/checkpoint repository
+  persistence.ts         IndexedDB multi-account run/checkpoint repository
+  accounts.ts            lightweight account metadata and summary validation
   layout.ts, hotkeys.ts   local display/input preferences
   chart.ts, risk-lines.ts chart helpers and risk-price rounding
   atm-presets.ts          local ATM presets
@@ -239,7 +240,7 @@ app/lib/sim/
 app/stores/terminal.ts    page orchestration, timer, persistence status/retry
 app/pages/terminal.vue    responsive desk and active-pane coordination
 app/components/terminal/
-  AccountBar.vue, Watchlist.vue, OrderTicket.vue, DomLadder.vue
+  AccountManager.vue, AccountBar.vue, Watchlist.vue, OrderTicket.vue, DomLadder.vue
   PositionsTable.vue, OrdersTable.vue, FillsTable.vue, TerminalHistory.vue
   RulesPanel.vue, ReplayBar.vue, TimeframePicker.vue
   TerminalChartPane.vue, HotkeySettings.vue
@@ -251,10 +252,16 @@ WASM accelerates aggregation and supplies the existing analysis helpers. Aggrega
 TA is unavailable without its analysis core, while replay/trading remains usable. **Execution, drawdown and
 consistency transitions stay in TypeScript**; there is no WASM drawdown/consistency engine.
 
-IndexedDB `propdesk-replay-v1` stores the pinned run plus checkpoint. Restore validates cursor, tape marks and
-engine time; a bad/unreadable checkpoint sets `restoreBlocked` rather than silently resetting an account.
-The UI exposes save/restore status, Retry and an explicit confirmed new attempt. Async save failure means the
-latest state may not survive refresh; trading success is not a promise that storage succeeded.
+IndexedDB `propdesk-replay-v1` stores a pinned run, checkpoint and small summary per account. Existing legacy
+run/checkpoint pairs migrate atomically without rewriting their trading history. The account dialog creates,
+switches, renames and deletes accounts; each keeps its replay cursor, positions, orders, fills and rule ledger.
+Switching pauses and drains writes first. Save failure blocks switching/creation instead of abandoning unsaved
+progress. A named load validates cursor, tape marks and engine time before changing the active pointer.
+A bad/unreadable active checkpoint sets `restoreBlocked` rather than silently resetting an account.
+The UI exposes Retry and an explicit new account; it does not revive breached accounts. Confirmed deletion of the
+active account leaves no selection; an intentionally empty catalog stays empty after reload.
+See [account model, UI and verification](terminal-accounts.md). Async save failure means the latest state may not
+survive refresh; trading success is not a promise that storage succeeded.
 
 Symbol/timeframe, pane layout, hotkeys and ATM preferences use localStorage separately from accounting.
 The terminal shows a synthetic/local source label and fallback notices. Tape provenance is carried in
@@ -272,6 +279,7 @@ the browser pointer, focus and responsive flows, which are listed separately.
 | Path ordering, gaps, six order types, reservations, partial exits, ATM, fee/session risk  | `tests/unit/sim-engine.spec.ts`                                                                                                                                                                                                                                    |
 | Peak basis vs monitor, floors/caps, daily actions, finalized consistency/target gates     | `tests/unit/sim-risk.spec.ts`                                                                                                                                                                                                                                      |
 | Shared timeline, future mutation isolation, deterministic actions, exhaustion and restore | `tests/unit/sim-replay.spec.ts`                                                                                                                                                                                                                                    |
+| Account creation, isolation, transitions, deletion, status and persistence                | `tests/unit/terminal-accounts.spec.ts`, `tests/unit/replay-accounts.spec.ts`, `tests/component/terminal-accounts.spec.ts`, `scripts/check-accounts.mjs`                                                                                                            |
 | Save/restore failures, pinned rules, retry, breach persistence                            | `tests/unit/terminal-persistence.spec.ts`                                                                                                                                                                                                                          |
 | Ticket/ladder/table/rules/history controls and CSV                                        | `tests/component/terminal-ticket.spec.ts`, `tests/component/terminal-tables.spec.ts`, `tests/component/terminal-rules.spec.ts`, `tests/component/terminal-history.spec.ts`                                                                                         |
 | Quotes, custom input, account details and replay controls                                 | `tests/component/terminal-market-controls.spec.ts`                                                                                                                                                                                                                 |
@@ -285,24 +293,25 @@ not itself a passing result. Nor does this map claim every order/rule combinatio
 
 ## 8. Scoped parity matrix
 
-| Area                               | Current implementation and omissions                                                                                                   | Status                   |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Replay timeframes                  | Six presets plus custom 5–1440 minute multiples of 5, forming badge, one revealed timeline.                                            | IMPLEMENTED WITHIN SCOPE |
-| Finer timeframes                   | No 1m/seconds/tick data or choices.                                                                                                    | UNAVAILABLE              |
-| Charts/studies/drawings            | Up to three panes, four styles, fixed TA layers, trend/horizontal drawings; no full catalogue, saved drawings or advanced chart types. | ADAPTED                  |
-| Quotes                             | Replay last, one-base-bar change and volume; no bid/ask or live/session quote service.                                                 | ADAPTED                  |
-| Orders                             | Six local order types, DAY/GTC/GTD, release/expiry, amendment/cancel; no exchange queue, volume-based partial fills or routing.        | ADAPTED                  |
-| Brackets and ATM                   | One stop/up to five sized targets, OCO reduction, break-even/trailing and local presets; no automatic protection re-arm after reverse. | IMPLEMENTED WITHIN SCOPE |
-| Chart trading                      | Click-to-price, same-ID drag amendment and X cancel in cursor mode; simulated orders only.                                             | IMPLEMENTED WITHIN SCOPE |
-| DOM                                | Price ladder and own orders, not book depth/queue/liquidity.                                                                           | ADAPTED                  |
-| Time & sales / order flow feed     | No trade prints, bid/ask delta, footprint or depth feed; analysis flow is an OHLCV proxy only.                                         | UNAVAILABLE              |
-| Positions/account                  | Multi-symbol net positions, add/reduce/reverse/flatten/Exit all, fee-aware P&L, margin/buying power; one simulated account.            | IMPLEMENTED WITHIN SCOPE |
-| Prop overlay                       | Configurable floors, daily actions, caps, finalized-day/consistency gates and conditional risk price; not a licensed firm rulebook.    | IMPLEMENTED WITHIN SCOPE |
-| History                            | Orders, fills, trades, events, day ledger and CSV; local records, not broker statements.                                               | IMPLEMENTED WITHIN SCOPE |
-| Workspace                          | One locally saved pane list; no named workspaces, layout import/export, docking, multi-window or cloud sync.                           | ADAPTED                  |
-| Hotkeys                            | Six opt-in remappable local actions; not the full per-module action catalogue.                                                         | ADAPTED                  |
-| Exchange connectivity / real money | No live or delayed streaming feed, broker, real orders or payout service.                                                              | UNAVAILABLE              |
-| Options, spreads, multi-account    | Outside the confirmed core replay scope.                                                                                               | UNAVAILABLE              |
+| Area                               | Current implementation and omissions                                                                                                     | Status                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Replay timeframes                  | Six presets plus custom 5–1440 minute multiples of 5, forming badge, one revealed timeline.                                              | IMPLEMENTED WITHIN SCOPE |
+| Finer timeframes                   | No 1m/seconds/tick data or choices.                                                                                                      | UNAVAILABLE              |
+| Charts/studies/drawings            | Up to three panes, four styles, fixed TA layers, trend/horizontal drawings; no full catalogue, saved drawings or advanced chart types.   | ADAPTED                  |
+| Quotes                             | Replay last, one-base-bar change and volume; no bid/ask or live/session quote service.                                                   | ADAPTED                  |
+| Orders                             | Six local order types, DAY/GTC/GTD, release/expiry, amendment/cancel; no exchange queue, volume-based partial fills or routing.          | ADAPTED                  |
+| Brackets and ATM                   | One stop/up to five sized targets, OCO reduction, break-even/trailing and local presets; no automatic protection re-arm after reverse.   | IMPLEMENTED WITHIN SCOPE |
+| Chart trading                      | Click-to-price, same-ID drag amendment and X cancel in cursor mode; simulated orders only.                                               | IMPLEMENTED WITHIN SCOPE |
+| DOM                                | Price ladder and own orders, not book depth/queue/liquidity.                                                                             | ADAPTED                  |
+| Time & sales / order flow feed     | No trade prints, bid/ask delta, footprint or depth feed; analysis flow is an OHLCV proxy only.                                           | UNAVAILABLE              |
+| Positions/account                  | Multi-symbol net positions, add/reduce/reverse/flatten/Exit all, fee-aware P&L, margin/buying power; independent local accounts.         | IMPLEMENTED WITHIN SCOPE |
+| Prop overlay                       | Configurable floors, daily actions, caps, finalized-day/consistency gates and conditional risk price; not a licensed firm rulebook.      | IMPLEMENTED WITHIN SCOPE |
+| History                            | Orders, fills, trades, events, day ledger and CSV; local records, not broker statements.                                                 | IMPLEMENTED WITHIN SCOPE |
+| Workspace                          | One locally saved pane list; no named workspaces, layout import/export, docking, multi-window or cloud sync.                             | ADAPTED                  |
+| Hotkeys                            | Six opt-in remappable local actions; not the full per-module action catalogue.                                                           | ADAPTED                  |
+| Exchange connectivity / real money | No live or delayed streaming feed, broker, real orders or payout service.                                                                | UNAVAILABLE              |
+| Local multi-account                | Create 25K/50K/100K accounts, switch, rename, confirmed delete and persistent blown labels; one active replay, no grouped order routing. | IMPLEMENTED WITHIN SCOPE |
+| Options, spreads, grouped routing  | Outside the confirmed core replay scope.                                                                                                 | UNAVAILABLE              |
 
 ## 9. References and remaining limits
 
