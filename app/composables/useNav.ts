@@ -5,6 +5,7 @@ import {
   ChartCandlestick,
   Crosshair,
   CandlestickChart,
+  GraduationCap,
   LayoutDashboard,
   ScanSearch,
   Settings,
@@ -33,6 +34,7 @@ export const navItems: NavItem[] = [
 ]
 
 export const secondaryNavItems: NavItem[] = [
+  { to: '/learn', labelKey: 'nav.academy', shortKey: 'nav.academyShort', icon: GraduationCap },
   { to: '/guide', labelKey: 'nav.guide', shortKey: 'nav.guideShort', icon: BookOpen },
   { to: '/settings', labelKey: 'nav.settings', shortKey: 'nav.settingsShort', icon: Settings },
 ]

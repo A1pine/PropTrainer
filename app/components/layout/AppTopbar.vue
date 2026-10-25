@@ -18,7 +18,13 @@ const usesLocalData = computed(
     settings.settings.dataSource === 'local' &&
     ['/trainer', '/drill', '/analysis'].some((path) => route.path === path || route.path.startsWith(`${path}/`)),
 )
-const dataBadge = computed(() => (usesLocalData.value ? t('settings.dataSource.local') : t('common.simulated')))
+const dataBadge = computed(() =>
+  route.path === '/learn' || route.path.startsWith('/learn/')
+    ? t('learning.badge')
+    : usesLocalData.value
+      ? t('settings.dataSource.local')
+      : t('common.simulated'),
+)
 
 function toggleSound() {
   settings.update({ sound: !settings.settings.sound })
