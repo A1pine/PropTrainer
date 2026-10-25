@@ -67,11 +67,12 @@ export class ReplaySession {
           throw new Error('Replay marks do not match the pinned cursor')
         }
       }
-      // The engine clock may only be the cursor bar, or the scheduled session
-      // close when that bar was the last one before the boundary. Anything else
-      // is a checkpoint that no longer matches this tape.
+      // The initial cursor only primes marks; even a final session candle stays
+      // at its bar time until step() closes it. A stepped final candle must use
+      // the scheduled close, never an arbitrary clock within the bar interval.
       const close = sessionClose(tradingDayKey(this.time))
-      const expected = this.time + REPLAY_BASE_SECONDS >= close ? close : this.time
+      const stepped = this.cursor > this.run.startIndex + 1
+      const expected = stepped && this.time + REPLAY_BASE_SECONDS >= close ? close : this.time
       if (snapshot.time !== expected) throw new Error('Replay checkpoint clock does not match the tape')
     } else {
       this._cursor = run.startIndex + 1

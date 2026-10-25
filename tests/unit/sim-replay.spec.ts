@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { instruments } from '~/domain/instruments/catalog'
 import type { Candle } from '~/domain/market/types'
 import { cloneTemplate, templateById } from '~/domain/sim/presets'
-import { isMarketOpen, nextSessionOpen, sessionClose, sessionOpen } from '~/domain/sim/session'
+import { chicagoToUnix, isMarketOpen, nextSessionOpen, sessionClose, sessionOpen } from '~/domain/sim/session'
 import type { SimOrderInput } from '~/domain/sim/types'
 import type { ReplayCheckpoint, ReplayRun, SavedReplay } from '~/lib/sim/persistence'
 import { ReplaySession } from '~/lib/sim/replay'
@@ -21,8 +21,8 @@ const CLOSE = sessionClose(DAY)
 const MNQ = instruments.require('MNQ')
 const MES = instruments.require('MES')
 
-function tape(symbol = 'MNQ', bars = 320, omitted: number[] = []): ReplayTape {
-  let time = OPEN
+function tape(symbol = 'MNQ', bars = 320, omitted: number[] = [], startTime = OPEN): ReplayTape {
+  let time = startTime
   const candles: Candle[] = []
   for (let index = 0; index < bars; index += 1) {
     if (!isMarketOpen(time)) time = nextSessionOpen(time)
@@ -318,6 +318,139 @@ describe('ReplaySession session boundaries and exhaustion', () => {
 })
 
 describe('ReplaySession checkpoint validation', () => {
+  it('round-trips a newly primed final-candle checkpoint without closing the session', () => {
+    const replay = session(run([tape()], 275))
+    const checkpoint = replay.checkpoint()
+    expect(replay.time).toBe(CLOSE - REPLAY_BASE_SECONDS)
+    expect(checkpoint.engine.time).toBe(replay.time)
+    expect(checkpoint.engine.closedSessions).toEqual([])
+    expect(checkpoint.engine.risk.days).toEqual([])
+
+    const restored = ReplaySession.restore(saved(replay))
+
+    expect(restored.checkpoint()).toEqual(checkpoint)
+    expect(restored.engine.snapshot()).toEqual(replay.engine.snapshot())
+  })
+
+  it('preserves trading at an initial final candle and closes it only on the first step', () => {
+    const replay = session(run([tape()], 275))
+    const mark = replay.engine.mark('MNQ')!
+    submit(replay, { side: 'long', type: 'market', qty: 1 })
+    const dayOrder = submit(replay, { side: 'long', type: 'limit', qty: 1, limitPrice: 500, tif: 'day' })
+    const gtcOrder = submit(replay, { side: 'long', type: 'limit', qty: 1, limitPrice: 500, tif: 'gtc' })
+    const checkpoint = replay.checkpoint()
+    expect(checkpoint.engine.time).toBe(CLOSE - REPLAY_BASE_SECONDS)
+    expect(checkpoint.engine.closedSessions).toEqual([])
+    expect(checkpoint.engine.risk.days).toMatchObject([{ key: DAY, finalized: false }])
+
+    const restored = ReplaySession.restore(saved(replay))
+    expect(restored.checkpoint()).toEqual(checkpoint)
+    expect(restored.engine.snapshot()).toEqual(replay.engine.snapshot())
+    for (const active of [replay, restored]) {
+      active.step()
+      const state = active.engine.exportState()
+      expect(state.time).toBe(sessionOpen('2026-10-20'))
+      expect(state.marks.MNQ!.price).not.toBe(mark.price)
+      expect(state.positions).toEqual([])
+      expect(state.fills).toHaveLength(2)
+      expect(state.fills.at(-1)).toMatchObject({ price: mark.price, time: CLOSE, reason: 'session-end' })
+      expect(state.orders.find((order) => order.id === dayOrder)?.status).toBe('expired')
+      expect(state.orders.find((order) => order.id === gtcOrder)?.status).toBe('working')
+      expect(state.closedSessions).toEqual([DAY])
+      expect(state.events.filter((event) => event.type === 'session-close')).toHaveLength(1)
+      expect(state.risk.days.find((day) => day.key === DAY)).toMatchObject({ finalized: true, fills: 2, trades: 1 })
+      const closed = active.checkpoint()
+      active.engine.closeSession(CLOSE)
+      expect(active.checkpoint()).toEqual(closed)
+      expect(ReplaySession.restore(saved(active)).checkpoint()).toEqual(closed)
+    }
+    expect(restored.checkpoint()).toEqual(replay.checkpoint())
+  })
+
+  const clockCases: {
+    name: string
+    startTime: number
+    time: number
+    steppedTime?: number
+    closedDay?: string
+    omitted?: number[]
+  }[] = [
+    { name: 'ordinary intraday', startTime: OPEN, time: OPEN + 270 * REPLAY_BASE_SECONDS },
+    { name: 'UTC midnight', startTime: OPEN, time: Date.parse('2026-10-20T00:00:00Z') / 1_000 },
+    { name: 'Chicago midnight', startTime: OPEN, time: chicagoToUnix(2026, 10, 20, 0) },
+    {
+      name: 'daylight-time session close',
+      startTime: OPEN,
+      time: CLOSE - REPLAY_BASE_SECONDS,
+      steppedTime: CLOSE,
+      closedDay: DAY,
+    },
+    {
+      name: 'standard-time session close',
+      startTime: sessionOpen('2026-11-02'),
+      time: sessionClose('2026-11-02') - REPLAY_BASE_SECONDS,
+      steppedTime: sessionClose('2026-11-02'),
+      closedDay: '2026-11-02',
+    },
+    {
+      name: 'spring-forward weekend gap',
+      startTime: sessionOpen('2026-03-06'),
+      time: sessionOpen('2026-03-09'),
+      closedDay: '2026-03-06',
+    },
+    {
+      name: 'fall-back weekend gap',
+      startTime: sessionOpen('2026-10-30'),
+      time: sessionOpen('2026-11-02'),
+      closedDay: '2026-10-30',
+    },
+    {
+      name: 'intraday gap',
+      startTime: OPEN,
+      time: OPEN + 264 * REPLAY_BASE_SECONDS,
+      omitted: [261, 262, 263],
+    },
+    {
+      name: 'missing closing candle',
+      startTime: OPEN,
+      time: sessionOpen('2026-10-20'),
+      closedDay: DAY,
+      omitted: [275],
+    },
+  ]
+
+  it.each(clockCases)('round-trips exact clocks at $name after construction and after step', (fixture) => {
+    const { startTime, time, steppedTime = time, closedDay, omitted = [] } = fixture
+    const tapes = [tape('MES', 600, omitted, startTime), tape('MNQ', 600, [0, ...omitted], startTime)]
+    const market = buildReplayMarket(tapes)
+    const index = market.timeline.indexOf(time)
+    expect(index).toBeGreaterThan(market.startIndex)
+
+    for (const stepped of [false, true]) {
+      const replay = session(run(tapes, index - Number(stepped)))
+      if (stepped) replay.step()
+      expect(replay.cursor).toBe(index + 1)
+      expect(replay.time).toBe(time)
+      const checkpoint = replay.checkpoint()
+      expect(checkpoint.engine.time).toBe(stepped ? steppedTime : time)
+      expect(checkpoint.engine.risk.lastTime).toBe(checkpoint.engine.time)
+      expect(checkpoint.engine.closedSessions).toEqual(stepped && closedDay ? [closedDay] : [])
+      for (const item of replay.market.tapes) {
+        const count = revealedCount(item.candles, time)
+        const last = item.candles[count - 1]!
+        expect(checkpoint.engine.marks[item.symbol]).toEqual({ price: last.close, time: last.time, bar: count - 1 })
+      }
+      const restored = ReplaySession.restore(saved(replay))
+      expect(restored.checkpoint()).toEqual(checkpoint)
+      expect(JSON.stringify(restored.checkpoint())).toBe(JSON.stringify(checkpoint))
+      expect(restored.engine.snapshot()).toEqual(replay.engine.snapshot())
+      replay.step(2)
+      restored.step(2)
+      expect(restored.checkpoint()).toEqual(replay.checkpoint())
+      expect(ReplaySession.restore(saved(restored)).checkpoint()).toEqual(replay.checkpoint())
+    }
+  })
+
   it('round-trips the cursor, pinned rules, marks, account and live orders, then resumes identically', () => {
     const rules = {
       ...cloneTemplate(templateById('practice')!),
@@ -353,6 +486,45 @@ describe('ReplaySession checkpoint validation', () => {
     }
     expect(restored.engine.snapshot()).toEqual(replay.engine.snapshot())
     expect(restored.checkpoint()).toEqual(replay.checkpoint())
+  })
+
+  it.each([false, true])('does not read hidden prices at a final candle (stepped: %s)', (stepped) => {
+    const replay = session(run([tape('MES', 320, [274]), tape('MNQ')], stepped ? 274 : 275))
+    if (stepped) replay.step()
+    const checkpoint = replay.checkpoint()
+    const snapshot = replay.engine.snapshot()
+    const changed = saved(replay)
+    for (const item of changed.run.tapes) {
+      const count = revealedCount(item.candles, replay.time)
+      for (const candle of item.candles.slice(count)) {
+        Object.assign(candle, { open: 100_000, high: 200_000, low: -100_000, close: 150_000, volume: 1_000_000 })
+      }
+      expect(item.candles.every(validReplayCandle)).toBe(true)
+    }
+    expect(session(changed.run).checkpoint()).toEqual(session(replay.run).checkpoint())
+    const restored = ReplaySession.restore(changed)
+    expect(restored.checkpoint()).toEqual(checkpoint)
+    expect(restored.engine.snapshot()).toEqual(snapshot)
+  })
+
+  it.each([
+    { name: 'intraday initial clock', startIndex: 270, steps: 0, offset: 1 },
+    { name: 'initial final candle partway through the interval', startIndex: 275, steps: 0, offset: 1 },
+    { name: 'initial final candle at an unprocessed close', startIndex: 275, steps: 0, offset: REPLAY_BASE_SECONDS },
+    { name: 'intraday stepped clock', startIndex: 269, steps: 1, offset: 1 },
+    { name: 'stepped final candle beyond the close', startIndex: 274, steps: 1, offset: 1 },
+  ])('rejects an inexact $name', ({ startIndex, steps, offset }) => {
+    const replay = session(run([tape()], startIndex))
+    replay.step(steps)
+    const changed = saved(replay)
+    changed.checkpoint.engine.time += offset
+    expect(() => ReplaySession.restore(changed)).toThrow('Replay checkpoint clock does not match the tape')
+  })
+
+  it('rejects an unclosed final candle at a stepped cursor instead of accepting either boundary clock', () => {
+    const changed = saved(session(run([tape()], 275)))
+    changed.run.startIndex = 274
+    expect(() => ReplaySession.restore(changed)).toThrow('Replay checkpoint clock does not match the tape')
   })
 
   const corruptions: {
