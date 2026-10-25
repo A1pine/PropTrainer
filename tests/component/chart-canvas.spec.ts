@@ -197,6 +197,20 @@ describe('ChartCanvas option wiring', () => {
     await setSystemReducedMotion(true)
     expect(chart.setOptions).not.toHaveBeenCalled()
   })
+
+  it('forwards the series key on mount, array replacement and key-only changes', async () => {
+    const wrapper = createChart({ seriesKey: 'run:es:5m' })
+    expect(chart.setCandles).toHaveBeenLastCalledWith(candles, 1, 'run:es:5m')
+
+    const next = [...candles]
+    await wrapper.setProps({ candles: next })
+    expect(chart.setCandles).toHaveBeenLastCalledWith(next, 1, 'run:es:5m')
+
+    chart.setCandles.mockClear()
+    await wrapper.setProps({ seriesKey: 'run:es:15m' })
+    expect(chart.setCandles).toHaveBeenCalledTimes(1)
+    expect(chart.setCandles).toHaveBeenLastCalledWith(next, 1, 'run:es:15m')
+  })
 })
 
 const execution = (overrides: Partial<ChartExecution> = {}): ChartExecution => ({

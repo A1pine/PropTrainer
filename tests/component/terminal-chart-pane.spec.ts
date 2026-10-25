@@ -21,6 +21,7 @@ const ChartCanvasStub = defineComponent({
   props: [
     'candles',
     'visibleCount',
+    'seriesKey',
     'orders',
     'chartStyle',
     'orderDraggable',
@@ -276,6 +277,18 @@ describe('TerminalChartPane', () => {
 
     await wrapper.setProps({ timeframeMinutes: 15, timeframeLabel: '15m', label: 'NQ 15m' })
     expect(chartOf(wrapper).props('drawings')).toHaveLength(0)
+  })
+
+  it('forwards the pane series key and republishes it when only the key changes', async () => {
+    const wrapper = render({ seriesKey: 'run:es:5m' })
+    expect(chartOf(wrapper).props('seriesKey')).toBe('run:es:5m')
+
+    const next = [...candles, { time: 240, open: 104, high: 106, low: 103, close: 105, volume: 14 }]
+    await wrapper.setProps({ candles: next, visibleCount: next.length })
+    expect(chartOf(wrapper).props('seriesKey')).toBe('run:es:5m')
+
+    await wrapper.setProps({ seriesKey: 'run:es:15m' })
+    expect(chartOf(wrapper).props('seriesKey')).toBe('run:es:15m')
   })
 
   it('clears drawings from the toolbar and disables the button when empty', async () => {

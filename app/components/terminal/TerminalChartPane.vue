@@ -10,6 +10,8 @@ const props = withDefaults(
   defineProps<{
     candles: Candle[]
     visibleCount: number
+    /** Stable pane series identity; appends must not reset pan/zoom. */
+    seriesKey?: string
     orders?: readonly ChartOrderLine[]
     chartStyle?: ChartStyle
     orderDraggable?: boolean
@@ -83,7 +85,6 @@ const {
   report: analysisReport,
   overlay: analysisOverlay,
   status: analysisStatus,
-  count: analysisCount,
   retry: retryAnalysis,
 } = useExamAnalysis({
   candles: () => visibleCandles.value,
@@ -134,7 +135,7 @@ function forwardPricePick(price: number) {
 }
 
 watch(
-  () => [props.symbolMask, props.timeframeLabel, props.timeframeMinutes] as const,
+  () => [props.seriesKey, props.symbolMask, props.timeframeLabel, props.timeframeMinutes] as const,
   (next, previous) => {
     if (previous && next.some((value, index) => value !== previous[index])) drawings.value = []
   },
@@ -205,7 +206,7 @@ defineExpose({
           v-model:layers="analysisLayers"
           :report="analysisReport"
           :status="analysisStatus"
-          :count="analysisCount"
+          :count="revealCount"
           compact
           @retry="retryAnalysis"
         />
@@ -217,6 +218,7 @@ defineExpose({
       class="min-h-[260px] flex-1"
       :candles="candles"
       :visible-count="visibleCount"
+      :series-key="seriesKey"
       :orders="orders"
       :chart-style="chartStyle"
       :order-draggable="effectiveOrderDraggable"

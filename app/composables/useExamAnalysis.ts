@@ -66,7 +66,9 @@ export function useExamAnalysis(input: {
   const report = computed(() => {
     if (!shouldAnalyze.value || !coreReady.value) return null
     void analysisRevision.value
-    return analyzeMarket(toValue(input.candles).slice(0, count.value), toValue(input.precision))
+    const source = toValue(input.candles)
+    const visible = count.value >= source.length ? source : source.slice(0, count.value)
+    return analyzeMarket(visible, toValue(input.precision))
   })
   const overlay = computed(() =>
     report.value ? buildChartAnalysis(report.value, count.value, layers.value, frameworks.value) : null,

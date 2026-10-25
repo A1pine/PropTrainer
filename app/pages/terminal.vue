@@ -17,6 +17,16 @@ import {
 } from '~/lib/sim/hotkeys'
 import { LAYOUT_SIZES, readLayout, resizePanes, writeLayout, type TerminalPane } from '~/lib/sim/layout'
 
+const REPLAY_LABEL = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'America/Chicago',
+  month: 'short',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+const EMPTY_ANALYSIS: ChartAnalysis = { series: [], zones: [], levels: [], markers: [], profile: [] }
+
 const { t } = useI18n()
 const terminal = useTerminalStore()
 const toasts = useToastStore()
@@ -61,16 +71,17 @@ function setChart(index: number, handle: unknown) {
   else charts.delete(index)
 }
 
-const renderedPanes = computed(() =>
-  panes.value.map((pane, index) => ({ pane, index, candles: terminal.candlesFor(pane.symbol, pane.timeframe) })),
-)
-
-const visiblePanes = computed(() => {
-  const all = renderedPanes.value
-  if (wide.value) return all
-  const current = all[activePane.value]
-  return current ? [current] : all.slice(0, 1)
+const renderedPanes = computed(() => {
+  // A narrow layout mounts only the active pane, so aggregating the hidden
+  // layouts would be pure waste. Wide layouts still prepare all three.
+  const indices = wide.value ? panes.value.map((_, index) => index) : [activePane.value]
+  return indices.flatMap((index) => {
+    const pane = panes.value[index]
+    return pane ? [{ pane, index, candles: terminal.candlesFor(pane.symbol, pane.timeframe) }] : []
+  })
 })
+
+const visiblePanes = computed(() => renderedPanes.value)
 
 const paneColumns = computed(() =>
   visiblePanes.value.length >= 3 ? 'lg:grid-cols-3' : visiblePanes.value.length === 2 ? 'lg:grid-cols-2' : '',
@@ -162,14 +173,7 @@ const mark = computed(() => terminal.mark?.price ?? null)
 const replayLabel = computed(() => {
   const time = terminal.replayTime
   if (time == null) return '—'
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'America/Chicago',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(time * 1000))
+  return REPLAY_LABEL.format(new Date(time * 1000))
 })
 
 const ruleSummary = computed(() => terminal.risk?.status ?? 'active')
@@ -201,6 +205,7 @@ const riskAnalysis = computed<ChartAnalysis>(() => {
       label: t('terminal.account.dll'),
     })
   }
+  if (!levels.length) return EMPTY_ANALYSIS
   return { series: [], zones: [], levels, markers: [], profile: [] }
 })
 
@@ -771,6 +776,7 @@ useHead({ title: 'Trade terminal' })
               <TerminalChartPane
                 :ref="(handle) => setChart(entry.index, handle)"
                 :candles="entry.candles"
+                :series-key="`${terminal.run?.id ?? 'run'}:${entry.pane.symbol}:${entry.pane.timeframe}`"
                 :visible-count="entry.candles.length"
                 :orders="ordersFor(entry.pane.symbol)"
                 :chart-style="entry.pane.style"

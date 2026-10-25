@@ -484,6 +484,206 @@ describe('chart engine input and layout invalidation', () => {
   })
 })
 
+describe('chart series identity', () => {
+  const hoveredIndex = (onCrosshair: ReturnType<typeof vi.fn>) => onCrosshair.mock.lastCall?.[0]?.index
+  const indexAt = (viewport: { end: number; span: number }, x = 400) =>
+    Math.round(createIndexGeometry(viewport, priceArea).indexAt(x))
+
+  it('keeps a same-key pan and zoom across an array replacement', () => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 150, 'run:es:5m')
+    engine.focusOn(90, 40)
+    engine.zoom(0.5)
+    paint()
+
+    const appended = [...data, ...candles(50).map((candle, index) => ({ ...candle, time: (200 + index) * 300 }))]
+    engine.setCandles(appended, 200, 'run:es:5m')
+    paint()
+    pointer('pointermove', 400)
+
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 96, span: 28 }))
+  })
+
+  it('keeps following the newest bar when a same-key series appends', () => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 150, 'run:es:5m')
+    engine.fit()
+    paint()
+
+    const appended = [...data, ...candles(50).map((candle, index) => ({ ...candle, time: (200 + index) * 300 }))]
+    engine.setCandles(appended, 200, 'run:es:5m')
+    paint()
+    pointer('pointermove', 400)
+
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 199, span: 150 }))
+  })
+
+  it.each([
+    ['changes', 'run:es:5m', 'run:es:15m'],
+    ['is dropped', 'run:es:5m', undefined],
+    ['is introduced', undefined, 'run:es:5m'],
+  ] as const)('resets pan, zoom and follow when the series key %s', (_label, initialKey, nextKey) => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 150, initialKey)
+    engine.focusOn(90, 40)
+    engine.zoom(0.5)
+    paint()
+
+    engine.setCandles(data, 150, nextKey)
+    paint()
+    pointer('pointermove', 400)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 149, span: 72 }))
+
+    engine.setVisibleCount(180)
+    paint()
+    pointer('pointermove', 400)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 179, span: 72 }))
+  })
+
+  it('keeps legacy array-identity resets when no series key is supplied', () => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 150)
+    engine.focusOn(90, 40)
+    engine.zoom(0.5)
+    paint()
+
+    engine.setCandles(data, 150)
+    paint()
+    pointer('pointermove', 400)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 96, span: 28 }))
+
+    engine.setCandles([...data], 150)
+    paint()
+    pointer('pointermove', 400)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 149, span: 72 }))
+  })
+
+  it('clamps and abandons a pan when a same-key prefix shrinks', () => {
+    const onViewportChange = vi.fn()
+    const onPricePick = vi.fn()
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({ pricePickEnabled: true }, { onViewportChange, onPricePick, onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 200, 'run:es:5m')
+    engine.focusOn(150, 40)
+    paint()
+    const geo = createIndexGeometry({ end: 162, span: 40 }, priceArea)
+    pointer('pointerdown', 400)
+    pointer('pointermove', 400 + geo.slot * 4)
+    expect(onViewportChange).toHaveBeenLastCalledWith(158, 40)
+
+    engine.setCandles(data.slice(0, 60), 60, 'run:es:5m')
+    onViewportChange.mockClear()
+    pointer('pointermove', 400 + geo.slot * 8)
+    pointer('pointerup', 400 + geo.slot * 8)
+
+    expect(onViewportChange).not.toHaveBeenCalled()
+    expect(onPricePick).not.toHaveBeenCalled()
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 59, span: 40 }, 400 + geo.slot * 8))
+  })
+
+  it('cancels a pending price pick when a followed same-key prefix shrinks', () => {
+    const onPricePick = vi.fn()
+    const onViewportChange = vi.fn()
+    const { engine, canvas, pointer } = setup({ pricePickEnabled: true }, { onPricePick, onViewportChange })
+    const data = candles(200)
+    engine.setCandles(data, 200, 'run:es:5m')
+    engine.fit()
+    paint()
+    pointer('pointerdown', 400)
+    onViewportChange.mockClear()
+
+    engine.setCandles(data.slice(0, 60), 60, 'run:es:5m')
+    expect(canvas.style.cursor).toBe('crosshair')
+    pointer('pointerup', 400)
+
+    expect(onPricePick).not.toHaveBeenCalled()
+    expect(onViewportChange).not.toHaveBeenCalled()
+  })
+
+  it('abandons a drawing anchored outside a shrinking same-key prefix', () => {
+    const onDrawingCommit = vi.fn()
+    const { engine, pointer } = setup({}, { onDrawingCommit })
+    const data = candles(200)
+    engine.setCandles(data, 200, 'run:es:5m')
+    engine.fit()
+    engine.setTool('trend')
+    paint()
+    pointer('pointerdown', 400)
+    pointer('pointermove', 450)
+
+    engine.setCandles(data.slice(0, 60), 60, 'run:es:5m')
+    pointer('pointermove', 500)
+    pointer('pointerup', 500)
+
+    expect(onDrawingCommit).not.toHaveBeenCalled()
+  })
+
+  it('clamps the span when a followed same-key prefix shrinks', () => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 200, 'run:es:5m')
+    engine.fit()
+    paint()
+
+    engine.setCandles(data.slice(0, 60), 60, 'run:es:5m')
+    paint()
+    pointer('pointermove', 400)
+
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 59, span: 60 }))
+  })
+
+  it('keeps a one-bar rewind anchored to the only revealed candle', () => {
+    const onCrosshair = vi.fn()
+    const { engine, pointer } = setup({}, { onCrosshair })
+    const data = candles(200)
+    engine.setCandles(data, 200, 'run:es:5m')
+    engine.focusOn(150, 40)
+    paint()
+
+    engine.setCandles(data.slice(0, 1), 1, 'run:es:5m')
+    pointer('pointermove', 700)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 0, span: 2 }, 700))
+
+    engine.setCandles(data, 200, 'run:es:5m')
+    pointer('pointermove', 700)
+    expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 0, span: 2 }, 700))
+  })
+
+  it.each(['starts empty', 'rewinds to empty'] as const)(
+    'restores a followed viewport when a keyed series %s',
+    (change) => {
+      const onCrosshair = vi.fn()
+      const { engine, pointer } = setup({}, { onCrosshair })
+      if (change === 'rewinds to empty') {
+        engine.setCandles(candles(200), 200, 'run:es:5m')
+        engine.focusOn(150, 40)
+      }
+      engine.setCandles([], 0, 'run:es:5m')
+      paint()
+
+      engine.setCandles(candles(20), 10, 'run:es:5m')
+      paint()
+      pointer('pointermove', 700)
+
+      expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 9, span: 72 }, 700))
+      engine.setVisibleCount(20)
+      paint()
+      pointer('pointermove', 700)
+      expect(hoveredIndex(onCrosshair)).toBe(indexAt({ end: 19, span: 72 }, 700))
+    },
+  )
+})
+
 const entryTriangles = (shapes: Shape[]) => shapes.filter((shape) => shape.points.length === 3)
 const exitDiamonds = (shapes: Shape[]) => shapes.filter((shape) => shape.points.length === 4)
 const connectors = (strokes: Stroke[]) =>
@@ -1190,6 +1390,33 @@ describe('chart style options', () => {
     paint()
     expect(bodies()).toHaveLength(100)
   })
+
+  it.each(['array replacement', 'tail replacement', 'tail mutation'] as const)(
+    'rebuilds heikin-ashi after a same-key forming %s',
+    (change) => {
+      const options = { chartStyle: 'heikin-ashi', reducedMotion: true } as const
+      const { engine, bodies } = setup(options)
+      const data = candles(8)
+      engine.setCandles(data, 8, 'run:es:5m')
+      engine.fit()
+      paint()
+      const before = bodies().at(-1)!
+
+      const tail = { ...data[7]!, high: 200, open: 100, low: 90, close: 180 }
+      let next = data
+      if (change === 'array replacement') next = [...data.slice(0, 7), tail]
+      else if (change === 'tail replacement') data[7] = tail
+      else Object.assign(data[7]!, tail)
+      engine.setCandles(next, 8, 'run:es:5m')
+      const fresh = setup(options)
+      fresh.engine.setCandles(next, 8, 'run:es:5m')
+      fresh.engine.fit()
+      paint()
+
+      expect(bodies().at(-1)!.height).toBeGreaterThan(before.height)
+      expect(bodies()).toEqual(fresh.bodies())
+    },
+  )
 })
 
 describe('chart time axis and hover stamps', () => {

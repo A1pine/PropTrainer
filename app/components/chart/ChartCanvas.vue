@@ -18,6 +18,8 @@ const props = withDefaults(
   defineProps<{
     candles: Candle[]
     visibleCount: number
+    /** Stable identity for append-only series; same key preserves viewport on new arrays. */
+    seriesKey?: string
     overlays?: ChartOverlayLevels
     orders?: readonly ChartOrderLine[]
     drawings?: ChartDrawing[]
@@ -130,7 +132,7 @@ function init() {
       reducedMotion: reducedMotion.value,
     },
   )
-  chart.setCandles(props.candles, props.visibleCount)
+  chart.setCandles(props.candles, props.visibleCount, props.seriesKey)
   chart.setOverlays(props.overlays)
   chart.setOrderLines(props.orders)
   chart.setDrawings(props.drawings)
@@ -161,9 +163,8 @@ onBeforeUnmount(() => {
   engine.value = null
 })
 
-watch(
-  () => props.candles,
-  (candles) => engine.value?.setCandles(candles, props.visibleCount),
+watch([() => props.candles, () => props.seriesKey], ([candles]) =>
+  engine.value?.setCandles(candles, props.visibleCount, props.seriesKey),
 )
 
 watch(

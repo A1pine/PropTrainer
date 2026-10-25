@@ -105,6 +105,7 @@ export class ChartEngine {
   private callbacks: ChartCallbacks
   private theme: ChartTheme
   private candles: Candle[] = []
+  private seriesKey: string | undefined
   private visibleCount = 0
   private viewport: Viewport = { end: 0, span: 72 }
   private follow = true
@@ -170,19 +171,27 @@ export class ChartEngine {
     this.measure()
   }
 
-  setCandles(candles: Candle[], visibleCount: number) {
-    const isNewSeries = candles !== this.candles
+  setCandles(candles: Candle[], visibleCount: number, seriesKey?: string) {
+    // A caller that owns a stable series identity can append candles without
+    // resetting pan/zoom. Without one, array identity remains the old signal.
+    const isNewSeries = seriesKey !== this.seriesKey || (seriesKey === undefined && candles !== this.candles)
     const previousCount = this.visibleCount
+    // Forming candles can change in place; array identity cannot validate HA.
+    // Count-only reveals still reuse the cache through setVisibleCount.
+    this.displayCache.source = null
     this.candles = candles
     this.visibleCount = Math.max(0, Math.min(visibleCount, candles.length))
-    if (isNewSeries) this.cancelDrag()
-    if (isNewSeries || this.viewport.end === 0) {
+    this.seriesKey = seriesKey
+    if (isNewSeries || this.visibleCount < previousCount) this.cancelDrag()
+    if (isNewSeries || previousCount === 0) {
       this.follow = true
       this.viewport = { end: Math.max(0, this.visibleCount - 1), span: 72 }
     } else if (this.visibleCount < previousCount) {
       this.viewport = clampViewport(this.viewport, Math.max(2, this.visibleCount))
     }
-    this.viewport.end = Math.min(this.viewport.end, Math.max(0, this.visibleCount - 1))
+    this.viewport.end = this.follow
+      ? Math.max(0, this.visibleCount - 1)
+      : Math.min(this.viewport.end, Math.max(0, this.visibleCount - 1))
     this.animateFrom = -1
     this.invalidateLayout()
     this.requestRender()
