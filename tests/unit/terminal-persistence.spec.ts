@@ -3,11 +3,12 @@ import { computed, markRaw, nextTick, onScopeDispose, ref, shallowRef, watch } f
 import { createPinia, defineStore, disposePinia, setActivePinia } from 'pinia'
 import { instruments } from '~/domain/instruments/catalog'
 import type { Candle } from '~/domain/market/types'
+import { SimEngine } from '~/domain/sim/engine'
 import { cloneTemplate, templateById } from '~/domain/sim/presets'
 import { isMarketOpen, nextSessionOpen, sessionOpen } from '~/domain/sim/session'
-import { TERMINAL_TIMEFRAMES } from '~/domain/sim/timeframe'
+import { aggregateCandlesTs, TERMINAL_TIMEFRAMES } from '~/domain/sim/timeframe'
 import * as persistence from '~/lib/sim/persistence'
-import type { ReplayRepository, ReplayRun, SavedReplay } from '~/lib/sim/persistence'
+import type { ReplayCheckpoint, ReplayRepository, ReplayRun, SavedReplay } from '~/lib/sim/persistence'
 import { ReplaySession } from '~/lib/sim/replay'
 import {
   buildReplayMarket,
@@ -102,6 +103,51 @@ function accounting(store: ReturnType<typeof useTerminalStore>) {
     knownTime: store.knownTime,
     snapshot: store.snapshot,
   })
+}
+
+/** Prefer microtask/timer progress; fake timers stay installed so flush proves idle. */
+async function settle() {
+  for (let turn = 0; turn < 12; turn += 1) {
+    await nextTick()
+    await new Promise<void>((resolve) => queueMicrotask(resolve))
+  }
+}
+
+interface GatedSave {
+  checkpoint: ReplayCheckpoint
+  resolve: () => void
+  reject: (cause: Error) => void
+}
+
+/** Queue every save behind its own promise so completion order is ours to choose. */
+function gateSaves(): GatedSave[] {
+  const gates: GatedSave[] = []
+  const write = repository.save.bind(repository)
+  vi.spyOn(repository, 'save').mockImplementation(
+    (checkpoint) =>
+      new Promise<void>((resolve, reject) => {
+        // Snapshot at invocation: the repository contract clones its input.
+        const saved = structuredClone(checkpoint)
+        gates.push({
+          checkpoint: saved,
+          resolve: () => {
+            write(saved).then(resolve, reject)
+          },
+          reject: (cause) => reject(cause),
+        })
+      }),
+  )
+  return gates
+}
+
+function restoreAccounting(saved: SavedReplay) {
+  const restored = ReplaySession.restore(saved)
+  return {
+    cursor: restored.cursor,
+    replayTime: restored.time,
+    knownTime: restored.time + REPLAY_BASE_SECONDS,
+    snapshot: restored.engine.snapshot(),
+  }
 }
 
 describe('createMemoryReplayRepository', () => {
@@ -617,5 +663,452 @@ describe('terminal store restore and save recovery', () => {
     expect(accounting(store)).toEqual(before)
     expect(store.storageStatus).toBe('saved')
     expect(await repository.load()).toEqual(persisted)
+  })
+})
+
+describe('terminal chart candle prefix cache', () => {
+  it('returns the identical array for repeated same-tape, same-count, same-frame reads', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const first = store.candlesFor(store.symbol, '15m')
+    const second = store.candlesFor(store.symbol, '15m')
+
+    expect(second).toBe(first)
+    expect(first).toEqual(aggregateCandlesTs(tape.candles.slice(0, count), '15m'))
+    expect(first.length).toBeLessThan(count)
+  })
+
+  it('keys 5m and 15m separately without recounting sessions', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const five = store.candlesFor(store.symbol, '5m')
+    const fifteen = store.candlesFor(store.symbol, '15m')
+
+    expect(five).toHaveLength(count)
+    expect(fifteen.length).toBeLessThan(five.length)
+    expect(fifteen).not.toBe(five)
+    expect(store.candlesFor(store.symbol, '5m')).toBe(five)
+    expect(store.candlesFor(store.symbol, '15m')).toBe(fifteen)
+
+    store.setTimeframe('15m')
+    await nextTick()
+    expect(store.chartCandles).toBe(fifteen)
+    store.setTimeframe('5m')
+    await nextTick()
+    expect(store.chartCandles).toBe(five)
+  })
+
+  it('invalidates cached prefixes when the revealed prefix grows', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const five = store.candlesFor(store.symbol, '5m')
+    const fifteen = store.candlesFor(store.symbol, '15m')
+    const count = five.length
+
+    store.stepBars(1)
+    const grownCount = revealedCount(tape.candles, store.replayTime!)
+    expect(grownCount).toBe(count + 1)
+    const grownFive = store.candlesFor(store.symbol, '5m')
+    const grownFifteen = store.candlesFor(store.symbol, '15m')
+    expect(grownFive).not.toBe(five)
+    expect(grownFive).toEqual(aggregateCandlesTs(tape.candles.slice(0, grownCount), '5m'))
+    expect(grownFifteen).not.toBe(fifteen)
+    expect(grownFifteen).toEqual(aggregateCandlesTs(tape.candles.slice(0, grownCount), '15m'))
+  })
+
+  it('recomputes shorter prefixes after a rewind instead of reusing a longer cache', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const initialCursor = store.cursor
+    store.stepBars(3)
+    const grown = store.candlesFor(store.symbol, '5m')
+    const grownCount = revealedCount(tape.candles, store.replayTime!)
+    expect(grown).toHaveLength(grownCount)
+
+    store.cursor = initialCursor
+    const rewoundCount = revealedCount(tape.candles, store.replayTime!)
+    expect(rewoundCount).toBeLessThan(grownCount)
+    const rewound = store.candlesFor(store.symbol, '5m')
+    expect(rewound).not.toBe(grown)
+    expect(rewound).toEqual(aggregateCandlesTs(tape.candles.slice(0, rewoundCount), '5m'))
+    expect(rewound.length).toBeLessThan(grown.length)
+    expect(store.candlesFor(store.symbol, '5m')).toBe(rewound)
+  })
+
+  it('uses a replacement tape array even when its revealed length is unchanged', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const before = store.candlesFor(store.symbol, '15m')
+    const replacement = tape.candles.map((candle, index) =>
+      index < count ? { ...candle, volume: candle.volume + 7 } : { ...candle },
+    )
+    expect(replacement.every(validReplayCandle)).toBe(true)
+    tape.candles = replacement
+
+    const after = store.candlesFor(store.symbol, '15m')
+
+    expect(after).not.toBe(before)
+    expect(after).toEqual(aggregateCandlesTs(replacement.slice(0, count), '15m'))
+    expect(after.at(-1)!.volume).toBeGreaterThan(before.at(-1)!.volume)
+    expect(store.candlesFor(store.symbol, '15m')).toBe(after)
+  })
+
+  it('keeps an older cache out of a restored run with a new id and tape arrays', async () => {
+    const store = await initializeStore()
+    store.stepBars(2)
+    await store.flush()
+    const oldTape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const oldCount = revealedCount(oldTape.candles, store.replayTime!)
+    const oldChart = store.candlesFor(store.symbol, '15m')
+    const saved = (await repository.load())!
+    const persisted = restoreAccounting(saved)
+
+    const clone = structuredClone(saved)
+    clone.run.id = 'restored-attempt'
+    clone.checkpoint.runId = 'restored-attempt'
+    const alternate = fixture('restored-attempt')
+    for (const tape of clone.run.tapes) {
+      const replacement = alternate.run.tapes.find((item) => item.symbol === tape.symbol)!
+      tape.candles = replacement.candles.map((candle, index) =>
+        index < oldCount ? { ...candle, volume: candle.volume + 11 } : { ...candle },
+      )
+    }
+    await repository.create(clone.run, clone.checkpoint)
+    const restartedPinia = createPinia()
+    setActivePinia(restartedPinia)
+    try {
+      const restarted = useTerminalStore()
+      await restarted.initialize()
+
+      const newTape = restarted.run!.tapes.find((item) => item.symbol === restarted.symbol)!
+      const count = revealedCount(newTape.candles, restarted.replayTime!)
+      const chart = restarted.candlesFor(restarted.symbol, '15m')
+      expect(restarted.run!.id).toBe('restored-attempt')
+      expect(count).toBe(oldCount)
+      expect(chart).toEqual(aggregateCandlesTs(newTape.candles.slice(0, count), '15m'))
+      expect(chart).not.toEqual(oldChart)
+      expect(accounting(restarted)).toEqual(persisted)
+    } finally {
+      disposePinia(restartedPinia)
+      setActivePinia(pinia)
+    }
+  })
+
+  it('clears cached prefixes when a new attempt installs different tapes', async () => {
+    const store = await initializeStore()
+    const firstRunId = store.run!.id
+    store.stepBars(2)
+    await store.flush()
+    const previous = store.candlesFor(store.symbol, '15m')
+
+    await store.newAttempt({ reuseTapes: false, source: 'synthetic' })
+    await store.flush()
+
+    expect(store.run!.id).not.toBe(firstRunId)
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const chart = store.candlesFor(store.symbol, '15m')
+    expect(chart).not.toBe(previous)
+    expect(chart).toEqual(aggregateCandlesTs(tape.candles.slice(0, count), '15m'))
+    expect(store.candlesFor(store.symbol, '15m')).toBe(chart)
+  })
+
+  it('leaves the aggregate unchanged when hidden suffix candles mutate', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const prefix = structuredClone(tape.candles.slice(0, count))
+    const chart = store.candlesFor(store.symbol, '15m')
+    expect(count).toBeLessThan(tape.candles.length)
+
+    for (const candle of tape.candles.slice(count)) {
+      Object.assign(candle, { open: 50_000, high: 100_000, low: -100_000, close: 75_000, volume: 1_000_000 })
+    }
+
+    expect(store.candlesFor(store.symbol, '15m')).toBe(chart)
+    expect(store.candlesFor(store.symbol, '5m')).toEqual(prefix)
+  })
+
+  it('invalidates when the tape array is replaced by a shorter revealed prefix', async () => {
+    const store = await initializeStore()
+    const tape = store.run!.tapes.find((item) => item.symbol === store.symbol)!
+    store.stepBars(12)
+    const count = revealedCount(tape.candles, store.replayTime!)
+    const before = store.candlesFor(store.symbol, '5m')
+    expect(before).toHaveLength(count)
+
+    const replacement = tape.candles.slice(0, count - 5)
+    expect(replacement.every(validReplayCandle)).toBe(true)
+    tape.candles = replacement
+    const shorterCount = revealedCount(replacement, store.replayTime!)
+    expect(shorterCount).toBe(count - 5)
+
+    const after = store.candlesFor(store.symbol, '5m')
+    expect(after).not.toBe(before)
+    expect(after).toHaveLength(shorterCount)
+    expect(after).toEqual(aggregateCandlesTs(replacement.slice(0, shorterCount), '5m'))
+    expect(store.candlesFor(store.symbol, '5m')).toBe(after)
+  })
+})
+
+describe('terminal checkpoint coalescing and drain', () => {
+  it('reports a checkpoint export failure and retries the latest state without a rejected drain', async () => {
+    const store = await initializeStore()
+    const original = await repository.load()
+    const save = vi.spyOn(repository, 'save')
+    const checkpoint = vi.spyOn(ReplaySession.prototype, 'checkpoint').mockImplementationOnce(() => {
+      throw new Error('Replay checkpoint export failed')
+    })
+
+    store.stepBars(1)
+    const latest = accounting(store)
+    await expect(store.flush()).resolves.toBeUndefined()
+
+    expect(checkpoint).toHaveBeenCalledTimes(1)
+    expect(save).not.toHaveBeenCalled()
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay checkpoint export failed')
+    expect(accounting(store)).toEqual(latest)
+    expect(await repository.load()).toEqual(original)
+
+    await store.retrySave()
+    await store.flush()
+
+    expect(checkpoint).toHaveBeenCalledTimes(2)
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    expect(restoreAccounting((await repository.load())!)).toEqual(latest)
+  })
+
+  it('waits for an in-flight attempt create even when no checkpoint drain exists', async () => {
+    vi.spyOn(repository, 'create').mockRejectedValueOnce(new Error('Replay storage unavailable'))
+    const store = useTerminalStore()
+    await store.initialize()
+    expect(store.storageStatus).toBe('unavailable')
+    const latest = accounting(store)
+    const write = repository.create.bind(repository)
+    let release!: () => void
+    vi.spyOn(repository, 'create').mockImplementationOnce(
+      (run, checkpoint) =>
+        new Promise<void>((resolve, reject) => {
+          release = () => {
+            write(run, checkpoint).then(resolve, reject)
+          }
+        }),
+    )
+
+    const retry = store.retrySave()
+    await settle()
+    expect(store.storageStatus).toBe('saving')
+    expect(release).toBeTypeOf('function')
+    let flushed = false
+    const completed = store.flush().then(() => {
+      flushed = true
+    })
+    await settle()
+    expect(flushed).toBe(false)
+    expect(await repository.load()).toBeNull()
+
+    release()
+    await Promise.all([retry, completed])
+
+    expect(flushed).toBe(true)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    expect(restoreAccounting((await repository.load())!)).toEqual(latest)
+  })
+
+  it('exports and saves only the latest state for a synchronous step burst', async () => {
+    const store = await initializeStore()
+    const save = vi.spyOn(repository, 'save')
+    const exportState = vi.spyOn(SimEngine.prototype, 'exportState')
+
+    store.stepBars(1)
+    store.stepBars(1)
+    store.stepBars(2)
+    const latest = accounting(store)
+    await store.flush()
+
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(exportState).toHaveBeenCalledTimes(1)
+    const checkpoint = save.mock.calls[0]![0]
+    expect(checkpoint.cursor).toBe(store.cursor)
+    expect(restoreAccounting({ run: store.run!, checkpoint })).toEqual(latest)
+    expect(store.storageStatus).toBe('saved')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('coalesces a burst during an in-flight save and flush resolves with the latest state', async () => {
+    const store = await initializeStore()
+    const gates = gateSaves()
+    const exportState = vi.spyOn(SimEngine.prototype, 'exportState')
+
+    store.stepBars(1)
+    await settle()
+    expect(gates).toHaveLength(1)
+    const firstCursor = gates[0]!.checkpoint.cursor
+    expect(exportState).toHaveBeenCalledTimes(1)
+
+    store.stepBars(1)
+    store.stepBars(2)
+    const latest = accounting(store)
+    await settle()
+
+    expect(gates).toHaveLength(1)
+    expect(exportState).toHaveBeenCalledTimes(1)
+    expect(store.storageStatus).toBe('saving')
+
+    let flushed = false
+    const completed = store.flush().then(() => {
+      flushed = true
+    })
+    await settle()
+    expect(gates).toHaveLength(1)
+    expect(flushed).toBe(false)
+
+    gates[0]!.resolve()
+    await settle()
+    expect(gates).toHaveLength(2)
+    expect(flushed).toBe(false)
+    expect(exportState).toHaveBeenCalledTimes(2)
+    const coalesced = gates[1]!.checkpoint
+    expect(coalesced.cursor).toBe(store.cursor)
+    expect(coalesced.cursor).toBeGreaterThan(firstCursor)
+    expect(restoreAccounting({ run: store.run!, checkpoint: coalesced })).toEqual(latest)
+
+    gates[1]!.resolve()
+    await completed
+
+    expect(flushed).toBe(true)
+    expect(gates).toHaveLength(2)
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    expect(restoreAccounting((await repository.load())!)).toEqual(latest)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('reports each rejected save, then persists the latest state through retrySave', async () => {
+    const store = await initializeStore()
+    const gates = gateSaves()
+
+    store.stepBars(1)
+    await settle()
+    expect(gates).toHaveLength(1)
+    const rejected = gates[0]!.checkpoint
+    store.stepBars(1)
+    const latest = accounting(store)
+    await settle()
+    expect(gates).toHaveLength(1)
+
+    gates[0]!.reject(new Error('Replay checkpoint not saved'))
+    await settle()
+
+    expect(gates).toHaveLength(2)
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay checkpoint not saved')
+    expect(accounting(store)).toEqual(latest)
+    expect(gates[1]!.checkpoint.cursor).toBe(store.cursor)
+    expect(restoreAccounting({ run: store.run!, checkpoint: gates[1]!.checkpoint })).toEqual(latest)
+
+    gates[1]!.reject(new Error('Replay checkpoint still not saved'))
+    await settle()
+
+    expect(gates).toHaveLength(2)
+    expect(store.storageStatus).toBe('unavailable')
+    expect(store.storageError).toBe('Replay checkpoint still not saved')
+    expect(gates[1]!.checkpoint.cursor).toBeGreaterThan(rejected.cursor)
+
+    const retry = store.retrySave()
+    await settle()
+    expect(gates).toHaveLength(3)
+    expect(gates[2]!.checkpoint.cursor).toBe(store.cursor)
+    gates[2]!.resolve()
+    await retry
+    await store.flush()
+
+    expect(store.storageStatus).toBe('saved')
+    expect(store.storageError).toBeNull()
+    const saved = (await repository.load())!
+    expect(saved.run).toEqual(store.run)
+    expect(restoreAccounting(saved)).toEqual(latest)
+  })
+
+  it('waits for the in-flight drain before replacing the attempt and the pinned run', async () => {
+    const store = await initializeStore()
+    const gates = gateSaves()
+    const firstRunId = store.run!.id
+
+    store.stepBars(1)
+    await settle()
+    expect(gates).toHaveLength(1)
+
+    let replaced = false
+    const replacement = store.newAttempt({ reuseTapes: false, source: 'synthetic' }).then(() => {
+      replaced = true
+    })
+    await settle()
+
+    expect(replaced).toBe(false)
+    expect(gates).toHaveLength(1)
+    expect(store.run!.id).toBe(firstRunId)
+
+    gates[0]!.resolve()
+    await replacement
+    await store.flush()
+
+    expect(replaced).toBe(true)
+    expect(store.run!.id).not.toBe(firstRunId)
+    const saved = (await repository.load())!
+    expect(saved.run.id).toBe(store.run!.id)
+    expect(restoreAccounting(saved)).toEqual(accounting(store))
+    expect(store.storageStatus).toBe('saved')
+  })
+
+  it('flushes a checkpoint queued from a saved-status watcher during drain handoff', async () => {
+    const store = await initializeStore()
+    const gates = gateSaves()
+    let armed = true
+
+    // The watcher runs after the final save flips the status but before the
+    // drain promise clears, so the step must still be part of this flush.
+    watch(
+      () => store.storageStatus,
+      (status) => {
+        if (status === 'saved' && armed) {
+          armed = false
+          store.stepBars(1)
+        }
+      },
+    )
+
+    store.stepBars(1)
+    await settle()
+    expect(gates).toHaveLength(1)
+
+    gates[0]!.resolve()
+    await settle()
+
+    const flushing = store.flush()
+    await settle()
+    expect(gates).toHaveLength(2)
+    gates[1]!.resolve()
+    await flushing
+
+    const saved = (await repository.load())!
+    expect({
+      savedCursor: saved.checkpoint.cursor,
+      cursor: store.cursor,
+      status: store.storageStatus,
+      gates: gates.length,
+    }).toEqual({
+      savedCursor: store.cursor,
+      cursor: store.cursor,
+      status: 'saved',
+      gates: 2,
+    })
   })
 })

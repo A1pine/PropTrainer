@@ -55,9 +55,14 @@ export const useTerminalStore = defineStore('terminal', () => {
   let initialization: Promise<void> | null = null
   let repository: ReplayRepository | null = null
   let saves: Promise<void> = Promise.resolve()
-  let pendingCheckpoint: ReplayCheckpoint | null = null
+  let pendingCheckpoint: (() => ReplayCheckpoint) | null = null
   let drain: Promise<void> | null = null
   const persistedRuns = new Set<string>()
+  type CandleMemo = { source: Candle[]; frame: SimTimeframe; count: number; result: Candle[] }
+  // Per-run prefix cache. Panes and dock helpers ask for the same symbol/frame
+  // several times per tick; without this they each re-slice and re-aggregate the
+  // full revealed history. Cleared whenever a run is installed.
+  const candleMemo = new Map<string, CandleMemo>()
 
   const ready = computed(() => session.value !== null && !loading.value)
   const specs = computed(() => run.value?.instruments ?? instruments.list())
@@ -159,10 +164,20 @@ export const useTerminalStore = defineStore('terminal', () => {
   )
 
   function candlesFor(targetSymbol: string, frame: SimTimeframe): Candle[] {
-    const currentTape = run.value?.tapes.find((item) => item.symbol === targetSymbol)
-    if (!currentTape || replayTime.value === null || !isTimeframeAvailable(frame)) return EMPTY_CANDLES
+    const currentRun = run.value
+    const currentTape = currentRun?.tapes.find((item) => item.symbol === targetSymbol)
+    if (!currentRun || !currentTape || replayTime.value === null || !isTimeframeAvailable(frame)) {
+      return EMPTY_CANDLES
+    }
     const count = revealedCount(currentTape.candles, replayTime.value)
-    return aggregateCandles(currentTape.candles.slice(0, count), frame)
+    const key = `${currentRun.id}:${targetSymbol}:${frame}`
+    const cached = candleMemo.get(key)
+    // Never reuse a longer prefix after a rewind, and never reuse a different
+    // tape array (restore or a new attempt replaces the pinned market).
+    if (cached && cached.source === currentTape.candles && cached.count === count) return cached.result
+    const result = aggregateCandles(currentTape.candles.slice(0, count), frame)
+    candleMemo.set(key, { source: currentTape.candles, frame, count, result })
+    return result
   }
 
   function isFresh(targetSymbol: string): boolean {
@@ -201,21 +216,24 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
   }
 
-  function queueCheckpoint(): void {
-    const active = session.value
-    if (!active || !repository) return
-    if (!persistedRuns.has(active.run.id)) {
-      // No checkpoint may point at a tape that failed to persist.
-      storageStatus.value = 'unavailable'
-      return
-    }
-    pendingCheckpoint = active.checkpoint()
-    storageStatus.value = 'saving'
+  function startDrain(): void {
     if (drain) return
     drain = (async () => {
+      await saves
       while (pendingCheckpoint) {
-        const checkpoint = pendingCheckpoint
+        const build = pendingCheckpoint
         pendingCheckpoint = null
+        let checkpoint: ReplayCheckpoint
+        try {
+          checkpoint = build()
+        } catch (cause) {
+          // exportState() can fail on a future non-cloneable value or OOM.
+          // Surface it instead of rejecting the drain and leaving the UI on
+          // "saving" forever.
+          storageStatus.value = 'unavailable'
+          storageError.value = failure(cause)
+          continue
+        }
         const job = saves.then(() => repository!.save(checkpoint))
         saves = job.catch(() => {})
         try {
@@ -231,15 +249,43 @@ export const useTerminalStore = defineStore('terminal', () => {
       }
     })().finally(() => {
       drain = null
+      // A watcher can enqueue a step while this drain is settling. Restart
+      // rather than leaving the checkpoint pending with status stuck on
+      // "saving".
+      if (pendingCheckpoint) startDrain()
     })
   }
 
+  function queueCheckpoint(): void {
+    const active = session.value
+    if (!active || !repository) return
+    if (!persistedRuns.has(active.run.id)) {
+      // No checkpoint may point at a tape that failed to persist.
+      storageStatus.value = 'unavailable'
+      return
+    }
+    // Defer the expensive exportState() until the drain is ready to write. A
+    // burst of steps then coalesces into the latest state instead of cloning a
+    // full snapshot per step and immediately superseding it.
+    pendingCheckpoint = () => active.checkpoint()
+    storageStatus.value = 'saving'
+    startDrain()
+  }
+
   async function flush(): Promise<void> {
-    await drain
-    await saves
+    // Creates also use `saves`. Recheck its identity because a status watcher
+    // can enqueue another write while the current promise is settling.
+    for (;;) {
+      const writes = saves
+      await writes
+      if (!drain && pendingCheckpoint) startDrain()
+      await drain
+      if (!drain && !pendingCheckpoint && writes === saves) return
+    }
   }
 
   function install(next: ReplaySession): void {
+    candleMemo.clear()
     session.value = markRaw(next)
     run.value = markRaw(next.run)
     if (!next.run.tapes.some((item) => item.symbol === symbol.value)) symbol.value = next.run.tapes[0]!.symbol
