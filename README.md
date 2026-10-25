@@ -43,6 +43,10 @@ belongs beyond structure rather than at your comfort level.
   fake depth, and account/history docks. Configurable prop rules track drawdown, daily loss, caps, consistency and
   conditional per-symbol risk prices. Preset/custom timeframes share a revealed 5-minute tape; pinned runs and
   checkpoints use IndexedDB with explicit storage errors and retry.
+- **Guided learning** — a local academy with a validated course registry, lesson notes, required checks and
+  self-reported completion, starting with an **ICT 2022 Concept** course. The curriculum is the 14-chapter outline
+  supplied by the course owner, with knowledge points, outline examples, per-chapter self-checks and an explicitly
+  pending practice slot; the app adds no invented ICT syllabus. Independent study, not an official ICT affiliation.
 - **Stats** — equity curve, R distribution, instrument edge, process metrics and session history.
 - **English-first i18n** — complete `en`, `zh-CN` and `ja` bundles (key parity checked).
 - **Claude Design System port** — warm surfaces, clay accent, hairline rings, spring easing, light/dark themes,
@@ -101,6 +105,7 @@ bun run check:executions # result-page fill markers, same-bar exits and blind ma
 bun run check:analysis   # exam overlay toggles, keyboard isolation, failure recovery and layout
 bun run check:terminal   # replay terminal orders, chart trading, prop lines and mobile layout
 bun run check:accounts   # independent accounts, legacy IndexedDB migration and mobile management
+bun run check:learning   # academy navigation, notes, checks, drafts, themes and storage recovery
 bun scripts/bench-timeframes.ts # 13k-bar aggregation parity and P95 against the 10 ms budget
 ```
 
@@ -124,6 +129,7 @@ bun run bench:timeframes         # aggregation parity, latency and artifact budg
 | `/`         | Lobby: pitch, animated preview, universe picker, rules, daily entry, recent form |
 | `/trainer`  | Blind session: read → plan → live bracket → review → next round                  |
 | `/terminal` | Replay trading desk: orders, brackets/ATM, ladder, prop account, history         |
+| `/learn`    | Academy: course library, outline, lesson notes, checks and completion            |
 | `/analysis` | Analysis lab: indicators, PA, ICT, order-flow proxy, confluence                  |
 | `/drill`    | Standalone decision drill (`?seed=` for a shared sample)                         |
 | `/daily`    | Daily sample, lock state, result and reference board                             |
@@ -146,16 +152,18 @@ app/
     drill/                plan validation, conservative simulation, grading, reference plans
     stats/                trade analytics + persistence record types
     analysis/             analysis report types and the Rust-core entry point
+    learning/             course registry, content validation and progress types
     settings/             zod schema and defaults
     sim/                  replay calendar, timeframes, risk engine, order engine, presets
   lib/
     chart/                canvas engine, geometry, theme reader
     sim/                  pinned replay tapes, session wrapper, IndexedDB checkpoints
+    learning/             versioned learning-state repository and browser storage
     repositories/         history repository over a KeyValueStore
     storage.ts            storage adapter factory (localStorage / memory)
     audio.ts              Web Audio cue synth (no assets)
-  components/             ui kit, layout shell, chart, terminal, trainer, lobby, drill, stats
-  stores/                 Pinia orchestration (trainer, drill, terminal, settings, history, pk, toasts)
+  components/             ui kit, layout shell, chart, terminal, trainer, lobby, drill, stats, learning
+  stores/                 Pinia orchestration (trainer, drill, terminal, learning, settings, history, pk, toasts)
   pages/                  routes
 i18n/locales/             en, zh-CN, ja
 tests/unit/               domain and adapter tests
@@ -336,6 +344,14 @@ See [implementation, scoped parity and evidence map](docs/design/trading-termina
 validated revision and sample sizes; newer account checks are separate. Measurement limits (headless single-machine,
 5-minute OHLCV, no depth/tape) are recorded there.
 
+### Academy
+
+`/learn` is a separate reading workspace, not a trading module. The catalog is validated at module load; notes,
+checks and completion live under `propdesk.learning.v1` and never touch terminal accounts or trade history. Only
+published curriculum lessons count toward progress, and the shipped chapter slot stays a draft until the owner
+supplies material. See the [framework design](docs/design/academy.md) and
+[chapter authoring contract](docs/learning/content-authoring.md).
+
 ### Chart engine
 
 `ChartEngine` is a small retained-mode renderer: it owns viewport math, price scales, candles, volume, overlay
@@ -406,6 +422,8 @@ The unit and component suites cover:
 - prop peak basis vs breach monitor, fee-aware transitions, finalized-day gates and conditional price rounding,
 - timeframe aggregation parity (TS ↔ WASM), custom intervals, DST and weekly-session filtering,
 - terminal layout/hotkey storage, guarded remapping, quote/account controls and TA/drawing isolation,
+- academy catalog validation, per-lesson progress isolation, revision invalidation, notes/checks persistence,
+  corrupt-storage protection and reactive progress after client-side navigation,
 - pre-paint chart geometry, no-op redraws, reveal animation targets, option updates and reduced motion.
 
 Visual QA: `bun run screenshot` writes desktop and mobile captures to `screenshots/` (git-ignored).
@@ -421,6 +439,9 @@ Visual QA: `bun run screenshot` writes desktop and mobile captures to `screensho
   advances or receives orders; grouped routing and concurrent multi-tab editing are not supported.
 - Terminal bar paths, weekly calendar and frozen-other-mark risk prices are approximations. No live quotes,
   order-book depth, tick-based charts, full workspaces or licensed prop-firm rulebooks are provided.
+- The academy is local-only: notes and completion live in this browser, with no accounts, certificates or
+  cross-device sync. Only a workspace guide and an unconfigured chapter slot ship; chapter copy, video and
+  examples must be supplied by the course owner. Completion is self-reported, not a knowledge score.
 - Reference plans are fixed strategy baselines; they are not a ranking of real traders.
 
 ## License
