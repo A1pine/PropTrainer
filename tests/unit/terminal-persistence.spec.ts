@@ -364,9 +364,9 @@ describe('terminal store persistence and revealed chart state', () => {
       else checkpoint.engine.marks.MNQ!.price += 1
       const expectedError =
         corruption === 'run id' ? 'Invalid replay cursor' : 'Replay marks do not match the pinned cursor'
-      await repository.create(replay.run, checkpoint)
-      const original = await repository.load()
-      const load = vi.spyOn(repository, 'load')
+      await repository.create(replay.run, replay.checkpoint())
+      const original = { run: replay.run, checkpoint }
+      const load = vi.spyOn(repository, 'load').mockImplementation(async () => structuredClone(original))
       const create = vi.spyOn(repository, 'create')
       const save = vi.spyOn(repository, 'save')
       const store = useTerminalStore()
@@ -507,9 +507,9 @@ describe('terminal store restore and save recovery', () => {
       else checkpoint.engine.marks.MNQ!.price += 1
       const expectedError =
         corruption === 'run id' ? 'Invalid replay cursor' : 'Replay marks do not match the pinned cursor'
-      await repository.create(replay.run, checkpoint)
-      const original = await repository.load()
-      const load = vi.spyOn(repository, 'load')
+      await repository.create(replay.run, replay.checkpoint())
+      const original = { run: replay.run, checkpoint }
+      const load = vi.spyOn(repository, 'load').mockImplementation(async () => structuredClone(original))
       const create = vi.spyOn(repository, 'create')
       const save = vi.spyOn(repository, 'save')
       const store = useTerminalStore()
@@ -621,8 +621,9 @@ describe('terminal store restore and save recovery', () => {
     const replay = fixture()
     const checkpoint = replay.checkpoint()
     checkpoint.runId = 'wrong-run'
-    await repository.create(replay.run, checkpoint)
-    const original = await repository.load()
+    await repository.create(replay.run, replay.checkpoint())
+    const original = { run: replay.run, checkpoint }
+    vi.spyOn(repository, 'load').mockImplementation(async () => structuredClone(original))
     const create = vi.spyOn(repository, 'create')
     const save = vi.spyOn(repository, 'save')
     const store = useTerminalStore()
